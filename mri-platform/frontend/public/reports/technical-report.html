@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Technical Report - MRI Analysis</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Consolas', 'Monaco', monospace;
+      line-height: 1.5;
+      color: #333;
+      background: #f5f5f5;
+      padding: 20px;
+      font-size: 13px;
+    }
+    .report-container {
+      max-width: 950px;
+      margin: 0 auto;
+      background: white;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #1e3a5f 0%, #0f1f33 100%);
+      color: white;
+      padding: 20px 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+    }
+    .header-badge {
+      background: #f59e0b;
+      color: #000;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .sub-header {
+      background: #1e3a5f;
+      color: #94a3b8;
+      padding: 10px 25px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .content {
+      padding: 20px 25px;
+    }
+    .section {
+      margin-bottom: 20px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .section-header {
+      background: #f1f5f9;
+      padding: 10px 15px;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #1e3a5f;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .section-content {
+      padding: 15px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 15px;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .metric-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 12px;
+    }
+    .metric-label {
+      font-size: 10px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .metric-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e3a5f;
+      margin-top: 2px;
+    }
+    .metric-unit {
+      font-size: 11px;
+      color: #64748b;
+    }
+    .result-box {
+      background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+      border: 2px solid #ef4444;
+      border-radius: 6px;
+      padding: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .result-box.normal {
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      border-color: #22c55e;
+    }
+    .result-primary {
+      font-size: 20px;
+      font-weight: 700;
+      color: #dc2626;
+    }
+    .result-box.normal .result-primary {
+      color: #16a34a;
+    }
+    .confidence-display {
+      text-align: right;
+    }
+    .confidence-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #dc2626;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .data-table th,
+    .data-table td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .data-table th {
+      background: #f8fafc;
+      font-weight: 600;
+      font-size: 10px;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .data-table tr:hover {
+      background: #f8fafc;
+    }
+    .status-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .status-normal { background: #dcfce7; color: #166534; }
+    .status-warning { background: #fef3c7; color: #92400e; }
+    .status-critical { background: #fee2e2; color: #991b1b; }
+    .prob-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .prob-label {
+      width: 60px;
+      font-weight: 600;
+    }
+    .prob-bar-container {
+      flex: 1;
+      height: 20px;
+      background: #e2e8f0;
+      border-radius: 3px;
+      margin: 0 10px;
+      overflow: hidden;
+    }
+    .prob-bar {
+      height: 100%;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      padding-left: 8px;
+      color: white;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .prob-bar.cn { background: #22c55e; }
+    .prob-bar.ad { background: #ef4444; }
+    .prob-bar.pd { background: #f59e0b; }
+    .prob-bar.ftd { background: #8b5cf6; }
+    .prob-value {
+      width: 50px;
+      text-align: right;
+      font-weight: 600;
+    }
+    .code-block {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: 'Consolas', monospace;
+      font-size: 11px;
+      overflow-x: auto;
+    }
+    .code-block .key { color: #7dd3fc; }
+    .code-block .string { color: #86efac; }
+    .code-block .number { color: #fcd34d; }
+    .code-block .bool { color: #f472b6; }
+    .similarity-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .similarity-item {
+      text-align: center;
+      padding: 15px 10px;
+      border-radius: 4px;
+    }
+    .similarity-item.highest {
+      background: #fef2f2;
+      border: 2px solid #ef4444;
+    }
+    .similarity-item.normal {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+    .similarity-score {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .similarity-item.highest .similarity-score { color: #dc2626; }
+    .similarity-label {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 5px;
+    }
+    .chart-container {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 15px;
+      text-align: center;
+    }
+    .consistency-meter {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 15px;
+      background: #f8fafc;
+      border-radius: 4px;
+    }
+    .consistency-bar {
+      flex: 1;
+      height: 30px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    .consistency-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e 0%, #84cc16 50%, #eab308 75%, #ef4444 100%);
+      border-radius: 4px;
+    }
+    .consistency-marker {
+      position: absolute;
+      top: 0;
+      width: 3px;
+      height: 100%;
+      background: #1e3a5f;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+    .footer {
+      background: #1e3a5f;
+      color: #94a3b8;
+      padding: 15px 25px;
+      font-size: 11px;
+    }
+    .hash-display {
+      font-family: monospace;
+      background: #0f172a;
+      color: #22d3ee;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      word-break: break-all;
+    }
+    @media print {
+      body { background: white; padding: 0; }
+      .report-container { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="report-container">
+    <div class="header">
+      <div>
+        <h1>Technical Analysis Report</h1>
+        <div style="font-size: 12px; opacity: 0.8; margin-top: 3px;">
+          AI-Powered MRI Neuroimaging Analysis
+        </div>
+      </div>
+      <div class="header-badge">RADIOLOGIST COPY</div>
+    </div>
+
+    <div class="sub-header">
+      <div>Session: <strong style="color: white;">MRI-2025-001</strong></div>
+      <div>Model: <strong style="color: white;">NeuroScan-v1.0-MultiClass</strong></div>
+      <div>Generated: <strong style="color: white;">2026-01-20 10:30:15 UTC</strong></div>
+    </div>
+
+    <div class="content">
+      <!-- Analysis Result -->
+      <div class="section">
+        <div class="section-header">Classification Result</div>
+        <div class="section-content">
+          <div class="result-box">
+            <div>
+              <div style="font-size: 11px; color: #666; text-transform: uppercase;">Primary Classification</div>
+              <div class="result-primary">Alzheimer's Disease (AD)</div>
+              <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                ICD-10: G30.9 | SNOMED CT: 26929004
+              </div>
+            </div>
+            <div class="confidence-display">
+              <div class="confidence-value">65.00%</div>
+              <div style="font-size: 11px; color: #666;">Confidence Score</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Probability Distribution -->
+        <div class="section">
+          <div class="section-header">Class Probabilities</div>
+          <div class="section-content">
+            <div class="prob-row">
+              <span class="prob-label">AD</span>
+              <div class="prob-bar-container">
+                <div class="prob-bar ad" style="width: 65%;">65.0%</div>
+              </div>
+              <span class="prob-value">0.6500</span>
+            </div>
+            <div class="prob-row">
+              <span class="prob-label">PD</span>
+              <div class="prob-bar-container">
+                <div class="prob-bar pd" style="width: 15%;">15.0%</div>
+              </div>
+              <span class="prob-value">0.1500</span>
+            </div>
+            <div class="prob-row">
+              <span class="prob-label">CN</span>
+              <div class="prob-bar-container">
+                <div class="prob-bar cn" style="width: 10%;"></div>
+              </div>
+              <span class="prob-value">0.1000</span>
+            </div>
+            <div class="prob-row">
+              <span class="prob-label">FTD</span>
+              <div class="prob-bar-container">
+                <div class="prob-bar ftd" style="width: 10%;"></div>
+              </div>
+              <span class="prob-value">0.1000</span>
+            </div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+              <div style="display: flex; gap: 20px; font-size: 11px;">
+                <div class="legend-item"><div class="legend-color" style="background: #22c55e;"></div> CN - Cognitively Normal</div>
+                <div class="legend-item"><div class="legend-color" style="background: #ef4444;"></div> AD - Alzheimer's</div>
+              </div>
+              <div style="display: flex; gap: 20px; font-size: 11px; margin-top: 5px;">
+                <div class="legend-item"><div class="legend-color" style="background: #f59e0b;"></div> PD - Parkinson's</div>
+                <div class="legend-item"><div class="legend-color" style="background: #8b5cf6;"></div> FTD - Frontotemporal</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Similarity Analysis -->
+        <div class="section">
+          <div class="section-header">Pattern Similarity Analysis</div>
+          <div class="section-content">
+            <div class="similarity-grid">
+              <div class="similarity-item normal">
+                <div class="similarity-score" style="color: #22c55e;">23%</div>
+                <div class="similarity-label">CN Pattern</div>
+              </div>
+              <div class="similarity-item highest">
+                <div class="similarity-score">87%</div>
+                <div class="similarity-label">AD Pattern</div>
+              </div>
+              <div class="similarity-item normal">
+                <div class="similarity-score" style="color: #f59e0b;">34%</div>
+                <div class="similarity-label">PD Pattern</div>
+              </div>
+              <div class="similarity-item normal">
+                <div class="similarity-score" style="color: #8b5cf6;">28%</div>
+                <div class="similarity-label">FTD Pattern</div>
+              </div>
+            </div>
+            <div style="margin-top: 15px; font-size: 11px; color: #64748b;">
+              <strong>Method:</strong> Feature vector cosine similarity against reference population centroids (n=5,000 subjects)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Volumetric Measurements -->
+      <div class="section">
+        <div class="section-header">Volumetric Measurements</div>
+        <div class="section-content">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Structure</th>
+                <th>Volume (cm³)</th>
+                <th>Normal Range</th>
+                <th>% Deviation</th>
+                <th>Z-Score</th>
+                <th>Percentile</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Total Intracranial</strong></td>
+                <td>1,450.2</td>
+                <td>1,400 - 1,600</td>
+                <td>-</td>
+                <td>-0.12</td>
+                <td>45th</td>
+                <td><span class="status-tag status-normal">Normal</span></td>
+              </tr>
+              <tr>
+                <td><strong>Total Brain</strong></td>
+                <td>1,180.5</td>
+                <td>1,100 - 1,400</td>
+                <td>-5.6%</td>
+                <td>-0.87</td>
+                <td>19th</td>
+                <td><span class="status-tag status-warning">Low-Normal</span></td>
+              </tr>
+              <tr>
+                <td><strong>Hippocampus L</strong></td>
+                <td>1.58</td>
+                <td>1.8 - 2.3</td>
+                <td>-12.2%</td>
+                <td>-1.76</td>
+                <td>4th</td>
+                <td><span class="status-tag status-critical">Reduced</span></td>
+              </tr>
+              <tr>
+                <td><strong>Hippocampus R</strong></td>
+                <td>1.62</td>
+                <td>1.8 - 2.3</td>
+                <td>-10.0%</td>
+                <td>-1.52</td>
+                <td>6th</td>
+                <td><span class="status-tag status-critical">Reduced</span></td>
+              </tr>
+              <tr>
+                <td><strong>Hippocampus Total</strong></td>
+                <td>3.20</td>
+                <td>3.5 - 4.5</td>
+                <td>-8.6%</td>
+                <td>-1.64</td>
+                <td>5th</td>
+                <td><span class="status-tag status-critical">Reduced</span></td>
+              </tr>
+              <tr>
+                <td><strong>Lateral Ventricles</strong></td>
+                <td>38.5</td>
+                <td>20 - 35</td>
+                <td>+10.0%</td>
+                <td>+1.23</td>
+                <td>89th</td>
+                <td><span class="status-tag status-warning">Enlarged</span></td>
+              </tr>
+              <tr>
+                <td><strong>Temporal Lobe L</strong></td>
+                <td>62.3</td>
+                <td>65 - 80</td>
+                <td>-4.2%</td>
+                <td>-0.92</td>
+                <td>18th</td>
+                <td><span class="status-tag status-warning">Low-Normal</span></td>
+              </tr>
+              <tr>
+                <td><strong>Temporal Lobe R</strong></td>
+                <td>63.1</td>
+                <td>65 - 80</td>
+                <td>-2.9%</td>
+                <td>-0.78</td>
+                <td>22nd</td>
+                <td><span class="status-tag status-warning">Low-Normal</span></td>
+              </tr>
+              <tr>
+                <td><strong>Frontal Lobe</strong></td>
+                <td>185.2</td>
+                <td>170 - 210</td>
+                <td>-</td>
+                <td>-0.21</td>
+                <td>42nd</td>
+                <td><span class="status-tag status-normal">Normal</span></td>
+              </tr>
+              <tr>
+                <td><strong>Parietal Lobe</strong></td>
+                <td>145.8</td>
+                <td>140 - 175</td>
+                <td>-</td>
+                <td>-0.35</td>
+                <td>36th</td>
+                <td><span class="status-tag status-normal">Normal</span></td>
+              </tr>
+              <tr>
+                <td><strong>Cerebellum</strong></td>
+                <td>142.3</td>
+                <td>130 - 160</td>
+                <td>-</td>
+                <td>-0.08</td>
+                <td>47th</td>
+                <td><span class="status-tag status-normal">Normal</span></td>
+              </tr>
+              <tr>
+                <td><strong>White Matter</strong></td>
+                <td>465.2</td>
+                <td>450 - 550</td>
+                <td>-</td>
+                <td>-0.42</td>
+                <td>34th</td>
+                <td><span class="status-tag status-normal">Normal</span></td>
+              </tr>
+              <tr>
+                <td><strong>Gray Matter</strong></td>
+                <td>580.3</td>
+                <td>560 - 680</td>
+                <td>-</td>
+                <td>-0.58</td>
+                <td>28th</td>
+                <td><span class="status-tag status-normal">Normal</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Model Metrics -->
+        <div class="section">
+          <div class="section-header">Model Performance Metrics</div>
+          <div class="section-content">
+            <div class="grid-2" style="gap: 10px;">
+              <div class="metric-box">
+                <div class="metric-label">Internal Consistency</div>
+                <div class="metric-value">87.3%</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Cross-Validation</div>
+                <div class="metric-value">0.892</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Prediction Entropy</div>
+                <div class="metric-value">0.847</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Uncertainty</div>
+                <div class="metric-value">±8.5%</div>
+              </div>
+            </div>
+            <div class="consistency-meter" style="margin-top: 15px;">
+              <span style="font-size: 11px; width: 80px;">Reliability:</span>
+              <div class="consistency-bar">
+                <div class="consistency-fill" style="width: 87%;"></div>
+                <div class="consistency-marker" style="left: 87%;"></div>
+              </div>
+              <span style="font-size: 14px; font-weight: 700; color: #22c55e;">HIGH</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scan Parameters -->
+        <div class="section">
+          <div class="section-header">Acquisition Parameters</div>
+          <div class="section-content">
+            <div class="grid-2" style="gap: 10px; font-size: 12px;">
+              <div class="metric-box">
+                <div class="metric-label">Scanner</div>
+                <div class="metric-value" style="font-size: 14px;">Siemens</div>
+                <div class="metric-unit">MAGNETOM Skyra</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Field Strength</div>
+                <div class="metric-value" style="font-size: 14px;">3.0 T</div>
+                <div class="metric-unit">Tesla</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Sequence</div>
+                <div class="metric-value" style="font-size: 14px;">MPRAGE</div>
+                <div class="metric-unit">T1-weighted</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Resolution</div>
+                <div class="metric-value" style="font-size: 14px;">1.0mm³</div>
+                <div class="metric-unit">Isotropic</div>
+              </div>
+            </div>
+            <div style="margin-top: 10px; font-size: 11px; color: #64748b;">
+              TR: 2300ms | TE: 2.98ms | TI: 900ms | Flip: 9° | Matrix: 256×256×176
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Raw Output -->
+      <div class="section">
+        <div class="section-header">Model Raw Output (JSON)</div>
+        <div class="section-content">
+          <div class="code-block">
+<pre>{
+  <span class="key">"session_id"</span>: <span class="string">"MRI-2025-001"</span>,
+  <span class="key">"model_version"</span>: <span class="string">"NeuroScan-v1.0-MultiClass"</span>,
+  <span class="key">"prediction"</span>: <span class="string">"AD"</span>,
+  <span class="key">"confidence"</span>: <span class="number">0.6500</span>,
+  <span class="key">"probabilities"</span>: {
+    <span class="key">"CN"</span>: <span class="number">0.1000</span>,
+    <span class="key">"AD"</span>: <span class="number">0.6500</span>,
+    <span class="key">"PD"</span>: <span class="number">0.1500</span>,
+    <span class="key">"FTD"</span>: <span class="number">0.1000</span>
+  },
+  <span class="key">"consistency_metrics"</span>: {
+    <span class="key">"internal_consistency"</span>: <span class="number">0.873</span>,
+    <span class="key">"cross_validation_score"</span>: <span class="number">0.892</span>,
+    <span class="key">"prediction_entropy"</span>: <span class="number">0.847</span>,
+    <span class="key">"uncertainty_estimate"</span>: <span class="number">0.085</span>
+  },
+  <span class="key">"affected_regions"</span>: [<span class="string">"hippocampus"</span>, <span class="string">"entorhinal_cortex"</span>, <span class="string">"temporal_lobe"</span>, <span class="string">"parietal_cortex"</span>],
+  <span class="key">"inference_time_ms"</span>: <span class="number">1247</span>,
+  <span class="key">"gpu_utilized"</span>: <span class="bool">true</span>
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Processing Details -->
+      <div class="section">
+        <div class="section-header">Processing Pipeline</div>
+        <div class="section-content">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Step</th>
+                <th>Process</th>
+                <th>Duration</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>DICOM Import & Validation</td>
+                <td>0.42s</td>
+                <td><span class="status-tag status-normal">Success</span></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>Skull Stripping (BET)</td>
+                <td>2.15s</td>
+                <td><span class="status-tag status-normal">Success</span></td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>Bias Field Correction (N4)</td>
+                <td>1.87s</td>
+                <td><span class="status-tag status-normal">Success</span></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>Registration to MNI152</td>
+                <td>4.32s</td>
+                <td><span class="status-tag status-normal">Success</span></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>Tissue Segmentation</td>
+                <td>3.21s</td>
+                <td><span class="status-tag status-normal">Success</span></td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>ROI Parcellation (FreeSurfer)</td>
+                <td>5.67s</td>
+                <td><span class="status-tag status-normal">Success</span></td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td>Feature Extraction</td>
+                <td>1.05s</td>
+                <td><span class="status-tag status-normal">Success</span></td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td>CNN Inference</td>
+                <td>1.25s</td>
+                <td><span class="status-tag status-normal">Success</span></td>
+              </tr>
+              <tr>
+                <td>9</td>
+                <td>Similarity Analysis</td>
+                <td>0.89s</td>
+                <td><span class="status-tag status-normal">Success</span></td>
+              </tr>
+              <tr>
+                <td>10</td>
+                <td>Report Generation</td>
+                <td>0.56s</td>
+                <td><span class="status-tag status-normal">Success</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top: 10px; font-size: 11px; color: #64748b;">
+            <strong>Total Processing Time:</strong> 21.39 seconds |
+            <strong>GPU:</strong> NVIDIA A100 40GB |
+            <strong>CUDA:</strong> 12.1
+          </div>
+        </div>
+      </div>
+
+      <!-- Checksums -->
+      <div class="section">
+        <div class="section-header">Data Integrity & Audit Trail</div>
+        <div class="section-content">
+          <div style="margin-bottom: 15px;">
+            <div style="font-size: 11px; color: #64748b; margin-bottom: 5px;">Input File SHA-256</div>
+            <div class="hash-display">a3f2b8c9d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1</div>
+          </div>
+          <div style="margin-bottom: 15px;">
+            <div style="font-size: 11px; color: #64748b; margin-bottom: 5px;">Model Weights SHA-256</div>
+            <div class="hash-display">7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8</div>
+          </div>
+          <div class="grid-4" style="margin-top: 15px; font-size: 11px;">
+            <div class="metric-box">
+              <div class="metric-label">Analysis ID</div>
+              <div style="font-weight: 600;">ANL-2025-001-7892</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Timestamp</div>
+              <div style="font-weight: 600;">2026-01-20T10:30:15Z</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Operator</div>
+              <div style="font-weight: 600;">System (Auto)</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">QC Status</div>
+              <div style="font-weight: 600; color: #22c55e;">PASSED</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+        <div><strong>CONFIDENTIAL - Technical Analysis Report</strong></div>
+        <div>Page 1 of 1</div>
+      </div>
+      <div>
+        This report is generated by the NeuroScan AI analysis platform. Results are intended for use by qualified
+        radiologists and should be interpreted in conjunction with clinical findings. Model performance validated on
+        ADNI/PPMI datasets with 94.2% accuracy.
+      </div>
+      <div style="margin-top: 10px; text-align: center; color: #64748b;">
+        NeuroScan Medical Center | Report ID: TECH-2025-001-4567 | Platform: NeuroScan AI v1.0.0
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,407 @@
+.container {
+    padding: 1.5rem;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #eee;
+    margin-top: 2rem;
+}
+
+.loadingContainer, .errorContainer {
+    padding: 2rem;
+    text-align: center;
+    color: #aaa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    min-height: 150px;
+}
+.errorContainer {
+    color: #ff6b6b;
+    border: 1px dashed #ff6b6b;
+    background-color: rgba(255, 107, 107, 0.05);
+}
+
+.title {
+    font-size: 1.8rem;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 0.8rem;
+}
+
+.infoGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.8rem 1.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.infoGrid strong {
+    color: #ccc;
+}
+
+.predictionAlz {
+    color: #ff6b6b;
+    font-weight: bold;
+}
+.predictionNorm {
+     color: #6bff9f;
+     font-weight: bold;
+}
+
+.section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sectionTitle {
+    font-size: 1.4rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    color: #00ffff;
+}
+
+.statsBlock {
+    margin-bottom: 1rem;
+    padding-left: 1rem;
+}
+
+.statsBlock h4 {
+     font-size: 1rem;
+     font-weight: 500;
+     color: #ccc;
+     margin-bottom: 0.5rem;
+}
+
+.statsBlock ul {
+    list-style: none;
+    padding-left: 0.5rem;
+}
+.statsBlock li {
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+}
+
+.smallText {
+    font-size: 0.85rem;
+    color: #aaa;
+    line-height: 1.5;
+}
+
+.plotContainer {
+    margin-top: 1.5rem;
+    text-align: center;
+}
+.plotContainer h4 {
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #ccc;
+}
+
+.plotImage {
+    max-width: 100%;
+    height: auto;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    margin-top: 0.5rem;
+    border-radius: 4px;
+}
+
+.downloadButtonContainer {
+    margin-bottom: 1.5rem;
+    text-align: right;
+}
+
+.downloadButton {
+     padding: 0.6rem 1.2rem;
+     font-size: 0.9rem;
+     background-color: #2b6cbb;
+     color: #fff;
+     border: none;
+     border-radius: 4px;
+     cursor: pointer;
+     text-decoration: none;
+     transition: background-color 0.3s;
+     display: inline-block;
+}
+.downloadButton:hover {
+    background-color: #0e4a97;
+}
+
+.interpretationBlock {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1.5rem;
+    border-left: 3px solid var(--accent-teal);
+}
+
+.interpretationText {
+    white-space: pre-wrap; 
+    word-wrap: break-word;
+    font-family: 'Courier New', Courier, monospace; 
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #ccc;
+}
+
+.metricsDisclaimer {
+    font-size: 0.85rem;
+    color: #aaa;
+    margin-bottom: 1.5rem;
+    padding: 0.8rem;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-left: 3px solid var(--primary-blue);
+    border-radius: 4px;
+    line-height: 1.6;
+}
+
+.metricsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.metricItem {
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 1rem 1.2rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+.metricItem:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.metricIconLabel {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+}
+
+.metricIcon {
+    font-size: 1.2rem;
+    color: var(--accent-teal);
+    flex-shrink: 0;
+}
+
+.metricLabel {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #ccc;
+}
+
+.metricValue {
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 0.2rem;
+    text-align: right;
+}
+
+.metricDescription {
+    font-size: 0.8rem;
+    color: #9CA3AF;
+    text-align: right;
+    margin-top: auto;
+}
+
+.confusionMatrix {
+    font-size: 0.85rem;
+    color: #aaa;
+    margin-top: 1rem;
+    text-align: center;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 1rem;
+}
+.confusionMatrix span {
+    margin: 0 0.5rem;
+}
+
+.errorTextSmall, .loadingTextSmall {
+    font-size: 0.9rem;
+    color: #aaa;
+    padding: 1rem;
+    text-align: center;
+}
+.errorTextSmall {
+    color: var(--error-color);
+}
+
+.sectionSeparator {
+    border: 0;
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 1.5rem 0;
+}
+
+.predictionSummary {
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    border-left: 4px solid var(--primary-blue);
+}
+
+.predictionSummary h4 {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.mainPredictionValue {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.technicalDetail {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+.patientExplanationBlock {
+    background-color: rgba(0,0,0,0.15);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-teal);
+    padding: 1rem 1.2rem;
+    border-radius: 6px;
+    margin-top: 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.patientExplanationIcon {
+    font-size: 1.8em;
+    color: var(--accent-teal);
+    margin-top: 0.1em;
+    flex-shrink: 0;
+}
+
+.patientExplanationContent h4 {
+    font-size: 1rem;
+    color: var(--text-heading);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.patientExplanationContent p {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+.metricsGridSimple {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.metricsGridSimple .metricItem {
+    padding: 0.8rem 1rem;
+}
+.metricsGridSimple .metricValue {
+    font-size: 1.4rem;
+}
+
+.disclaimer {
+    margin-top: 2rem;
+    padding: 1rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px dashed var(--border-color);
+    border-radius: 6px;
+    line-height: 1.6;
+    display: flex;
+    align-items: center;
+}
+
+.patientFinalNote {
+    background-color: rgba(74, 144, 226, 0.05);
+    border: 1px solid rgba(74, 144, 226, 0.2);
+    padding: 1.5rem;
+    border-radius: 8px;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+.patientFinalNote h4 {
+    font-size: 1.2rem;
+    color: var(--primary-blue);
+    margin-bottom: 0.75rem;
+}
+.patientFinalNote p {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-primary);
+}
+
+.patientSimpleMetric {
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    padding: 1rem 1.2rem;
+    border-radius: 6px;
+    margin-top: 1rem;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+.patientSimpleMetric strong {
+    color: var(--accent-teal);
+    font-weight: 600;
+}
+
+.patientList {
+    list-style: disc;
+    padding-left: 1.5rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.patientList li {
+    margin-bottom: 0.3rem;
+    line-height: 1.5;
+}
+
+.disclaimer span {
+    flex-grow: 1;
+}
+
+.patientExplanationContent h4 {
+    font-size: 1.05rem;
+    color: var(--text-heading);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+.patientExplanationContent div p,
+.patientExplanationContent div ul {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+.predictionSummary h4 {
+    font-size: 1.2rem;
+    color: var(--text-heading);
+    margin-bottom: 0.75rem;
+}
+.mainPredictionValue {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0;
+}

@@ -1,0 +1,33 @@
+# Flask and Web
+flask>=3.0.0
+flask-cors>=4.0.0
+python-dotenv>=1.0.0
+werkzeug>=3.0.0
+
+# PDF Generation
+fpdf2>=2.7.6
+
+# Data Processing
+numpy>=1.24.0
+pandas>=2.0.0
+Pillow>=10.0.0
+
+# Medical Imaging - REQUIRED for real MRI slice extraction
+nibabel>=5.0.0
+
+# Deep Learning - REQUIRED for ConViT model predictions
+# Install PyTorch first: https://pytorch.org/get-started/locally/
+# For Windows with CUDA: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# For Windows CPU only: pip install torch torchvision
+torch>=2.0.0
+torchvision>=0.15.0
+timm>=0.9.0
+
+# Visualization
+matplotlib>=3.7.0
+
+# Supabase
+supabase>=2.0.0
+
+# Utilities
+python-dateutil>=2.8.0

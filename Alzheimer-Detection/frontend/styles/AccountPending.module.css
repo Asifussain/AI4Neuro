@@ -1,0 +1,387 @@
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #e2e8f0;
+  gap: 1rem;
+}
+
+.pendingPage {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  padding: 7rem 1rem 2rem 1rem;
+  color: #e2e8f0;
+}
+
+.pendingContainer {
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+  padding-top: 2rem;
+}
+
+.statusIcon {
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+  display: block;
+}
+
+.statusTitle {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: #f1f5f9;
+  font-weight: 700;
+}
+
+.statusDescription {
+  font-size: 1.1rem;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-bottom: 3rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.accountDetails {
+  margin-bottom: 3rem;
+}
+
+.detailCard {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 15px;
+  padding: 2rem;
+  backdrop-filter: blur(20px);
+  text-align: left;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.detailCard h3 {
+  color: #3b82f6;
+  margin-bottom: 1.5rem;
+  font-size: 1.3rem;
+  text-align: center;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+.detailRow:last-child {
+  border-bottom: none;
+}
+
+.detailRow span:first-child {
+  font-weight: 500;
+  color: #cbd5e1;
+}
+
+.detailRow span:last-child {
+  color: #f1f5f9;
+  text-align: right;
+}
+
+.roleTag {
+  background: linear-gradient(135deg, #3b82f6, #06d6a0);
+  color: white !important;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.idTag {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6 !important;
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  font-size: 0.85rem;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+}
+
+.statusTag {
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.statusTag.pending {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24 !important;
+}
+
+.statusTag.active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981 !important;
+}
+
+.statusTag.suspended {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444 !important;
+}
+
+.statusTag.inactive {
+  background: rgba(107, 114, 128, 0.2);
+  color: #9ca3af !important;
+}
+
+.nextSteps {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(6, 214, 160, 0.2);
+  border-radius: 15px;
+  padding: 2rem;
+  margin-bottom: 3rem;
+  backdrop-filter: blur(10px);
+}
+
+.nextSteps h3 {
+  color: #06d6a0;
+  margin-bottom: 1.5rem;
+  font-size: 1.3rem;
+}
+
+.stepsList {
+  text-align: left;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.step:last-child {
+  margin-bottom: 0;
+}
+
+.stepNumber {
+  background: linear-gradient(135deg, #06d6a0, #3b82f6);
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.stepText {
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 3rem;
+  flex-wrap: wrap;
+}
+
+.editButton,
+.refreshButton,
+.signOutButton {
+  padding: 0.75rem 2rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+}
+
+.refreshButton {
+  background: linear-gradient(135deg, #3b82f6, #06d6a0);
+  color: white;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.refreshButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+}
+
+.refreshButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.signOutButton {
+  background: rgba(71, 85, 105, 0.5);
+  color: #cbd5e1;
+  border: 1px solid rgba(71, 85, 105, 0.5);
+}
+
+.signOutButton:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  transform: translateY(-2px);
+}
+
+.editButton {
+  background: linear-gradient(135deg, #3b82f6, #06d6a0);
+  color: white;
+}
+
+.editButton:hover {
+  background: linear-gradient(135deg, #2563eb, #059669);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
+.roleSpecificInfo {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  border-radius: 15px;
+  padding: 2rem;
+  backdrop-filter: blur(10px);
+  margin-bottom: 2rem;
+}
+
+.roleSpecificInfo h3 {
+  color: #3b82f6;
+  margin-bottom: 1.5rem;
+  font-size: 1.2rem;
+}
+
+.adminInfo,
+.doctorInfo,
+.patientInfo {
+  display: grid;
+  gap: 1rem;
+}
+
+.helpSection {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  border-radius: 15px;
+  padding: 2rem;
+  backdrop-filter: blur(10px);
+}
+
+.helpSection h4 {
+  color: #3b82f6;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.helpSection p {
+  color: #94a3b8;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.contactInfo {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.contactLink {
+  color: #06d6a0;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  background: rgba(6, 214, 160, 0.1);
+  border: 1px solid rgba(6, 214, 160, 0.2);
+}
+
+.contactLink:hover {
+  color: white;
+  background: rgba(6, 214, 160, 0.2);
+  border-color: rgba(6, 214, 160, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .pendingPage {
+    padding: 1rem 0.5rem;
+  }
+  
+  .statusTitle {
+    font-size: 2rem;
+  }
+  
+  .statusIcon {
+    font-size: 3rem;
+  }
+  
+  .detailCard,
+  .nextSteps,
+  .helpSection {
+    padding: 1.5rem;
+  }
+  
+  .detailRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  
+  .detailRow span:last-child {
+    text-align: left;
+  }
+  
+  .actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .editButton,
+  .refreshButton,
+  .signOutButton {
+    width: 100%;
+    max-width: 300px;
+    justify-content: center;
+  }
+  
+  .contactInfo {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .statusTitle {
+    font-size: 1.5rem;
+  }
+  
+  .statusDescription {
+    font-size: 1rem;
+  }
+  
+  .detailCard h3,
+  .nextSteps h3,
+  .helpSection h4 {
+    font-size: 1.1rem;
+  }
+}

@@ -1,0 +1,446 @@
+/* Add User Interface Styles */
+.addUserContainer {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: var(--background-start, #ffffff);
+  min-height: 100vh;
+}
+
+/* Welcome Section */
+.welcomeSection {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.hospitalInfo h2 {
+  font-size: 2.5rem;
+  color: var(--primary-color, #667eea);
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+
+.hospitalInfo p {
+  font-size: 1.2rem;
+  color: var(--text-secondary, #666666);
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: var(--text-primary, #333333);
+  font-weight: 600;
+  margin-top: 2rem !important;
+}
+
+/* Role Selection Cards */
+.roleSelection {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.roleCard {
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border: 2px solid #e9ecef;
+  border-radius: 16px;
+  padding: 2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.roleCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  border-color: var(--primary-color, #667eea);
+}
+
+.roleCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.roleCard:hover::before {
+  opacity: 1;
+}
+
+.roleIcon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.roleContent h3 {
+  font-size: 1.5rem;
+  color: var(--text-primary, #333333);
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+
+.roleContent p {
+  color: var(--text-secondary, #666666);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.roleFeatures {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 2rem;
+}
+
+.roleFeatures li {
+  color: var(--text-secondary, #666666);
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.selectRoleBtn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.selectRoleBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+}
+
+/* Form Header */
+.formHeader {
+  margin-bottom: 2rem;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  color: var(--primary-color, #667eea);
+  font-size: 1rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0;
+  transition: color 0.3s ease;
+}
+
+.backButton:hover {
+  color: var(--primary-dark, #5a6fd8);
+}
+
+.formTitle {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.roleIconSmall {
+  font-size: 2rem;
+}
+
+.formTitle h2 {
+  font-size: 1.8rem;
+  color: var(--text-primary, #333333);
+  margin: 0;
+  font-weight: 700;
+}
+
+.formTitle p {
+  color: var(--text-secondary, #666666);
+  margin: 0.5rem 0 0 3rem;
+  font-size: 0.9rem;
+}
+
+/* Form Sections */
+.formSection {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.sectionTitle {
+  font-size: 1.3rem;
+  color: var(--text-primary, #333333);
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.formGroup label {
+  font-weight: 600;
+  color: var(--text-primary, #333333);
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.formGroup input,
+.formGroup select,
+.formGroup textarea {
+  padding: 0.8rem;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  background: #ffffff;
+}
+
+.formGroup input:focus,
+.formGroup select:focus,
+.formGroup textarea:focus {
+  outline: none;
+  border-color: var(--primary-color, #667eea);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.formGroup input:disabled,
+.formGroup select:disabled,
+.formGroup textarea:disabled {
+  background: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.inputError {
+  border-color: #dc3545 !important;
+}
+
+.inputError:focus {
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+}
+
+.errorText {
+  color: #dc3545;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+  font-weight: 500;
+}
+
+/* Alerts */
+.successAlert,
+.errorAlert {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.successAlert {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  border: 1px solid #c3e6cb;
+  color: #155724;
+}
+
+.errorAlert {
+  background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+}
+
+.alertIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.alertContent h4 {
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
+}
+
+.alertContent p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Form Actions */
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 2rem 0 1rem;
+  border-top: 1px solid #e9ecef;
+  margin-top: 2rem;
+}
+
+.cancelButton,
+.createButton {
+  padding: 0.8rem 2rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cancelButton {
+  background: #6c757d;
+  color: white;
+}
+
+.cancelButton:hover {
+  background: #5a6268;
+}
+
+.createButton {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  min-width: 200px;
+  justify-content: center;
+}
+
+.createButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(40, 167, 69, 0.3);
+}
+
+.createButton:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Form Footer */
+.formFooter {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.footerNote {
+  color: var(--text-secondary, #666666);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin: 0;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid var(--primary-color, #667eea);
+}
+
+/* Responsive Design */
+/* Medium screens - tablet */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .roleSelection {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+  }
+  
+  .roleCard {
+    padding: 1.5rem;
+  }
+  
+  .roleCard h3 {
+    font-size: 1.1rem;
+  }
+  
+  .roleCard p {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .addUserContainer {
+    padding: 1rem;
+  }
+  
+  .roleSelection {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .formGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .formActions {
+    flex-direction: column;
+  }
+  
+  .cancelButton,
+  .createButton {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .formTitle {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .formTitle p {
+    margin-left: 0;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .addUserContainer {
+    background: var(--background-start, #1a1a1a);
+    color: var(--text-primary, #ffffff);
+  }
+  
+  .formSection {
+    background: #2d2d2d;
+    border-color: #404040;
+  }
+  
+  .roleCard {
+    background: linear-gradient(135deg, #2d2d2d 0%, #3d3d3d 100%);
+    border-color: #404040;
+  }
+  
+  .formGroup input,
+  .formGroup select,
+  .formGroup textarea {
+    background: #2d2d2d;
+    border-color: #404040;
+    color: var(--text-primary, #ffffff);
+  }
+  
+  .footerNote {
+    background: #2d2d2d;
+    border-color: var(--primary-color, #667eea);
+  }
+}

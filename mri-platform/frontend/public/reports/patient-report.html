@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Patient Report - MRI Analysis</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    .report-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #0066CC 0%, #004499 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 5px;
+    }
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+    .hospital-info {
+      background: #f8f9fa;
+      padding: 20px 30px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .hospital-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #0066CC;
+    }
+    .report-date {
+      color: #666;
+      font-size: 14px;
+    }
+    .content {
+      padding: 30px;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+    .section-title {
+      font-size: 18px;
+      color: #0066CC;
+      border-bottom: 2px solid #0066CC;
+      padding-bottom: 8px;
+      margin-bottom: 15px;
+    }
+    .patient-info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    .info-item {
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 5px;
+    }
+    .info-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    .info-value {
+      font-size: 16px;
+      font-weight: 500;
+      color: #333;
+    }
+    .result-box {
+      background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%);
+      border: 2px solid #e74c3c;
+      border-radius: 10px;
+      padding: 25px;
+      text-align: center;
+      margin: 20px 0;
+    }
+    .result-box.normal {
+      background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+      border-color: #2ecc71;
+    }
+    .result-label {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    .result-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #e74c3c;
+    }
+    .result-box.normal .result-value {
+      color: #2ecc71;
+    }
+    .result-description {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #666;
+    }
+    .explanation-box {
+      background: #e8f4fd;
+      border-left: 4px solid #0066CC;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 0 8px 8px 0;
+    }
+    .explanation-title {
+      font-weight: 600;
+      color: #0066CC;
+      margin-bottom: 10px;
+    }
+    .explanation-list {
+      list-style: none;
+      padding: 0;
+    }
+    .explanation-list li {
+      padding: 8px 0;
+      padding-left: 25px;
+      position: relative;
+    }
+    .explanation-list li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #0066CC;
+      font-weight: bold;
+    }
+    .next-steps {
+      background: #fff8e1;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .next-steps h3 {
+      color: #f57c00;
+      margin-bottom: 15px;
+    }
+    .next-steps ol {
+      margin-left: 20px;
+    }
+    .next-steps li {
+      padding: 8px 0;
+    }
+    .questions-box {
+      background: #f3e5f5;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .questions-box h3 {
+      color: #7b1fa2;
+      margin-bottom: 15px;
+    }
+    .questions-box ul {
+      margin-left: 20px;
+    }
+    .questions-box li {
+      padding: 5px 0;
+    }
+    .disclaimer {
+      background: #f5f5f5;
+      padding: 20px;
+      font-size: 12px;
+      color: #666;
+      border-top: 1px solid #ddd;
+    }
+    .footer {
+      background: #333;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+    }
+    .confidence-meter {
+      margin: 20px 0;
+    }
+    .meter-bar {
+      height: 20px;
+      background: #eee;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .meter-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%);
+      width: 65%;
+      border-radius: 10px;
+    }
+    .meter-label {
+      text-align: right;
+      font-size: 14px;
+      color: #666;
+      margin-top: 5px;
+    }
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+      .report-container {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="report-container">
+    <div class="header">
+      <h1>MRI Brain Scan Analysis Report</h1>
+      <p>Patient-Friendly Summary</p>
+    </div>
+
+    <div class="hospital-info">
+      <div>
+        <div class="hospital-name">NeuroScan Medical Center</div>
+        <div style="font-size: 13px; color: #666;">Department of Neurology & Radiology</div>
+      </div>
+      <div class="report-date">
+        <div>Report Generated</div>
+        <div style="font-weight: 600;">January 20, 2026</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <section class="section">
+        <h2 class="section-title">Patient Information</h2>
+        <div class="patient-info-grid">
+          <div class="info-item">
+            <div class="info-label">Patient Name</div>
+            <div class="info-value">John Doe</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Patient ID</div>
+            <div class="info-value">NSC-PAT-0001</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Date of Birth</div>
+            <div class="info-value">March 15, 1957 (68 years)</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Scan Date</div>
+            <div class="info-value">January 18, 2026</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Your Results</h2>
+        <div class="result-box">
+          <div class="result-label">AI Analysis Result</div>
+          <div class="result-value">Alzheimer's Disease Pattern Detected</div>
+          <div class="result-description">
+            The AI system has identified patterns in your brain scan that are associated with Alzheimer's Disease.
+          </div>
+        </div>
+
+        <div class="confidence-meter">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+            <span style="font-weight: 500;">Confidence Level</span>
+            <span style="color: #e74c3c; font-weight: 600;">65%</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill"></div>
+          </div>
+          <div class="meter-label">This indicates the AI's confidence in its analysis</div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">What This Means</h2>
+        <div class="explanation-box">
+          <div class="explanation-title">Key Findings Explained Simply</div>
+          <ul class="explanation-list">
+            <li>Your brain scan shows some changes that can be associated with memory conditions</li>
+            <li>The hippocampus (memory center) shows slightly reduced size compared to typical ranges</li>
+            <li>These findings should be discussed with your doctor for proper context</li>
+            <li>This AI analysis is a screening tool, not a definitive diagnosis</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Brain Health Summary</h2>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0;">
+          <div style="text-align: center; padding: 15px; background: #fff5f5; border-radius: 8px;">
+            <div style="font-size: 24px; font-weight: 700; color: #e74c3c;">3.2 cm³</div>
+            <div style="font-size: 12px; color: #666;">Hippocampus Volume</div>
+            <div style="font-size: 11px; color: #e74c3c;">Below Normal Range</div>
+          </div>
+          <div style="text-align: center; padding: 15px; background: #fff8e1; border-radius: 8px;">
+            <div style="font-size: 24px; font-weight: 700; color: #f57c00;">38.5 cm³</div>
+            <div style="font-size: 12px; color: #666;">Ventricular Volume</div>
+            <div style="font-size: 11px; color: #f57c00;">Slightly Enlarged</div>
+          </div>
+          <div style="text-align: center; padding: 15px; background: #e8f5e9; border-radius: 8px;">
+            <div style="font-size: 24px; font-weight: 700; color: #2ecc71;">1,180 cm³</div>
+            <div style="font-size: 12px; color: #666;">Total Brain Volume</div>
+            <div style="font-size: 11px; color: #2ecc71;">Within Normal Range</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Recommended Next Steps</h2>
+        <div class="next-steps">
+          <h3>What You Should Do</h3>
+          <ol>
+            <li><strong>Schedule a follow-up appointment</strong> with your neurologist to discuss these findings in detail</li>
+            <li><strong>Bring this report</strong> to your appointment for your doctor to review</li>
+            <li><strong>Don't panic</strong> - this is a screening tool and your doctor will provide proper context</li>
+            <li><strong>Consider cognitive testing</strong> if recommended by your healthcare provider</li>
+            <li><strong>Maintain a healthy lifestyle</strong> - regular exercise, healthy diet, and mental stimulation</li>
+          </ol>
+        </div>
+
+        <div class="questions-box">
+          <h3>Questions to Ask Your Doctor</h3>
+          <ul>
+            <li>What do these scan results mean for my specific situation?</li>
+            <li>Are there additional tests I should consider?</li>
+            <li>What lifestyle changes might help maintain brain health?</li>
+            <li>Should I see a specialist for further evaluation?</li>
+            <li>How often should I have follow-up scans?</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Your Care Team</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <div style="padding: 15px; border: 1px solid #ddd; border-radius: 8px;">
+            <div style="font-weight: 600; color: #0066CC;">Referring Physician</div>
+            <div style="font-size: 16px; font-weight: 500; margin: 5px 0;">Dr. Sarah Mitchell</div>
+            <div style="font-size: 13px; color: #666;">Neurology Specialist</div>
+            <div style="font-size: 13px; color: #666;">License: NRG-12345</div>
+          </div>
+          <div style="padding: 15px; border: 1px solid #ddd; border-radius: 8px;">
+            <div style="font-weight: 600; color: #0066CC;">Radiologist</div>
+            <div style="font-size: 16px; font-weight: 500; margin: 5px 0;">Dr. David Chen</div>
+            <div style="font-size: 13px; color: #666;">Diagnostic Radiology</div>
+            <div style="font-size: 13px; color: #666;">License: RAD-67890</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="disclaimer">
+      <strong>Important Notice:</strong> This report is generated by an AI-assisted analysis system and is intended for informational purposes only.
+      It does not constitute a medical diagnosis. The findings should be reviewed by a qualified healthcare professional who will consider your
+      complete medical history, symptoms, and other diagnostic information. Always consult with your doctor before making any medical decisions.
+      <br><br>
+      <strong>Session Code:</strong> MRI-2025-001 | <strong>Report Type:</strong> Patient Summary | <strong>Generated:</strong> January 20, 2026 at 10:30 AM
+    </div>
+
+    <div class="footer">
+      <div style="margin-bottom: 10px;">NeuroScan Medical Center - Advanced Neuroimaging Division</div>
+      <div>123 Medical Center Drive, Healthcare City, HC 12345 | Phone: (555) 123-4567</div>
+      <div style="margin-top: 10px; opacity: 0.7;">Powered by NeuroScan AI Platform v1.0</div>
+    </div>
+  </div>
+</body>
+</html>

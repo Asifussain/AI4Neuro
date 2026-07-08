@@ -1,0 +1,201 @@
+.pageContainer {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 1rem 2rem;
+  color: #eee;
+}
+
+.pageTitle {
+  font-size: 2.2rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 1rem;
+  font-weight: 500;
+  color: #fff;
+}
+
+.mainContentLayout {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.historyColumn {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+}
+
+.filterColumn {
+  flex: 1;
+  min-width: 240px;
+}
+
+.filterContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.filterLabel {
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+.dateInput {
+  width: 100%;
+  padding: 0.5rem 0.8rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color-scheme: dark;
+}
+.dateInput::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+  cursor: pointer;
+}
+
+.filterButton {
+  width: 100%;
+  padding: 0.7rem 1.2rem;
+  font-size: 0.9rem;
+  background-color: #2b6cbb;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-top: 0.5rem;
+}
+.filterButton:hover {
+  background-color: #0e4a97;
+}
+.filterButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.predictionsTableWrapper {
+  flex-grow: 1;
+  overflow-x: auto;
+}
+.predictionsTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+.predictionsTable th,
+.predictionsTable td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  white-space: nowrap;
+}
+.predictionsTable th {
+  color: #ccc;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  font-weight: 500;
+}
+.predictionsTable tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background-color 0.2s;
+}
+.predictionsTable tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+.predictionCellAlzheimer {
+  font-weight: bold;
+  color: #ff6b6b;
+}
+.predictionCellNormal {
+  font-weight: bold;
+  color: #6bff9f;
+}
+.dateCell {
+  font-size: 0.9em;
+  color: #aaa;
+}
+
+.paginationContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 1rem 0;
+}
+.paginationButton {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  background-color: transparent;
+  color: #ccc;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s;
+}
+.paginationButton:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: #777;
+}
+.paginationButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.pageInfo {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.stateContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  padding: 2rem;
+  text-align: center;
+  color: #aaa;
+  width: 100%;
+}
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.errorContainer {
+  color: #ff6b6b;
+  border: 1px solid #ff6b6b;
+  border-radius: 8px;
+  background-color: rgba(255, 107, 107, 0.1);
+  padding: 1.5rem;
+}
+
+.reportLinkButton {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  background-color: #4a5568;
+  color: #edf2f7;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.2s ease-in-out;
+  display: inline-block;
+  text-align: center;
+}
+
+.reportLinkButton:hover {
+  background-color: #2d3748;
+}
