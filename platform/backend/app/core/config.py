@@ -12,9 +12,24 @@ every layer (api / services / pipelines / workers).
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# ---- Derived default paths -------------------------------------------------- #
+# config.py lives at platform/backend/app/core/config.py.
+_APP_DIR = Path(__file__).resolve().parents[1]          # .../platform/backend/app
+_REPO_ROOT = Path(__file__).resolve().parents[4]        # repo root (AI4Neuro)
+
+# EEG code was copied into the pipeline package; large binaries (checkpoints,
+# reference .npy) stay in the legacy tree during migration and are referenced via
+# these overridable defaults (bundled into the EEG worker image at deployment).
+_DEFAULT_EEG_SIDDHI_DIR = _APP_DIR / "pipelines" / "eeg" / "siddhi"
+_DEFAULT_EEG_CHECKPOINT_ROOT = (
+    _REPO_ROOT / "Alzheimer-Detection" / "backend" / "SIDDHI" / "checkpoints"
+)
+_DEFAULT_EEG_REFERENCE_DIR = _REPO_ROOT / "Alzheimer-Detection" / "backend"
 
 
 class Settings(BaseSettings):
@@ -70,6 +85,20 @@ class Settings(BaseSettings):
     use_cat12_preprocessing: bool = Field(
         default=False, alias="USE_CAT12_PREPROCESSING"
     )
+
+    # ---- EEG pipeline (Phase 2) ----
+    eeg_siddhi_dir: str = Field(
+        default=str(_DEFAULT_EEG_SIDDHI_DIR), alias="EEG_SIDDHI_DIR"
+    )
+    eeg_checkpoint_root: str = Field(
+        default=str(_DEFAULT_EEG_CHECKPOINT_ROOT), alias="EEG_CHECKPOINT_ROOT"
+    )
+    eeg_reference_dir: str = Field(
+        default=str(_DEFAULT_EEG_REFERENCE_DIR), alias="EEG_REFERENCE_DIR"
+    )
+    eeg_use_gpu: bool = Field(default=False, alias="EEG_USE_GPU")
+    eeg_default_fs: int = Field(default=128, alias="EEG_DEFAULT_FS")
+    eeg_subprocess_timeout: int = Field(default=600, alias="EEG_SUBPROCESS_TIMEOUT")
 
     @field_validator("app_env")
     @classmethod

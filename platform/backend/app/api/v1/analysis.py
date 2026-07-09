@@ -7,6 +7,8 @@ across modalities.
 
 from __future__ import annotations
 
+import json
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -70,6 +72,8 @@ async def create_analysis(
     radiologist_id: str | None = Form(default=None),
     technician_id: str | None = Form(default=None),
     uploaded_by_role: str | None = Form(default=None),
+    channel_index: int | None = Form(default=None),        # EEG: similarity-plot channel
+    scan_metadata_json: str | None = Form(default=None),   # MRI: scanner/sequence metadata
     principal: Principal = Depends(get_current_principal),
     db: DatabaseService = Depends(get_database),
     storage: StorageService = Depends(get_storage),
@@ -88,6 +92,8 @@ async def create_analysis(
             },
         )
 
+    pipeline_options = _build_pipeline_options(modality, channel_index, scan_metadata_json)
+
     # 1) Create the session row (queued).
     session = db.create_session(
         modality=modality,
@@ -100,6 +106,7 @@ async def create_analysis(
         hospital_id=hospital_id,
         uploaded_by=None if principal.is_dev else principal.user_id,
         uploaded_by_role=uploaded_by_role,
+        pipeline_options=pipeline_options,
     )
     session_id = str(session["id"])
 
@@ -209,6 +216,27 @@ def retry_analysis(
     return RetryResponse(
         session_id=session_id, status=SessionStatus.queued.value, retry_count=retry_count
     )
+
+
+def _build_pipeline_options(
+    modality: str, channel_index: int | None, scan_metadata_json: str | None
+) -> dict:
+    """Assemble the modality-specific options bag persisted on the session."""
+    options: dict = {}
+    if modality == Modality.eeg.value and channel_index is not None:
+        options["channel_index"] = channel_index
+    if modality == Modality.mri.value and scan_metadata_json:
+        try:
+            options["scan_metadata"] = json.loads(scan_metadata_json)
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "invalid_scan_metadata",
+                    "message": "scan_metadata_json must be valid JSON.",
+                },
+            )
+    return options
 
 
 def _require_session(db: DatabaseService, session_id: str) -> dict:

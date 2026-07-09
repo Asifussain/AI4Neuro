@@ -72,6 +72,7 @@ def run_analysis_job(
             radiologist_id=_str_or_none(session.get("radiologist_id")),
             technician_id=_str_or_none(session.get("technician_id")),
             uploaded_by_role=session.get("uploaded_by_role"),
+            options=session.get("pipeline_options") or {},
         )
         result = run_pipeline(context)
 

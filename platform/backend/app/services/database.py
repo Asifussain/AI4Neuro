@@ -66,6 +66,7 @@ class DatabaseService:
         hospital_id: str | None = None,
         uploaded_by: str | None = None,
         uploaded_by_role: str | None = None,
+        pipeline_options: dict | None = None,
     ) -> dict:
         """Insert a queued analysis_sessions row and return it."""
         row = {
@@ -81,6 +82,7 @@ class DatabaseService:
             "uploaded_by_role": uploaded_by_role,
             "status": SessionStatus.queued.value,
             "progress_percent": 0,
+            "pipeline_options": pipeline_options or {},
         }
         res = self.client.table(SESSIONS_TABLE).insert(row).execute()
         created = _one(res)
