@@ -1,0 +1,22 @@
+# MRI pipeline dependencies (CAT12 / NIfTI / ConViT).
+# Installed only in the API image running MRI jobs, or a dedicated MRI worker image.
+# Adapted from mri-platform/backend/requirements.txt.
+# NOTE: CAT12 + MATLAB Runtime are NOT pip-installable and are host/OS provisioned;
+# on non-Windows hosts the pipeline runs in mock mode (USE_MOCK_MODEL=true).
+
+-r api.txt
+
+numpy>=1.24.0
+pandas>=2.0.0
+Pillow>=10.0.0
+matplotlib>=3.7.0
+nibabel>=5.0.0
+timm>=0.9.0
+
+# torch/torchvision installed separately (CPU wheels) in the Dockerfile:
+#   pip install torch>=2.0.0 torchvision>=0.15.0 --index-url https://download.pytorch.org/whl/cpu
+torch>=2.0.0
+torchvision>=0.15.0
+
+# PDF reports
+fpdf2>=2.7.9
