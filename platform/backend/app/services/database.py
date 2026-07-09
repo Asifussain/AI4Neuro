@@ -100,6 +100,32 @@ class DatabaseService:
         )
         return _one(res)
 
+    def list_sessions(
+        self,
+        *,
+        modality: str | None = None,
+        status: str | None = None,
+        patient_id: str | None = None,
+        hospital_id: str | None = None,
+    ) -> list[dict]:
+        """Fetch sessions matching the provided equality filters.
+
+        Role-scoping / ordering / limit are applied by the caller (route) so the
+        same code path works against Supabase and the in-memory test fake.
+        """
+        query = self.client.table(SESSIONS_TABLE).select("*")
+        if modality:
+            query = query.eq("modality", modality)
+        if status:
+            query = query.eq("status", status)
+        if patient_id:
+            query = query.eq("patient_id", patient_id)
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        res = query.execute()
+        data = getattr(res, "data", None) or []
+        return list(data)
+
     # ----------------------------- profiles ----------------------------- #
 
     def get_user_profile(self, user_id: str) -> dict | None:

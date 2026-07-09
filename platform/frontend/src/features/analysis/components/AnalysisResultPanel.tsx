@@ -1,11 +1,30 @@
 'use client';
 
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 
+import { useAuth } from '@/components/providers/AuthProvider';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 import type { AnalysisResultResponse } from '../types';
+
+// Heavy viewers — client-only, loaded on demand.
+const RealMRIViewer = dynamic(
+  () => import('@/components/viewers/RealMRIViewer').then((m) => m.RealMRIViewer),
+  { ssr: false },
+);
+const MockMRIViewer = dynamic(
+  () => import('@/components/viewers/MockMRIViewer').then((m) => m.MockMRIViewer),
+  { ssr: false },
+);
+
+type ViewerMode = 'patient' | 'doctor' | 'radiologist';
+type DiseaseClass = 'CN' | 'MCI' | 'AD';
+
+function toViewerMode(role: string | undefined): ViewerMode {
+  return role === 'patient' || role === 'radiologist' ? role : 'doctor';
+}
 
 function urlOf(viz: Record<string, unknown>, key: string): string | null {
   const v = viz[key];
@@ -45,8 +64,23 @@ function PlotImage({ src, alt }: { src: string; alt: string }) {
 }
 
 export function AnalysisResultPanel({ result }: { result: AnalysisResultResponse }) {
+  const { userProfile } = useAuth();
   const viz = result.visualizations ?? {};
   const isEeg = result.modality === 'eeg';
+
+  const viewerMode = toViewerMode(userProfile?.role);
+  const mriPrediction = (['CN', 'MCI', 'AD'] as const).find((p) => p === result.prediction) as
+    | DiseaseClass
+    | undefined;
+  const sliceUrls = (viz.viewer_slice_urls ?? null) as
+    | { axial?: string[]; sagittal?: string[]; coronal?: string[] }
+    | null;
+  const hasSlices = !!(
+    sliceUrls &&
+    ((sliceUrls.axial?.length ?? 0) > 0 ||
+      (sliceUrls.sagittal?.length ?? 0) > 0 ||
+      (sliceUrls.coronal?.length ?? 0) > 0)
+  );
 
   const eegPlots = [
     ['Time series', urlOf(viz, 'timeseries_plot_url')],
@@ -96,6 +130,35 @@ export function AnalysisResultPanel({ result }: { result: AnalysisResultResponse
           <CardContent className="grid gap-4">
             {(isEeg ? eegPlots : mriCharts).map(
               ([label, url]) => url && <PlotImage key={label} src={url} alt={label} />,
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {result.modality === 'mri' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">MRI viewer</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {hasSlices ? (
+              <RealMRIViewer
+                sessionId={result.session_id}
+                sliceUrls={{
+                  axial: sliceUrls?.axial ?? [],
+                  sagittal: sliceUrls?.sagittal ?? [],
+                  coronal: sliceUrls?.coronal ?? [],
+                }}
+                viewerMode={viewerMode}
+                prediction={mriPrediction}
+                confidence={result.confidence ?? undefined}
+              />
+            ) : (
+              <MockMRIViewer
+                sessionId={result.session_id}
+                viewerMode={viewerMode}
+                prediction={mriPrediction}
+              />
             )}
           </CardContent>
         </Card>

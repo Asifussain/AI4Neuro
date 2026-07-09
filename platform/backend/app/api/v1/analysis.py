@@ -15,6 +15,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     UploadFile,
     status,
 )
@@ -135,6 +136,41 @@ async def create_analysis(
     )
 
 
+@router.get("", response_model=list[SessionStatusResponse])
+def list_analyses(
+    modality: str | None = Query(default=None),
+    status_filter: str | None = Query(default=None, alias="status"),
+    patient_id: str | None = Query(default=None),
+    mine: bool = Query(default=False),
+    limit: int = Query(default=50, ge=1, le=200),
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> list[SessionStatusResponse]:
+    """Role-scoped list of analysis sessions the caller may see (doc 8.5).
+
+    Non-admins are pre-filtered to their hospital, then each row is checked with
+    the same per-session permission used for reads.
+    """
+    hospital = None if principal.role == "admin" else principal.hospital_id
+    rows = db.list_sessions(
+        modality=modality,
+        status=status_filter,
+        patient_id=patient_id,
+        hospital_id=hospital,
+    )
+    visible = [
+        r
+        for r in rows
+        if permissions.can_read_session(
+            principal.user_id, principal.role, principal.hospital_id, r
+        )
+    ]
+    if mine:
+        visible = [r for r in visible if str(r.get("uploaded_by")) == str(principal.user_id)]
+    visible.sort(key=lambda r: str(r.get("created_at") or ""), reverse=True)
+    return [_to_status(r) for r in visible[:limit]]
+
+
 @router.get("/{session_id}", response_model=SessionStatusResponse)
 def get_status(
     session_id: str,
@@ -143,17 +179,7 @@ def get_status(
 ) -> SessionStatusResponse:
     session = _require_session(db, session_id)
     _require_read(principal, session)
-    return SessionStatusResponse(
-        id=str(session["id"]),
-        modality=session["modality"],
-        analysis_type=session["analysis_type"],
-        status=session["status"],
-        current_stage=session.get("current_stage"),
-        progress_percent=session.get("progress_percent", 0) or 0,
-        error_message=session.get("error_message"),
-        created_at=session.get("created_at"),
-        updated_at=session.get("updated_at"),
-    )
+    return _to_status(session)
 
 
 @router.get("/{session_id}/result", response_model=AnalysisResultResponse)
@@ -251,6 +277,20 @@ def _build_pipeline_options(
                 },
             )
     return options
+
+
+def _to_status(session: dict) -> SessionStatusResponse:
+    return SessionStatusResponse(
+        id=str(session["id"]),
+        modality=session["modality"],
+        analysis_type=session["analysis_type"],
+        status=session["status"],
+        current_stage=session.get("current_stage"),
+        progress_percent=session.get("progress_percent", 0) or 0,
+        error_message=session.get("error_message"),
+        created_at=session.get("created_at"),
+        updated_at=session.get("updated_at"),
+    )
 
 
 def _require_session(db: DatabaseService, session_id: str) -> dict:

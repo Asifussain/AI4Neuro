@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1 import analysis as analysis_routes
 from app.api.v1 import health as health_routes
+from app.api.v1 import users as users_routes
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.pipelines import register_default_pipelines
@@ -74,6 +75,7 @@ def create_app() -> FastAPI:
     v1 = APIRouter(prefix=API_V1_PREFIX)
     v1.include_router(health_routes.router)
     v1.include_router(analysis_routes.router)
+    v1.include_router(users_routes.router)
     app.include_router(v1)
 
     _install_error_handlers(app)
