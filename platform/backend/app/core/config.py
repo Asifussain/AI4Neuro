@@ -100,6 +100,18 @@ class Settings(BaseSettings):
     eeg_default_fs: int = Field(default=128, alias="EEG_DEFAULT_FS")
     eeg_subprocess_timeout: int = Field(default=600, alias="EEG_SUBPROCESS_TIMEOUT")
 
+    # ---- MRI pipeline (Phase 3) ----
+    # Empty checkpoint / CAT12 paths => the pipeline degrades to mock mode
+    # (see USE_MOCK_MODEL / USE_CAT12_PREPROCESSING). Real mode needs a
+    # MATLAB-capable host with CAT12 + MATLAB Runtime and a ConViT checkpoint.
+    convit_checkpoint_path: str = Field(default="", alias="CONVIT_CHECKPOINT_PATH")
+    cat12_root: str = Field(default="", alias="CAT12_ROOT")
+    cat12_exe: str = Field(default="", alias="CAT12_EXE")
+    mcr_root: str = Field(default="", alias="MCR_ROOT")
+    cat12_output_dir: str = Field(default="", alias="CAT12_OUTPUT_DIR")
+    mri_use_gpu: bool = Field(default=False, alias="MRI_USE_GPU")
+    mri_model_version: str = Field(default="ConViT-v1.0", alias="MRI_MODEL_VERSION")
+
     @field_validator("app_env")
     @classmethod
     def _normalize_env(cls, v: str) -> str:

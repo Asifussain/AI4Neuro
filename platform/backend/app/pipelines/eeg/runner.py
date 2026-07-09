@@ -11,12 +11,12 @@ the orchestrator uploads into ``visualizations``.
 
 from __future__ import annotations
 
-import base64
 import os
 import threading
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.pipelines.artifacts import write_data_uri_png
 from app.pipelines.base import AnalysisContext, PipelineResult
 from app.pipelines.eeg import ml_runner
 from app.pipelines.eeg.loader import load_eeg_2d
@@ -64,19 +64,6 @@ def _reference_paths(analysis_type: str) -> dict[str, str]:
         "alz": os.path.join(ref_dir, "feature_07.npy"),
         "norm": os.path.join(ref_dir, "feature_35.npy"),
     }
-
-
-def _write_b64_png(data_uri: str | None, path: str) -> str | None:
-    if not data_uri:
-        return None
-    b64 = data_uri.split(",", 1)[1] if data_uri.startswith("data:") else data_uri
-    try:
-        with open(path, "wb") as fh:
-            fh.write(base64.b64decode(b64))
-        return path
-    except Exception as exc:  # a failed plot must not fail the whole job
-        logger.warning("Failed writing EEG plot %s: %s", path, exc)
-        return None
 
 
 def run_eeg_pipeline(context: AnalysisContext) -> PipelineResult:
@@ -134,7 +121,7 @@ def run_eeg_pipeline(context: AnalysisContext) -> PipelineResult:
         ("psd_plot_url", psd_b64, "psd.png"),
         ("similarity_plot_url", sim_b64, "similarity.png"),
     ]:
-        written = _write_b64_png(b64, os.path.join(work_dir, name))
+        written = write_data_uri_png(b64, os.path.join(work_dir, name))
         if written:
             artifacts[key] = written
 

@@ -58,6 +58,10 @@ class PipelineResult(BaseModel):
     # Local artifact paths keyed by a logical name, e.g.
     # {"timeseries_plot": "/tmp/.../timeseries.png"}. Uploaded post-run.
     artifacts: dict[str, str] = Field(default_factory=dict)
+    # Local MRI viewer-slice paths per orientation, e.g.
+    # {"axial": ["/tmp/.../axial/slice_000.png", ...]}. Uploaded to the
+    # viewer-slices bucket; surfaced as visualizations.viewer_slice_urls.
+    viewer_slices: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class Pipeline(Protocol):

@@ -84,6 +84,12 @@ def run_analysis_job(
         uploaded_assets = storage.upload_artifacts(session_id, result.artifacts)
         visualizations = {**result.visualizations, **uploaded_assets}
 
+        # MRI viewer slices → viewer-slices bucket → visualizations.viewer_slice_urls
+        if result.viewer_slices:
+            slice_urls = storage.upload_viewer_slices(session_id, result.viewer_slices)
+            if slice_urls:
+                visualizations["viewer_slice_urls"] = slice_urls
+
         # 4) Persist result.
         db.insert_result(session_id, result, visualizations=visualizations)
 

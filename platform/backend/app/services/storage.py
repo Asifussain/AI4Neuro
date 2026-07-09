@@ -76,6 +76,31 @@ class StorageService:
             urls[key] = self.create_signed_url(bucket, path)
         return urls
 
+    def upload_viewer_slices(
+        self, session_id: str, viewer_slices: dict[str, list[str]]
+    ) -> dict[str, list[str]]:
+        """Upload MRI viewer slices to the viewer-slices bucket.
+
+        Input: ``{orientation: [local_png_path, ...]}``.
+        Returns ``{orientation: [signed_url, ...]}`` at
+        ``viewer-slices/{session_id}/{orientation}/slice_NNN.png``.
+        """
+        bucket = self._settings.viewer_slices_bucket
+        urls: dict[str, list[str]] = {}
+        for orientation, paths in viewer_slices.items():
+            orientation_urls: list[str] = []
+            for local_path in paths:
+                if not local_path or not os.path.exists(local_path):
+                    continue
+                filename = os.path.basename(local_path)
+                storage_path = f"{session_id}/{orientation}/{filename}"
+                with open(local_path, "rb") as fh:
+                    self._upload(bucket, storage_path, fh.read(), "image/png")
+                orientation_urls.append(self.create_signed_url(bucket, storage_path))
+            if orientation_urls:
+                urls[orientation] = orientation_urls
+        return urls
+
     def upload_bytes(
         self, *, bucket: str, path: str, data: bytes, content_type: str
     ) -> str:
