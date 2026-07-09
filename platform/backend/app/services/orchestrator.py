@@ -17,7 +17,7 @@ import shutil
 from app.core.logging import get_logger
 from app.pipelines.base import AnalysisContext, run_pipeline
 from app.services.database import DatabaseService
-from app.services.reports import NoopReportService, ReportService
+from app.services.reports import PdfReportService, ReportService
 from app.services.storage import StorageService, new_temp_dir
 from app.schemas.analysis import SessionStatus
 
@@ -34,7 +34,7 @@ def run_analysis_job(
     """Process one analysis session to completion (or failure)."""
     db = db or DatabaseService()
     storage = storage or StorageService()
-    reports = reports or NoopReportService()
+    reports = reports or PdfReportService(storage)
 
     work_dir: str | None = None
     try:

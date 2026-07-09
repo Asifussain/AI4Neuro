@@ -14,19 +14,28 @@ from app.main import create_app
 from app.services.database import DatabaseService
 from app.services.jobs import JobService, set_job_service
 from app.services.orchestrator import run_analysis_job
+from app.services.reports import NoopReportService
 from app.services.storage import StorageService
 from tests.fake_supabase import FakeSupabase
 
 
 class SyncJobService(JobService):
-    """Runs the orchestrator inline against the shared fake services."""
+    """Runs the orchestrator inline against the shared fake services.
+
+    Uses NoopReportService so the foundation flow tests (stub pipelines) stay
+    hermetic and independent of the PDF stack; report generation is covered
+    directly in test_reports.py.
+    """
 
     def __init__(self, db: DatabaseService, storage: StorageService) -> None:
         self._db = db
         self._storage = storage
 
     def enqueue_analysis(self, session_id: str) -> None:
-        run_analysis_job(session_id, db=self._db, storage=self._storage)
+        run_analysis_job(
+            session_id, db=self._db, storage=self._storage,
+            reports=NoopReportService(),
+        )
 
 
 @pytest.fixture
