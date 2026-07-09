@@ -23,22 +23,28 @@ orchestrator never import SIDDHI or ConViT — they dispatch through the registr
 so both modalities return an identical outer shape and background execution can be
 swapped (ThreadPoolExecutor → Celery) without touching routes.
 
-## Status: Phase 1 (foundation)
+## Status: complete backend (all phases)
 
-Implemented and verified:
+Implemented and verified (33 pytest tests):
 
-- `GET /api/v1/health[/database|/storage]`
-- `POST /api/v1/analysis` (multipart; validates modality + extension, creates a
-  session, uploads the raw file, enqueues a background job)
-- `GET /api/v1/analysis/{id}` (status), `.../result`, `.../reports`
-- `POST /api/v1/analysis/{id}/retry`
-- `JobService` (ThreadPoolExecutor) + orchestrator with failure handling + cleanup
-- Supabase JWT guard (with `AUTH_DEV_BYPASS` for local dev)
-- Unified SQL migration (`../../supabase/migrations/0001_unified_analysis.sql`)
+- `GET /api/v1/health[/database|/storage]`, `GET /api/v1/users/me`
+- `POST /api/v1/analysis` (multipart; modality + extension validation, session
+  creation, raw-file upload, job enqueue) with create-permission enforcement
+- `GET /api/v1/analysis` (role-scoped list), `GET /analysis/{id}` (status),
+  `.../result`, `.../reports`, `POST /analysis/{id}/retry` — all read/retry
+  permission-enforced
+- `JobService` (ThreadPoolExecutor) + orchestrator (failure handling, job events,
+  cleanup); artifacts/viewer-slices uploaded; results + reports persisted
+- **Real EEG pipeline** (SIDDHI/ADformer, subprocess, concurrency-safe) and
+  **MRI pipeline** (CAT12/NIfTI/ConViT, mock-first) behind the registry
+- **Report generation** — one `PdfReportService`, modality-dispatched fpdf2 builders
+- **Auth + permissions** — Supabase JWT verify + `user_profiles` load + role/hospital
+  checks (`AUTH_DEV_BYPASS` for local dev only)
+- Migrations `0001_unified_analysis.sql` + `0002_pipeline_options.sql`
 
-Pipelines are **deterministic stubs** in this phase so the full job loop runs
-without torch/weights. Real EEG (Phase 2) and MRI (Phase 3) runners register in
-place of the stubs (`app/pipelines/__init__.py`).
+Both pipelines register **lazily**, so this API image boots with zero ML libraries
+imported; the heavy modules load only when a job of that modality runs. See
+`../docs/architecture.md`.
 
 ## Run locally
 
