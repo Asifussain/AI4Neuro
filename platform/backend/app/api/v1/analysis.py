@@ -19,10 +19,11 @@ from fastapi import (
     status,
 )
 
-from app.api.deps import get_database, get_storage
+from app.api.deps import get_current_user, get_database, get_storage
 from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
-from app.core.security import Principal, get_current_principal
+from app.core.security import Principal
+from app.services import permissions
 from app.schemas.analysis import (
     ALLOWED_EXTENSIONS,
     AnalysisResultResponse,
@@ -74,13 +75,16 @@ async def create_analysis(
     uploaded_by_role: str | None = Form(default=None),
     channel_index: int | None = Form(default=None),        # EEG: similarity-plot channel
     scan_metadata_json: str | None = Form(default=None),   # MRI: scanner/sequence metadata
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
     storage: StorageService = Depends(get_storage),
     settings: Settings = Depends(get_settings),
 ) -> CreateAnalysisResponse:
     modality = modality.lower().strip()
     _validate_upload(modality, file.filename or "")
+
+    if not permissions.can_create_analysis(principal.role, modality):
+        raise _forbid(f"Your role may not create {modality} analyses.")
 
     data = await file.read()
     if len(data) > settings.max_upload_bytes:
@@ -134,10 +138,11 @@ async def create_analysis(
 @router.get("/{session_id}", response_model=SessionStatusResponse)
 def get_status(
     session_id: str,
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
 ) -> SessionStatusResponse:
     session = _require_session(db, session_id)
+    _require_read(principal, session)
     return SessionStatusResponse(
         id=str(session["id"]),
         modality=session["modality"],
@@ -154,10 +159,11 @@ def get_status(
 @router.get("/{session_id}/result", response_model=AnalysisResultResponse)
 def get_result(
     session_id: str,
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
 ) -> AnalysisResultResponse:
     session = _require_session(db, session_id)
+    _require_read(principal, session)
     result = db.get_result(session_id)
     if not result:
         raise HTTPException(
@@ -184,10 +190,14 @@ def get_result(
 @router.get("/{session_id}/reports", response_model=ReportsResponse)
 def get_reports(
     session_id: str,
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
 ) -> ReportsResponse:
-    _require_session(db, session_id)
+    session = _require_session(db, session_id)
+    if not permissions.can_read_report(
+        principal.user_id, principal.role, principal.hospital_id, session
+    ):
+        raise _forbid("You do not have access to these reports.")
     reports = db.get_reports(session_id) or {}
     return ReportsResponse(
         session_id=session_id,
@@ -199,10 +209,14 @@ def get_reports(
 @router.post("/{session_id}/retry", response_model=RetryResponse)
 def retry_analysis(
     session_id: str,
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
 ) -> RetryResponse:
     session = _require_session(db, session_id)
+    if not permissions.can_retry_session(
+        principal.user_id, principal.role, principal.hospital_id, session
+    ):
+        raise _forbid("You may not retry this analysis.")
     if session["status"] not in {SessionStatus.failed.value, SessionStatus.cancelled.value}:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -247,6 +261,20 @@ def _require_session(db: DatabaseService, session_id: str) -> dict:
             detail={"code": "session_not_found", "message": "Analysis session not found."},
         )
     return session
+
+
+def _require_read(principal: Principal, session: dict) -> None:
+    if not permissions.can_read_session(
+        principal.user_id, principal.role, principal.hospital_id, session
+    ):
+        raise _forbid("You do not have access to this analysis session.")
+
+
+def _forbid(message: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={"code": "permission_denied", "message": message},
+    )
 
 
 def _report_urls(reports: dict) -> ReportUrls:

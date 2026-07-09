@@ -25,13 +25,22 @@ DEV_PRINCIPAL_ID = "00000000-0000-0000-0000-000000000000"
 
 @dataclass
 class Principal:
-    """The authenticated caller."""
+    """The authenticated caller.
+
+    ``role``/``hospital_id``/``status`` are the app-level values loaded from
+    ``user_profiles`` (see ``api.deps.get_current_user``); the JWT only carries the
+    Supabase auth identity. ``role`` may be pre-set from the token for the dev
+    principal.
+    """
 
     user_id: str
     email: str | None = None
     role: str | None = None
+    hospital_id: str | None = None
+    status: str | None = None
     is_dev: bool = False
     claims: dict = field(default_factory=dict)
+    profile: dict = field(default_factory=dict)
 
 
 def _decode_token(token: str, secret: str) -> dict:

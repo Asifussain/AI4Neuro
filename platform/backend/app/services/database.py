@@ -100,6 +100,19 @@ class DatabaseService:
         )
         return _one(res)
 
+    # ----------------------------- profiles ----------------------------- #
+
+    def get_user_profile(self, user_id: str) -> dict | None:
+        """Fetch a user_profiles row (role/account_status/hospital_id/…)."""
+        res = (
+            self.client.table("user_profiles")
+            .select("*")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        return _one(res)
+
     def set_raw_file(self, session_id: str, *, path: str, bucket: str) -> None:
         self._update_session(session_id, {"raw_file_path": path, "raw_file_bucket": bucket})
 
