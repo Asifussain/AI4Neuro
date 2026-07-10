@@ -1,0 +1,61 @@
+name: platform-ci
+
+# CI for the unified platform (platform/). The two legacy apps are not built here.
+on:
+  push:
+    branches: ["**"]
+    paths: ["platform/**", ".github/workflows/platform-ci.yml"]
+  pull_request:
+    paths: ["platform/**", ".github/workflows/platform-ci.yml"]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platform/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install (api + test deps)
+        run: pip install -r requirements/dev.txt
+      - name: Tests
+        # EEG/MRI/report pipeline tests self-skip when torch/matplotlib/nibabel are
+        # absent (importorskip), so this gate runs the API/permission/list suites.
+        run: pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platform/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: platform/frontend/package-lock.json
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Lint (unified code only)
+        # The frontend is built on the inherited mri-platform base, which ships
+        # its own lint debt (no-explicit-any, react-hooks) in unmodified files.
+        # Gate lint on the NEW unified code; typecheck + build cover the whole app.
+        run: >-
+          npx eslint
+          src/lib/api/client.ts
+          src/features/analysis
+          src/app/analysis
+          src/app/dashboard
+          src/app/technician
+      - name: Build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build

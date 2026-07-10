@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clinical Report - MRI Analysis</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    .report-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #1a5f2a 0%, #0d3d17 100%);
+      color: white;
+      padding: 25px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header-left h1 {
+      font-size: 24px;
+      margin-bottom: 3px;
+    }
+    .header-left p {
+      opacity: 0.9;
+      font-size: 13px;
+    }
+    .header-right {
+      text-align: right;
+      font-size: 13px;
+    }
+    .header-right .session-code {
+      font-size: 16px;
+      font-weight: 600;
+      background: rgba(255,255,255,0.2);
+      padding: 5px 12px;
+      border-radius: 4px;
+      margin-bottom: 5px;
+      display: inline-block;
+    }
+    .hospital-bar {
+      background: #f8f9fa;
+      padding: 15px 30px;
+      border-bottom: 2px solid #1a5f2a;
+      display: flex;
+      justify-content: space-between;
+    }
+    .content {
+      padding: 25px 30px;
+    }
+    .two-column {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 25px;
+    }
+    .section {
+      margin-bottom: 25px;
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a5f2a;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid #1a5f2a;
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+    }
+    .data-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .data-item {
+      padding: 8px 10px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .data-label {
+      font-size: 10px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    .data-value {
+      font-weight: 500;
+    }
+    .result-banner {
+      background: linear-gradient(135deg, #fef3f3 0%, #fde8e8 100%);
+      border: 2px solid #e74c3c;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .result-banner.normal {
+      background: linear-gradient(135deg, #f0fff4 0%, #dcfce7 100%);
+      border-color: #22c55e;
+    }
+    .result-main {
+      flex: 1;
+    }
+    .result-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #666;
+    }
+    .result-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #e74c3c;
+    }
+    .result-banner.normal .result-value {
+      color: #22c55e;
+    }
+    .result-confidence {
+      text-align: center;
+      padding: 15px 25px;
+      border-left: 1px solid rgba(0,0,0,0.1);
+    }
+    .confidence-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #e74c3c;
+    }
+    .confidence-label {
+      font-size: 11px;
+      color: #666;
+    }
+    .probability-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 15px 0;
+    }
+    .probability-table th,
+    .probability-table td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    .probability-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #666;
+    }
+    .prob-bar {
+      height: 8px;
+      background: #eee;
+      border-radius: 4px;
+      overflow: hidden;
+      width: 150px;
+    }
+    .prob-fill {
+      height: 100%;
+      border-radius: 4px;
+    }
+    .prob-fill.cn { background: #22c55e; }
+    .prob-fill.ad { background: #e74c3c; }
+    .prob-fill.pd { background: #f59e0b; }
+    .prob-fill.ftd { background: #8b5cf6; }
+    .volume-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .volume-table th,
+    .volume-table td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    .volume-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #666;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .status-normal { background: #dcfce7; color: #166534; }
+    .status-low { background: #fef3c7; color: #92400e; }
+    .status-high { background: #fee2e2; color: #991b1b; }
+    .clinical-notes {
+      background: #fffbeb;
+      border: 1px solid #fbbf24;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .clinical-notes h4 {
+      color: #b45309;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .clinical-notes ul {
+      margin-left: 20px;
+      font-size: 13px;
+    }
+    .clinical-notes li {
+      padding: 4px 0;
+    }
+    .recommendations {
+      background: #f0fdf4;
+      border: 1px solid #22c55e;
+      border-radius: 8px;
+      padding: 15px;
+    }
+    .recommendations h4 {
+      color: #166534;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .recommendations ol {
+      margin-left: 20px;
+      font-size: 13px;
+    }
+    .recommendations li {
+      padding: 4px 0;
+    }
+    .signature-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #ddd;
+    }
+    .signature-box {
+      text-align: center;
+    }
+    .signature-line {
+      border-top: 1px solid #333;
+      margin: 40px 20px 10px;
+    }
+    .signature-name {
+      font-weight: 600;
+    }
+    .signature-title {
+      font-size: 12px;
+      color: #666;
+    }
+    .footer {
+      background: #f8f9fa;
+      padding: 15px 30px;
+      font-size: 11px;
+      color: #666;
+      border-top: 1px solid #ddd;
+    }
+    .chart-placeholder {
+      background: #f8f9fa;
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      padding: 30px;
+      text-align: center;
+      margin: 15px 0;
+    }
+    .chart-placeholder img {
+      max-width: 100%;
+      height: auto;
+    }
+    .affected-regions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0;
+    }
+    .region-tag {
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    @media print {
+      body { background: white; padding: 0; }
+      .report-container { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="report-container">
+    <div class="header">
+      <div class="header-left">
+        <h1>Clinical MRI Analysis Report</h1>
+        <p>AI-Assisted Neuroimaging Analysis for Physicians</p>
+      </div>
+      <div class="header-right">
+        <div class="session-code">MRI-2025-001</div>
+        <div>Generated: Jan 20, 2026</div>
+      </div>
+    </div>
+
+    <div class="hospital-bar">
+      <div>
+        <strong style="color: #1a5f2a;">NeuroScan Medical Center</strong>
+        <span style="color: #666;"> | Department of Neurology</span>
+      </div>
+      <div style="font-size: 13px; color: #666;">
+        123 Medical Center Drive | Phone: (555) 123-4567
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="two-column">
+        <div class="section">
+          <h3 class="section-title">Patient Information</h3>
+          <div class="data-grid">
+            <div class="data-item">
+              <div class="data-label">Patient Name</div>
+              <div class="data-value">John Doe</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">Patient ID</div>
+              <div class="data-value">NSC-PAT-0001</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">Date of Birth</div>
+              <div class="data-value">Mar 15, 1957</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">Age / Gender</div>
+              <div class="data-value">68 years / Male</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">Blood Group</div>
+              <div class="data-value">O+</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">Scan Date</div>
+              <div class="data-value">Jan 18, 2026</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title">Scan Information</h3>
+          <div class="data-grid">
+            <div class="data-item">
+              <div class="data-label">Scanner</div>
+              <div class="data-value">Siemens MAGNETOM Skyra</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">Field Strength</div>
+              <div class="data-value">3.0 Tesla</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">Sequence</div>
+              <div class="data-value">T1-weighted MPRAGE</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">Analysis Type</div>
+              <div class="data-value">Multi-Disease Classification</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">Referring Physician</div>
+              <div class="data-value">Dr. Sarah Mitchell</div>
+            </div>
+            <div class="data-item">
+              <div class="data-label">Radiologist</div>
+              <div class="data-value">Dr. David Chen</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-banner">
+        <div class="result-main">
+          <div class="result-label">AI Classification Result</div>
+          <div class="result-value">Alzheimer's Disease (AD)</div>
+          <div style="font-size: 13px; color: #666; margin-top: 5px;">
+            Pattern consistent with early-stage Alzheimer's Disease pathology
+          </div>
+        </div>
+        <div class="result-confidence">
+          <div class="confidence-value">65.0%</div>
+          <div class="confidence-label">Confidence Score</div>
+        </div>
+      </div>
+
+      <div class="two-column">
+        <div class="section">
+          <h3 class="section-title">Classification Probabilities</h3>
+          <table class="probability-table">
+            <thead>
+              <tr>
+                <th>Classification</th>
+                <th>Probability</th>
+                <th>Distribution</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Alzheimer's Disease (AD)</strong></td>
+                <td><strong>65.0%</strong></td>
+                <td>
+                  <div class="prob-bar">
+                    <div class="prob-fill ad" style="width: 65%;"></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>Parkinson's Disease (PD)</td>
+                <td>15.0%</td>
+                <td>
+                  <div class="prob-bar">
+                    <div class="prob-fill pd" style="width: 15%;"></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>Cognitively Normal (CN)</td>
+                <td>10.0%</td>
+                <td>
+                  <div class="prob-bar">
+                    <div class="prob-fill cn" style="width: 10%;"></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>Frontotemporal Dementia (FTD)</td>
+                <td>10.0%</td>
+                <td>
+                  <div class="prob-bar">
+                    <div class="prob-fill ftd" style="width: 10%;"></div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title">Affected Brain Regions</h3>
+          <div class="affected-regions">
+            <span class="region-tag">Hippocampus (bilateral)</span>
+            <span class="region-tag">Entorhinal Cortex</span>
+            <span class="region-tag">Temporal Lobe</span>
+            <span class="region-tag">Parietal Cortex</span>
+          </div>
+          <div style="margin-top: 15px; font-size: 13px; color: #666;">
+            <strong>Pattern Analysis:</strong> The AI model identified atrophy patterns most consistent with
+            Alzheimer's Disease, particularly in medial temporal structures. The hippocampal volume reduction
+            and ventricular enlargement are characteristic findings.
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">Volumetric Analysis</h3>
+        <table class="volume-table">
+          <thead>
+            <tr>
+              <th>Brain Structure</th>
+              <th>Measured</th>
+              <th>Normal Range</th>
+              <th>Deviation</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Total Brain Volume</td>
+              <td>1,180 cm³</td>
+              <td>1,100 - 1,400 cm³</td>
+              <td>-</td>
+              <td><span class="status-badge status-normal">Normal</span></td>
+            </tr>
+            <tr>
+              <td>Hippocampus (bilateral)</td>
+              <td>3.2 cm³</td>
+              <td>3.5 - 4.5 cm³</td>
+              <td>-8.6%</td>
+              <td><span class="status-badge status-low">Reduced</span></td>
+            </tr>
+            <tr>
+              <td>Ventricular Volume</td>
+              <td>38.5 cm³</td>
+              <td>20 - 35 cm³</td>
+              <td>+10.0%</td>
+              <td><span class="status-badge status-high">Enlarged</span></td>
+            </tr>
+            <tr>
+              <td>Frontal Lobe</td>
+              <td>185 cm³</td>
+              <td>170 - 210 cm³</td>
+              <td>-</td>
+              <td><span class="status-badge status-normal">Normal</span></td>
+            </tr>
+            <tr>
+              <td>Temporal Lobe</td>
+              <td>125 cm³</td>
+              <td>130 - 160 cm³</td>
+              <td>-3.8%</td>
+              <td><span class="status-badge status-low">Reduced</span></td>
+            </tr>
+            <tr>
+              <td>White Matter</td>
+              <td>465 cm³</td>
+              <td>450 - 550 cm³</td>
+              <td>-</td>
+              <td><span class="status-badge status-normal">Normal</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="chart-placeholder">
+        <div style="color: #666; margin-bottom: 10px;">Volume Comparison Chart</div>
+        <svg width="400" height="200" viewBox="0 0 400 200">
+          <!-- Chart background -->
+          <rect x="50" y="20" width="320" height="150" fill="#f8f9fa" stroke="#ddd"/>
+          <!-- Grid lines -->
+          <line x1="50" y1="57" x2="370" y2="57" stroke="#eee" stroke-dasharray="3"/>
+          <line x1="50" y1="95" x2="370" y2="95" stroke="#eee" stroke-dasharray="3"/>
+          <line x1="50" y1="132" x2="370" y2="132" stroke="#eee" stroke-dasharray="3"/>
+          <!-- Y axis labels -->
+          <text x="45" y="25" text-anchor="end" font-size="10" fill="#666">100%</text>
+          <text x="45" y="62" text-anchor="end" font-size="10" fill="#666">75%</text>
+          <text x="45" y="100" text-anchor="end" font-size="10" fill="#666">50%</text>
+          <text x="45" y="137" text-anchor="end" font-size="10" fill="#666">25%</text>
+          <text x="45" y="175" text-anchor="end" font-size="10" fill="#666">0%</text>
+          <!-- Bars - Patient -->
+          <rect x="70" y="30" width="25" height="140" fill="#3b82f6" opacity="0.8"/>
+          <rect x="130" y="75" width="25" height="95" fill="#3b82f6" opacity="0.8"/>
+          <rect x="190" y="55" width="25" height="115" fill="#3b82f6" opacity="0.8"/>
+          <rect x="250" y="40" width="25" height="130" fill="#3b82f6" opacity="0.8"/>
+          <rect x="310" y="45" width="25" height="125" fill="#3b82f6" opacity="0.8"/>
+          <!-- Bars - Normal (overlay) -->
+          <rect x="97" y="25" width="25" height="145" fill="#22c55e" opacity="0.5"/>
+          <rect x="157" y="50" width="25" height="120" fill="#22c55e" opacity="0.5"/>
+          <rect x="217" y="45" width="25" height="125" fill="#22c55e" opacity="0.5"/>
+          <rect x="277" y="35" width="25" height="135" fill="#22c55e" opacity="0.5"/>
+          <rect x="337" y="40" width="25" height="130" fill="#22c55e" opacity="0.5"/>
+          <!-- X axis labels -->
+          <text x="95" y="190" text-anchor="middle" font-size="9" fill="#666">Total Brain</text>
+          <text x="155" y="190" text-anchor="middle" font-size="9" fill="#666">Hippocampus</text>
+          <text x="215" y="190" text-anchor="middle" font-size="9" fill="#666">Ventricles</text>
+          <text x="275" y="190" text-anchor="middle" font-size="9" fill="#666">Temporal</text>
+          <text x="335" y="190" text-anchor="middle" font-size="9" fill="#666">Frontal</text>
+          <!-- Legend -->
+          <rect x="100" y="5" width="12" height="12" fill="#3b82f6"/>
+          <text x="115" y="14" font-size="10" fill="#666">Patient</text>
+          <rect x="170" y="5" width="12" height="12" fill="#22c55e"/>
+          <text x="185" y="14" font-size="10" fill="#666">Normal Range</text>
+        </svg>
+      </div>
+
+      <div class="two-column">
+        <div class="clinical-notes">
+          <h4>Clinical Observations</h4>
+          <ul>
+            <li>Bilateral hippocampal volume reduction consistent with early AD pathology</li>
+            <li>Mild ventricular enlargement suggesting global atrophy</li>
+            <li>Temporal lobe involvement with relative frontal sparing</li>
+            <li>Pattern matches typical AD progression trajectory</li>
+            <li>No acute infarcts or mass lesions identified</li>
+          </ul>
+        </div>
+
+        <div class="recommendations">
+          <h4>Clinical Recommendations</h4>
+          <ol>
+            <li>Consider formal neuropsychological evaluation</li>
+            <li>Amyloid PET or CSF biomarkers may provide additional diagnostic clarity</li>
+            <li>Evaluate for modifiable risk factors (vascular, metabolic)</li>
+            <li>Discuss potential disease-modifying therapies if appropriate</li>
+            <li>Recommend follow-up MRI in 12-18 months to assess progression</li>
+            <li>Consider referral to memory clinic for comprehensive care</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="section" style="margin-top: 25px;">
+        <h3 class="section-title">Model Performance Metrics</h3>
+        <div class="data-grid">
+          <div class="data-item">
+            <div class="data-label">Internal Consistency</div>
+            <div class="data-value">87.3%</div>
+          </div>
+          <div class="data-item">
+            <div class="data-label">Cross-Validation Score</div>
+            <div class="data-value">0.89</div>
+          </div>
+          <div class="data-item">
+            <div class="data-label">Feature Reliability</div>
+            <div class="data-value">High</div>
+          </div>
+          <div class="data-item">
+            <div class="data-label">Uncertainty Estimate</div>
+            <div class="data-value">±8.5%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="signature-section">
+        <div class="signature-box">
+          <div class="signature-line"></div>
+          <div class="signature-name">Dr. Sarah Mitchell, MD</div>
+          <div class="signature-title">Referring Neurologist | License: NRG-12345</div>
+        </div>
+        <div class="signature-box">
+          <div class="signature-line"></div>
+          <div class="signature-name">Dr. David Chen, MD</div>
+          <div class="signature-title">Diagnostic Radiologist | License: RAD-67890</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div style="display: flex; justify-content: space-between;">
+        <div>
+          <strong>Confidential Medical Document</strong> - For authorized healthcare providers only
+        </div>
+        <div>
+          Page 1 of 1
+        </div>
+      </div>
+      <div style="margin-top: 10px;">
+        <strong>Disclaimer:</strong> This AI-assisted analysis is intended to support clinical decision-making and should not replace
+        clinical judgment. Results should be interpreted in conjunction with patient history, physical examination, and other diagnostic findings.
+      </div>
+      <div style="margin-top: 10px; text-align: center;">
+        Report ID: CLN-2025-001-4567 | Generated: January 20, 2026 10:30 AM | NeuroScan AI Platform v1.0
+      </div>
+    </div>
+  </div>
+</body>
+</html>

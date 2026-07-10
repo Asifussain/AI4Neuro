@@ -1,0 +1,30 @@
+# Slim API image — FastAPI only, NO ML deps (doc 11.4).
+# This is the production API container: it accepts uploads, creates sessions,
+# stores files, serves status/result/report APIs, and enqueues jobs. Heavy ML
+# runs in the worker images (Dockerfile.worker-*) or, for the all-in-one MVP,
+# in the image built from ./Dockerfile.
+FROM python:3.11-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# Only the small API dependency set.
+COPY requirements/api.txt requirements/api.txt
+RUN pip install --no-cache-dir -r requirements/api.txt
+
+COPY app ./app
+
+# Non-root runtime user.
+RUN useradd --create-home --uid 10001 appuser && chown -R appuser /app
+USER appuser
+
+EXPOSE 8000
+
+# Simple container healthcheck against the health endpoint.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health').status==200 else 1)"
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

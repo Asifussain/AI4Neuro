@@ -1,0 +1,50 @@
+# Unified Neuro Platform — local/compose deployment.
+#
+# Supabase (Postgres + Auth + Storage) is an EXTERNAL managed service, not a
+# container here: point the services at it via SUPABASE_* / NEXT_PUBLIC_SUPABASE_*.
+#
+#   cp backend/.env.example backend/.env      # fill in SUPABASE_* etc.
+#   cp frontend/.env.example frontend/.env    # fill in NEXT_PUBLIC_* etc.
+#   docker compose up --build
+#
+# The backend here is the all-in-one MVP image (API + both pipelines, jobs run
+# in-process). For production, split into an API image + worker images
+# (see docs/deployment.md).
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
+    environment:
+      API_PORT: "8000"
+      LOCAL_TMP_DIR: /tmp/neuro-platform
+    ports:
+      - "8000:8000"
+    volumes:
+      # Model weights + reference data (not baked into the image).
+      - ./models:/models:ro
+      - neuro-tmp:/tmp/neuro-platform
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* are inlined at build time.
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    env_file:
+      - ./frontend/.env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  neuro-tmp:

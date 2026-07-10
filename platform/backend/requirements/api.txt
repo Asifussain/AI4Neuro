@@ -1,0 +1,19 @@
+# Unified Neuro Platform - API layer dependencies.
+# Kept intentionally small: the FastAPI image should not carry ML/torch weight.
+# Modality-specific ML deps live in eeg.txt / mri.txt so worker images can
+# install only what they need (see UNIFIED_NEURO_PLATFORM_ARCHITECTURE_PLAN.md 3.3).
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-multipart==0.0.20
+
+# Supabase (v2 client, matching the newer MRI backend; replaces EEG's v1 pin)
+supabase==2.11.0
+
+# Auth: verify Supabase-issued JWTs
+PyJWT==2.10.1
+
+# Shared utilities
+python-dotenv==1.0.1

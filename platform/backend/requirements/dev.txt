@@ -1,0 +1,7 @@
+# Development & test dependencies.
+-r api.txt
+
+pytest>=8.0.0
+httpx>=0.27.0          # FastAPI TestClient transport
+numpy>=1.24.0          # test fixtures build sample .npy payloads
+fpdf2>=2.7.9           # report generation tests
