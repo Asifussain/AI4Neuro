@@ -1,0 +1,14 @@
+{
+  "name": "neuro-platform-seed",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Development seed script for the Unified Neuro Platform Supabase database.",
+  "scripts": {
+    "seed": "node seed.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.89.0",
+    "dotenv": "^16.4.5"
+  }
+}
