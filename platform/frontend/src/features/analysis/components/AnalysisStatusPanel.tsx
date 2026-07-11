@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +13,17 @@ function statusVariant(status: string): 'default' | 'secondary' | 'destructive' 
   if (status === 'failed' || status === 'cancelled') return 'destructive';
   if (status === 'completed') return 'default';
   return 'secondary';
+}
+
+function changeRetryHref(status: SessionStatusResponse): string {
+  const params = new URLSearchParams({
+    modality: status.modality,
+    analysis_type: status.analysis_type,
+    retry_from: status.id,
+  });
+  if (status.patient_id) params.set('patient_id', status.patient_id);
+  if (status.doctor_id) params.set('doctor_id', status.doctor_id);
+  return `/analysis/new?${params.toString()}`;
 }
 
 export function AnalysisStatusPanel({
@@ -52,9 +65,14 @@ export function AnalysisStatusPanel({
               {status.error_message ?? 'Analysis did not complete.'}
             </p>
             {onRetry && (
-              <Button variant="outline" size="sm" onClick={onRetry}>
-                Retry analysis
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={onRetry}>
+                  Retry same settings
+                </Button>
+                <Button asChild size="sm">
+                  <Link href={changeRetryHref(status)}>Change file or type</Link>
+                </Button>
+              </div>
             )}
           </div>
         )}

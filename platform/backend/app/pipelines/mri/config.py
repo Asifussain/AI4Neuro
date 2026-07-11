@@ -37,6 +37,9 @@ os.makedirs(CAT12_OUTPUT_DIR, exist_ok=True)
 # ---- Static clinical constants (verbatim from legacy config) ----
 PREDICTION_CLASSES = ["CN", "MCI", "AD"]
 ANALYSIS_TYPES = {
+    "multiclass": ["CN", "MCI", "AD"],
+    "binary": ["CN", "AD"],
+    # Legacy aliases kept so old sessions/retry links still run.
     "multi-disease": ["CN", "MCI", "AD"],
     "ad-only": ["CN", "AD"],
 }

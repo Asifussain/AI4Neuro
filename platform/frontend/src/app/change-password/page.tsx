@@ -90,7 +90,7 @@ export default function ChangePasswordPage() {
                 <path d="M12 2C9.243 2 7 4.243 7 7c0 .836.194 1.625.537 2.331C5.397 10.148 4 12.233 4 14.667c0 1.545.627 2.944 1.64 3.96C4.626 19.642 4 21.026 4 22.5c0 .828.672 1.5 1.5 1.5h13c.828 0 1.5-.672 1.5-1.5 0-1.474-.627-2.858-1.64-3.873 1.013-1.016 1.64-2.415 1.64-3.96 0-2.434-1.397-4.519-3.537-5.336A4.984 4.984 0 0017 7c0-2.757-2.243-5-5-5z" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <span className="text-xl font-semibold text-white group-hover:text-cyan-400 transition-colors">NeuroXiva</span>
+            <span className="text-xl font-semibold text-white group-hover:text-cyan-400 transition-colors">AI4NEURO</span>
           </Link>
         </div>
 
@@ -224,7 +224,7 @@ export default function ChangePasswordPage() {
         {/* Footer */}
         <div className="p-8 text-center">
           <p className="text-xs text-slate-600">
-            &copy; 2026 NeuroXiva. HIPAA Compliant. All rights reserved.
+            &copy; 2026 AI4NEURO. HIPAA Compliant. All rights reserved.
           </p>
         </div>
       </div>

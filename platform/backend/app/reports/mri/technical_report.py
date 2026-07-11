@@ -90,7 +90,7 @@ def build_technical_report(
         confidence = prediction_data.get('confidence', 0)
         probabilities = prediction_data.get('probabilities', [])
         classes = prediction_data.get('classes', ['AD', 'CN', 'MCI'])
-        analysis_type = prediction_data.get('analysis_type', 'multi-disease')
+        analysis_type = prediction_data.get('analysis_type', 'multiclass')
 
         pdf.key_value_pair("Classification Result", prediction, 50)
         pdf.key_value_pair("Analysis Type", analysis_type.upper(), 50)

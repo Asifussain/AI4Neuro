@@ -14,6 +14,8 @@ from __future__ import annotations
 import os
 import threading
 
+import numpy as np
+
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.pipelines.artifacts import write_data_uri_png
@@ -50,6 +52,10 @@ _MODEL_VERSION = {
     "binary": "ADFormer-ADSZ-Indep",
     "multiclass": "ADFormer-ADFD-Indep",
 }
+_EXPECTED_SHAPES = {
+    "binary": {"seq_len": 128, "channels": 19, "alternate": "multiclass"},
+    "multiclass": {"seq_len": 256, "channels": 19, "alternate": "binary"},
+}
 
 
 def _reference_paths(analysis_type: str) -> dict[str, str]:
@@ -72,6 +78,7 @@ def run_eeg_pipeline(context: AnalysisContext) -> PipelineResult:
     input_path = context.local_input_path
     work_dir = os.path.dirname(os.path.abspath(input_path))
     channel_index = int(context.options.get("channel_index", 0) or 0)
+    _validate_eeg_input_shape(input_path, analysis_type)
 
     # --- 1) Model inference (subprocess, unique output file per job) ---
     output_path = os.path.join(work_dir, f"siddhi_output_{context.session_id}.json")
@@ -136,3 +143,30 @@ def run_eeg_pipeline(context: AnalysisContext) -> PipelineResult:
         model_version=_MODEL_VERSION[analysis_type],
         artifacts=artifacts,
     )
+
+
+def _validate_eeg_input_shape(input_path: str, analysis_type: str) -> None:
+    expected = _EXPECTED_SHAPES[analysis_type]
+    eeg = np.load(input_path, allow_pickle=True)
+    if eeg.ndim == 3:
+        _, seq_len, channels = eeg.shape
+    elif eeg.ndim == 2:
+        seq_len, channels = eeg.shape
+    else:
+        raise ValueError(
+            f"Unsupported EEG data dimension {eeg.ndim}. Expected 2D or 3D .npy data."
+        )
+
+    if channels != expected["channels"]:
+        raise ValueError(
+            f"EEG input has {channels} channels, but AI4NEURO expects "
+            f"{expected['channels']} channels."
+        )
+
+    if seq_len != expected["seq_len"]:
+        alternate = expected["alternate"]
+        raise ValueError(
+            f"EEG input sequence length is {seq_len}, but {analysis_type} analysis "
+            f"expects {expected['seq_len']}. Select EEG {alternate} if this file "
+            "belongs to that pipeline, or upload a matching EEG .npy file."
+        )

@@ -61,14 +61,14 @@ export default function AboutPage() {
         <div className="max-w-6xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
             <Brain className="w-4 h-4" />
-            About NeuroXiva
+            About AI4NEURO
           </div>
           <h1 className="heading-xl text-foreground mb-6">
             Pioneering the Future of
             <span className="block text-primary">Neurological Diagnostics</span>
           </h1>
           <p className="body-lg text-muted-foreground max-w-3xl mx-auto">
-            NeuroXiva combines cutting-edge artificial intelligence with decades of neurological expertise
+            AI4NEURO combines cutting-edge artificial intelligence with decades of neurological expertise
             to deliver accurate, early detection of neurodegenerative diseases through MRI brain scan analysis.
           </p>
         </div>
@@ -121,7 +121,7 @@ export default function AboutPage() {
       <section className="py-20 px-4 bg-muted/30">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="heading-lg text-foreground mb-4">Why Choose NeuroXiva</h2>
+            <h2 className="heading-lg text-foreground mb-4">Why Choose AI4NEURO</h2>
             <p className="body-md text-muted-foreground max-w-2xl mx-auto">
               Our platform is designed with healthcare providers in mind, offering powerful tools
               that integrate seamlessly into clinical workflows.
@@ -173,7 +173,7 @@ export default function AboutPage() {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="heading-md text-foreground mb-4">Ready to Get Started?</h2>
           <p className="body-md text-muted-foreground mb-8">
-            Join hundreds of healthcare providers already using NeuroXiva for advanced neurological diagnostics.
+            Join hundreds of healthcare providers already using AI4NEURO for advanced neurological diagnostics.
           </p>
           <div className="flex justify-center gap-4">
             <a
@@ -195,7 +195,7 @@ export default function AboutPage() {
       {/* Footer */}
       <footer className="py-8 px-4 border-t border-border">
         <div className="max-w-6xl mx-auto text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} NeuroXiva. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} AI4NEURO. All rights reserved.</p>
         </div>
       </footer>
     </div>

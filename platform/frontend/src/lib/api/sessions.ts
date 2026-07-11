@@ -306,7 +306,7 @@ class SessionsApi {
           radiologist_id: radiologist?.id || null,
           scan_date: new Date().toISOString(),
           status: 'uploaded',
-          analysis_type: input.analysis_type || 'multi-disease',
+          analysis_type: input.analysis_type || 'multiclass',
           scanner_manufacturer: input.scanner_manufacturer,
           scanner_model: input.scanner_model,
           scanner_field_strength: input.scanner_field_strength,

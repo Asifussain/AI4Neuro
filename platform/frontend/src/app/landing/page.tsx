@@ -37,7 +37,7 @@ function FloatingNavbar() {
               <path d="M12 2C9.243 2 7 4.243 7 7c0 .836.194 1.625.537 2.331C5.397 10.148 4 12.233 4 14.667c0 1.545.627 2.944 1.64 3.96C4.626 19.642 4 21.026 4 22.5c0 .828.672 1.5 1.5 1.5h13c.828 0 1.5-.672 1.5-1.5 0-1.474-.627-2.858-1.64-3.873 1.013-1.016 1.64-2.415 1.64-3.96 0-2.434-1.397-4.519-3.537-5.336A4.984 4.984 0 0017 7c0-2.757-2.243-5-5-5z" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span className="text-white font-semibold hidden sm:block">NeuroXiva</span>
+          <span className="text-white font-semibold hidden sm:block">AI4NEURO</span>
         </Link>
 
         {/* Nav Links */}
@@ -341,7 +341,7 @@ export default function LandingPage() {
             <span className="text-sm text-purple-400 font-medium uppercase tracking-wider">Features</span>
             <h2 className="text-4xl md:text-5xl font-bold mt-4 mb-6">
               Why Choose
-              <span className="bg-gradient-to-r from-purple-400 to-teal-400 bg-clip-text text-transparent"> NeuroXiva</span>
+              <span className="bg-gradient-to-r from-purple-400 to-teal-400 bg-clip-text text-transparent"> AI4NEURO</span>
             </h2>
             <p className="text-slate-400 max-w-2xl mx-auto">
               Our platform combines cutting-edge AI with clinical expertise to deliver
@@ -486,7 +486,7 @@ export default function LandingPage() {
               <div>
                 <h4 className="text-amber-400 font-semibold mb-1">Medical Disclaimer</h4>
                 <p className="text-amber-300/70 text-sm">
-                  NeuroXiva is designed to assist healthcare professionals and should not replace professional medical diagnosis.
+                  AI4NEURO is designed to assist healthcare professionals and should not replace professional medical diagnosis.
                   All results should be reviewed by qualified medical personnel before clinical decisions are made.
                 </p>
               </div>
@@ -541,7 +541,7 @@ export default function LandingPage() {
                 </span>
               </h2>
               <p className="text-slate-400 mb-8 max-w-xl mx-auto">
-                Join healthcare institutions worldwide using NeuroXiva for faster,
+                Join healthcare institutions worldwide using AI4NEURO for faster,
                 more accurate neuroimaging analysis.
               </p>
               <Link
@@ -569,12 +569,12 @@ export default function LandingPage() {
                   <path d="M12 2C9.243 2 7 4.243 7 7c0 .836.194 1.625.537 2.331C5.397 10.148 4 12.233 4 14.667c0 1.545.627 2.944 1.64 3.96C4.626 19.642 4 21.026 4 22.5c0 .828.672 1.5 1.5 1.5h13c.828 0 1.5-.672 1.5-1.5 0-1.474-.627-2.858-1.64-3.873 1.013-1.016 1.64-2.415 1.64-3.96 0-2.434-1.397-4.519-3.537-5.336A4.984 4.984 0 0017 7c0-2.757-2.243-5-5-5z" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <span className="text-xl font-semibold text-white">NeuroXiva</span>
+              <span className="text-xl font-semibold text-white">AI4NEURO</span>
             </div>
 
             {/* Copyright */}
             <p className="text-sm text-slate-500">
-              &copy; 2026 NeuroXiva. HIPAA Compliant. All rights reserved.
+              &copy; 2026 AI4NEURO. HIPAA Compliant. All rights reserved.
             </p>
 
             {/* Links */}

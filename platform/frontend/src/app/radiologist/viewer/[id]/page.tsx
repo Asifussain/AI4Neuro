@@ -321,7 +321,7 @@ export default function RadiologistViewerPage({ params }: { params: Promise<{ id
                       <Brain className="h-3 w-3" /> Analysis
                     </span>
                     <span className="text-foreground font-medium capitalize">
-                      {session.analysis_type?.replace('-', ' ') || 'Multi-disease'}
+                      {session.analysis_type?.replace('-', ' ') || 'Multiclass'}
                     </span>
                   </div>
 

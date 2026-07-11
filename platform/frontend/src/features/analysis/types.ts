@@ -49,6 +49,8 @@ export interface SessionStatusResponse {
   id: string;
   modality: Modality;
   analysis_type: string;
+  patient_id: string | null;
+  doctor_id: string | null;
   status: SessionStatus;
   current_stage: string | null;
   progress_percent: number;
@@ -97,8 +99,8 @@ export const ANALYSIS_TYPES: Record<Modality, { value: string; label: string }[]
     { value: 'multiclass', label: 'Multiclass (CN / MCI / AD)' },
   ],
   mri: [
-    { value: 'multi-disease', label: 'Multi-disease (CN / MCI / AD)' },
-    { value: 'ad-only', label: 'AD-only (CN / AD)' },
+    { value: 'binary', label: 'Binary (CN / AD)' },
+    { value: 'multiclass', label: 'Multiclass (CN / MCI / AD)' },
   ],
 };
 

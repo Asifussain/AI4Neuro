@@ -8,7 +8,7 @@ function NewAnalysisPage() {
   return (
     <>
       <Navbar />
-      <div className="bg-background min-h-screen px-4 pt-24">
+      <div className="ai4-page min-h-screen px-4 pb-12 pt-24">
         <AnalysisUploadForm />
       </div>
     </>

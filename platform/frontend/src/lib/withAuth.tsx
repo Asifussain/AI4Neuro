@@ -27,7 +27,6 @@ export function withAuth<P extends object>(
     const { user, userProfile, loading } = useAuth();
     const router = useRouter();
     const [timedOut, setTimedOut] = useState(false);
-    const [redirecting, setRedirecting] = useState(false);
 
     // Add timeout for loading state - if auth takes too long, redirect to login
     useEffect(() => {
@@ -44,30 +43,24 @@ export function withAuth<P extends object>(
       // Still loading and not timed out - wait
       if (loading && !timedOut) return;
 
-      // Already redirecting - don't do anything
-      if (redirecting) return;
-
       // Timed out or no user - redirect to login
       if (timedOut || !user) {
         console.log('withAuth: No user or timed out, redirecting to login');
-        setRedirecting(true);
-        window.location.href = redirectTo || '/login';
+        router.replace(redirectTo || '/login');
         return;
       }
 
       // User exists but no profile
       if (!userProfile) {
         console.log('withAuth: User exists but no profile, redirecting to login');
-        setRedirecting(true);
-        window.location.href = '/login';
+        router.replace('/login');
         return;
       }
 
       // Check account status
       if (userProfile.account_status !== 'active') {
         console.log('withAuth: Account not active, redirecting to suspended');
-        setRedirecting(true);
-        window.location.href = '/account-suspended';
+        router.replace('/account-suspended');
         return;
       }
 
@@ -75,12 +68,11 @@ export function withAuth<P extends object>(
       if (allowedRoles && allowedRoles.length > 0) {
         if (!allowedRoles.includes(userProfile.role)) {
           console.log('withAuth: Role not allowed, redirecting to correct dashboard');
-          setRedirecting(true);
-          window.location.href = `/${userProfile.role}/dashboard`;
+          router.replace(`/${userProfile.role}/dashboard`);
           return;
         }
       }
-    }, [user, userProfile, loading, timedOut, redirecting]);
+    }, [router, user, userProfile, loading, timedOut]);
 
     // Show loading while auth is initializing
     if (loading && !timedOut) {
@@ -88,7 +80,7 @@ export function withAuth<P extends object>(
     }
 
     // Show redirecting state
-    if (redirecting || !user || !userProfile) {
+    if (!user || !userProfile) {
       return <LoadingScreen message="Redirecting" submessage="Taking you to the right place..." />;
     }
 

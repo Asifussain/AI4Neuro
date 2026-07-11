@@ -15,7 +15,7 @@ from app.pipelines.mri.config import ANALYSIS_TYPES, NORMATIVE_VOLUMES
 
 def _run_model_mock(
     scan_path: str,
-    analysis_type: str = 'multi-disease'
+    analysis_type: str = 'multiclass'
 ) -> Dict[str, Any]:
     """
     Mock ML model that returns realistic results for development.

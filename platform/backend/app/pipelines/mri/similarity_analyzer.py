@@ -16,7 +16,7 @@ from app.pipelines.mri.config import DISEASE_INFO, USE_MOCK_MODEL
 
 def run_similarity_analysis(
     scan_path: str,
-    analysis_type: str = 'multi-disease',
+    analysis_type: str = 'multiclass',
     ml_results: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
@@ -50,9 +50,9 @@ def _run_similarity_mock(
     """
     # Determine classes based on analysis type
     # Model supports 3 classes: AD, CN, MCI
-    if analysis_type == 'multi-disease':
+    if analysis_type in {'multiclass', 'multiclass'}:
         classes = ['AD', 'CN', 'MCI']
-    elif analysis_type == 'ad-only':
+    elif analysis_type in {'binary', 'binary'}:
         classes = ['CN', 'AD']
     elif analysis_type == 'mci-only':
         classes = ['CN', 'MCI']

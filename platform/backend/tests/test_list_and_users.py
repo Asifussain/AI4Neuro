@@ -21,7 +21,7 @@ def _seed(db_service, **overrides):
 def test_list_returns_all_for_admin(client, db_service):
     _seed(db_service, modality="eeg")
     _seed(db_service, modality="eeg")
-    _seed(db_service, modality="mri", analysis_type="multi-disease")
+    _seed(db_service, modality="mri", analysis_type="multiclass")
 
     res = client.get("/api/v1/analysis")
     assert res.status_code == 200

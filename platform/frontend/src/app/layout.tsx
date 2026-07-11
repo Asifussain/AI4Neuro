@@ -17,8 +17,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NeuroXiva - AI-Powered MRI Diagnostics",
-  description: "Advanced neurodegenerative disease detection using state-of-the-art AI",
+  title: "AI4NEURO - Unified EEG and MRI Diagnostics",
+  description: "Hospital-ready EEG and MRI analysis for neurodegenerative disease workflows",
 };
 
 export default function RootLayout({
@@ -33,8 +33,9 @@ export default function RootLayout({
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
-          enableSystem
+          defaultTheme="light"
+          forcedTheme="light"
+          enableSystem={false}
           disableTransitionOnChange
         >
           <AuthProvider>

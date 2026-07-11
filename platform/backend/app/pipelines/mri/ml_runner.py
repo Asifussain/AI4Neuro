@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # PIPELINE IMPLEMENTATION
 # =============================================================================
 
-def run_model(scan_path: str, analysis_type: str = 'multi-disease') -> Dict[str, Any]:
+def run_model(scan_path: str, analysis_type: str = 'multiclass') -> Dict[str, Any]:
     # Check if mock mode is enabled
     if USE_MOCK_MODEL:
         try:
@@ -123,16 +123,11 @@ def run_model(scan_path: str, analysis_type: str = 'multi-disease') -> Dict[str,
 
     # --- Formatting Response ---
     classes = ANALYSIS_TYPES.get(analysis_type, ['CN', 'MCI', 'AD'])
-    predicted_label = prediction_result.get('patient_diagnosis', 'Unknown')
-    confidence = prediction_result.get('confidence', 0.0) / 100.0
-    
-    probabilities = [0.0] * len(classes)
-    if predicted_label in classes:
-        idx = classes.index(predicted_label)
-        probabilities[idx] = confidence
-        remainder = (1.0 - confidence) / (len(classes) - 1) if len(classes) > 1 else 0
-        for i in range(len(classes)):
-            if i != idx: probabilities[i] = remainder
+    model_probs = _model_probabilities(prediction_result)
+    probabilities_by_class = _probabilities_for_analysis(model_probs, analysis_type)
+    classes = list(probabilities_by_class.keys())
+    predicted_label = max(probabilities_by_class, key=probabilities_by_class.get)
+    confidence = probabilities_by_class[predicted_label]
 
     # Extract real volumes from mwp1/mwp2 if available, fallback to estimates
     if 'mwp1' in os.path.basename(processed_path):
@@ -152,7 +147,7 @@ def run_model(scan_path: str, analysis_type: str = 'multi-disease') -> Dict[str,
     return {
         'prediction': predicted_label,
         'confidence': confidence,
-        'probabilities': probabilities,
+        'probabilities': list(probabilities_by_class.values()),
         'classes': classes,
         'brain_volume': volumes['brain'],
         'gm_volume': volumes['gm'],
@@ -177,6 +172,7 @@ def get_volume_comparison(ml_results: Dict[str, Any]) -> Dict[str, Dict[str, Any
         'csf': ('csf_volume', NORMATIVE_VOLUMES['csf']),
         'hippocampus': ('hippocampal_volume', NORMATIVE_VOLUMES['hippocampus']),
     }
+
     for name, (key, norm) in volume_mappings.items():
         value = ml_results.get(key)
         if value is not None:
@@ -195,6 +191,41 @@ def get_volume_comparison(ml_results: Dict[str, Any]) -> Dict[str, Dict[str, Any
                 'unit': norm['unit'], 'status': status, 'deviation_percent': round(abs(deviation), 1)
             }
     return comparisons
+
+
+def _model_probabilities(prediction_result: Dict[str, Any]) -> Dict[str, float]:
+    """Return averaged ConViT class probabilities as fractions."""
+    raw = prediction_result.get('average_probabilities') or {}
+    if not raw:
+        diagnosis = prediction_result.get('patient_diagnosis')
+        confidence = float(prediction_result.get('confidence', 0.0))
+        raw = {cls: 0.0 for cls in ['AD', 'CN', 'MCI']}
+        if diagnosis in raw:
+            raw[diagnosis] = confidence
+
+    probs = {cls: max(float(raw.get(cls, 0.0)) / 100.0, 0.0) for cls in ['AD', 'CN', 'MCI']}
+    total = sum(probs.values())
+    if total <= 0:
+        return {'AD': 1 / 3, 'CN': 1 / 3, 'MCI': 1 / 3}
+    return {cls: value / total for cls, value in probs.items()}
+
+
+def _probabilities_for_analysis(
+    model_probs: Dict[str, float], analysis_type: str
+) -> Dict[str, float]:
+    """Map 3-class ConViT probabilities to the requested product analysis."""
+    if analysis_type in {'binary', 'ad-only'}:
+        ad = float(model_probs.get('AD', 0.0))
+        non_ad = float(model_probs.get('CN', 0.0)) + float(model_probs.get('MCI', 0.0))
+        total = ad + non_ad
+        if total <= 0:
+            return {'CN': 0.5, 'AD': 0.5}
+        return {'CN': non_ad / total, 'AD': ad / total}
+    return {
+        'CN': float(model_probs.get('CN', 0.0)),
+        'MCI': float(model_probs.get('MCI', 0.0)),
+        'AD': float(model_probs.get('AD', 0.0)),
+    }
 
 def _error_response(msg):
     return {
