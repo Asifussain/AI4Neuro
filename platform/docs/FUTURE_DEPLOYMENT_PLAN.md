@@ -41,6 +41,9 @@ Oracle gives us a controllable machine for Python/PyTorch/CAT12 later, Supabase
 keeps product data simple, and R2 keeps large model artifacts out of Git and out
 of the Docker build.
 
+For the final URL, DNS, SSL, and environment-variable mapping, see:
+[`PRODUCTION_HOSTING_DNS_REFERENCE.md`](./PRODUCTION_HOSTING_DNS_REFERENCE.md).
+
 ## Why Not Put Models In Git Or The Docker Image?
 
 Do not commit `.pth`, `.pt`, `.ckpt`, or full checkpoint folders.
@@ -244,9 +247,9 @@ Real EEG inference already works locally. Before calling EEG production-ready,
 handle these cleanup items:
 
 ```text
-[ ] Fix backend Supabase JWT verification for ES256/JWKS.
+[x] Fix backend Supabase JWT verification for ES256/JWKS.
 [ ] Set AUTH_DEV_BYPASS=false outside local development.
-[ ] Install/compile the fast dtaidistance C extension or accept slower DTW.
+[ ] Install/compile the fast dtaidistance C extension.
 [ ] Add a real EEG smoke test using a sample .npy file.
 [ ] Polish EEG result UI: prediction, confidence, voting, PSD, time series, similarity.
 [ ] Add clearer frontend upload help for accepted .npy shape and channel index.
@@ -263,15 +266,21 @@ The compiled dtaidistance C library is not available.
 This does not block correctness today because the code falls back to standard
 DTW, but it can slow analysis.
 
-Current local auth warning to clean up before production:
+Current local DTW fix:
 
-```text
-JWT verification failed: The specified alg value is not allowed
+```bash
+# macOS
+brew install libomp
+pip install --force-reinstall --no-cache-dir "dtaidistance>=2.3.10"
+
+# Ubuntu / Oracle VM
+sudo apt-get install -y build-essential libomp-dev
+pip install --force-reinstall --no-cache-dir "dtaidistance>=2.3.10"
 ```
 
-This happens because Supabase is issuing ES256 tokens while the backend currently
-uses the legacy HS256 JWT-secret path. Local works only because
-`AUTH_DEV_BYPASS=true`; production must verify Supabase JWKS properly.
+Supabase auth note: the backend now supports both legacy HS256 JWT-secret
+verification and newer JWKS-based ES256/RS256 verification. Reinstall backend
+API deps after pulling this change so `PyJWT[crypto]` is available.
 
 ### Phase 5: Turn On Real MRI Without CAT12
 
@@ -289,6 +298,8 @@ This runs the ConViT-compatible path without CAT12 preprocessing.
 
 CAT12 is the hardest deployment piece. It needs a VM-like environment where OS
 paths and MATLAB Runtime can be controlled. Oracle VM is appropriate for this.
+Use `platform/docs/CAT12_SETUP.md` as the source of truth for install, env, and
+smoke testing.
 
 Only enable after CAT12 is installed and tested:
 
@@ -298,6 +309,20 @@ CAT12_ROOT=/opt/cat12
 CAT12_EXE=/opt/cat12/spm25
 MCR_ROOT=/opt/matlab-runtime
 CAT12_OUTPUT_DIR=/tmp/neuro-platform/cat12
+```
+
+Validate paths before running the API:
+
+```bash
+cd platform/backend
+source .venv/bin/activate
+python ../scripts/check_cat12_setup.py
+```
+
+Run the real smoke test with a valid T1 scan:
+
+```bash
+python ../scripts/check_cat12_setup.py --run --input /path/to/T1.nii.gz
 ```
 
 Keep this behind a staging test first. CAT12 failures should fail the job, not
@@ -340,8 +365,8 @@ CORS_ORIGINS=https://app.ai4neuro.yourdomain.com
 AUTH_DEV_BYPASS=false
 
 SUPABASE_URL=...
-SUPABASE_SERVICE_ROLE_KEY=...
-SUPABASE_JWT_SECRET=...
+SUPABASE_SERVICE_ROLE_KEY=...   # prefer sb_secret_..., legacy service_role fallback
+SUPABASE_JWT_SECRET=...         # optional for legacy HS256 projects
 
 RAW_FILES_BUCKET=raw-files
 REPORT_ASSETS_BUCKET=report-assets

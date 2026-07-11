@@ -3,6 +3,9 @@
 How to run the unified platform in production. See `README.md` for local dev and
 `architecture.md` for how it fits together.
 
+For URL/domain/DNS planning, see
+[`PRODUCTION_HOSTING_DNS_REFERENCE.md`](./PRODUCTION_HOSTING_DNS_REFERENCE.md).
+
 ---
 
 ## Topology
@@ -28,9 +31,10 @@ Supabase is an **external managed service** — it is not a container in
    Apply via the Supabase SQL editor or `supabase db push`.
 2. **Confirm the buckets** exist and are **private**: `raw-files`, `report-assets`,
    `reports`, `viewer-slices` (0001 creates them; verify in the dashboard).
-3. **Keys:** the backend uses the **service-role** key (server-side only); the frontend
-   uses only the **anon** key. `SUPABASE_JWT_SECRET` (Project Settings → API → JWT) lets
-   the backend verify access tokens.
+3. **Keys:** the frontend uses only the public `sb_publishable_...` key. The
+   backend uses the server-only `sb_secret_...` key. `SUPABASE_JWT_SECRET` is
+   only needed for older HS256 projects; newer Supabase JWT signing keys are
+   verified through JWKS using `SUPABASE_URL`.
 
 ---
 
@@ -42,7 +46,7 @@ Supabase is an **external managed service** — it is not a container in
 |---|---|
 | `APP_ENV` | `production` disables the auth dev-bypass |
 | `CORS_ORIGINS` | comma-separated allowlist (no wildcard in prod) |
-| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_JWT_SECRET` | required for real DB/storage/auth |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_JWT_SECRET` | Supabase URL + server-only key; JWT secret optional for legacy HS256 |
 | `RAW_FILES_BUCKET` / `REPORT_ASSETS_BUCKET` / `REPORTS_BUCKET` / `VIEWER_SLICES_BUCKET` | bucket names |
 | `JOB_BACKEND` / `LOCAL_JOB_MAX_WORKERS` | `local` + worker count (keep low for MRI) |
 | `MAX_UPLOAD_MB` / `LOCAL_TMP_DIR` | upload limit + temp dir |
@@ -55,8 +59,8 @@ Supabase is an **external managed service** — it is not a container in
 
 | Var | Notes |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | inlined at build time |
-| `NEXT_PUBLIC_API_BASE_URL` | e.g. `https://api.yourdomain.com` |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public Supabase URL + `sb_publishable_...`, inlined at build time |
+| `NEXT_PUBLIC_API_BASE_URL` | e.g. `https://api.ai4neuro.in` |
 | `SUPABASE_SERVICE_ROLE_KEY`, `EMAIL_*` | server-only (Next route handlers) |
 
 ---
@@ -125,7 +129,7 @@ images were not built there — build on a host with Docker.)
 ```
 [ ] APP_ENV=production and AUTH_DEV_BYPASS=false
 [ ] No service-role key in any frontend env; anon key only in the browser
-[ ] SUPABASE_JWT_SECRET set; backend verifies every protected request
+[ ] Supabase JWT verification works through JWKS; `SUPABASE_JWT_SECRET` only if legacy HS256
 [ ] Backend enforces role/permission checks (permissions.py)
 [ ] CORS restricted to production origins
 [ ] Sensitive buckets private; reports served via short-lived signed URLs

@@ -211,6 +211,8 @@ CORS_ORIGINS=http://localhost:3000
 
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
+# Optional for legacy HS256 projects. Newer Supabase signing keys are verified
+# through JWKS when SUPABASE_URL is set.
 SUPABASE_JWT_SECRET=
 
 RAW_FILES_BUCKET=raw-files
@@ -222,6 +224,19 @@ JOB_BACKEND=local
 LOCAL_JOB_MAX_WORKERS=2
 USE_MOCK_MODEL=true
 USE_CAT12_PREPROCESSING=false
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` should be the newer Supabase `sb_secret_...` key
+after installing backend deps from `requirements/api.txt`
+(`supabase==2.31.0`). Legacy `service_role` still works as a fallback. Do not
+use either backend key in the browser.
+After pulling JWT/JWKS support, reinstall backend API deps so PyJWT has crypto
+support for ES256/RS256:
+
+```bash
+cd platform/backend
+. .venv/bin/activate
+pip install -r requirements/api.txt
 ```
 
 Start backend:

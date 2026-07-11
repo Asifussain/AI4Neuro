@@ -6,6 +6,7 @@ configured Supabase client; tests override these via ``app.dependency_overrides`
 
 from __future__ import annotations
 
+import httpx
 from fastapi import Depends, HTTPException, status
 
 from app.core.security import Principal, get_current_principal
@@ -33,7 +34,16 @@ def get_current_user(
     if principal.is_dev:
         return principal
 
-    profile = db.get_user_profile(principal.user_id)
+    try:
+        profile = db.get_user_profile(principal.user_id)
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "supabase_unavailable",
+                "message": "Could not reach Supabase while loading your profile. Please retry.",
+            },
+        ) from exc
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

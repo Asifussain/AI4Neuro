@@ -54,7 +54,11 @@ def run_model(scan_path: str, analysis_type: str = 'multiclass') -> Dict[str, An
                 used_cat12 = True
                 logger.info(f"STEP 1 COMPLETE: Generated {mwp1_file}")
             else:
-                logger.warning("STEP 1 FAILED: Could not generate mwp1 file. Proceeding with raw scan.")
+                logger.error("STEP 1 FAILED: CAT12 did not generate an mwp1 file.")
+                return _error_response(
+                    "MRI preprocessing could not complete. Please check the CAT12 "
+                    "and MATLAB Runtime setup, then retry with a valid T1 NIfTI scan."
+                )
 
     # --- Step 2: Slice Extraction ---
     logger.info("STEP 2: Extracting 5 slices...")

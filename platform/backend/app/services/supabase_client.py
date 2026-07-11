@@ -11,6 +11,8 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any
 
+import httpx
+
 from app.core.config import get_settings
 from app.core.logging import get_logger
 
@@ -25,11 +27,27 @@ def get_service_client() -> Any | None:
         logger.warning("Supabase not configured; DB/storage operations disabled.")
         return None
     try:
-        from supabase import create_client
+        from supabase import ClientOptions, create_client
     except ImportError:  # pragma: no cover - supabase always in api.txt
         logger.error("supabase package not installed.")
         return None
-    return create_client(settings.supabase_url, settings.supabase_service_role_key)
+    try:
+        # postgrest-py 2.31 defaults to HTTP/2. Supabase occasionally closes
+        # local dev HTTP/2 streams mid-request, so keep this backend on HTTP/1.1.
+        http_client = httpx.Client(
+            follow_redirects=True,
+            http2=False,
+            timeout=httpx.Timeout(120.0, connect=10.0),
+        )
+        options = ClientOptions(httpx_client=http_client)
+        return create_client(
+            settings.supabase_url,
+            settings.supabase_service_role_key,
+            options=options,
+        )
+    except Exception as exc:
+        logger.error("Failed to initialize Supabase client: %s", exc)
+        return None
 
 
 class SupabaseNotConfiguredError(RuntimeError):

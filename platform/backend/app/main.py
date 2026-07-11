@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -132,6 +133,20 @@ def _install_error_handlers(app: FastAPI) -> None:
                     "message": "Request validation failed.",
                     "request_id": None,
                     "details": exc.errors(),
+                }
+            },
+        )
+
+    @app.exception_handler(httpx.HTTPError)
+    async def upstream_http_exc(request: Request, exc: httpx.HTTPError):
+        logger.warning("Upstream Supabase/network error on %s: %s", request.url.path, exc)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": {
+                    "code": "upstream_unavailable",
+                    "message": "Supabase is temporarily unavailable. Please retry.",
+                    "request_id": None,
                 }
             },
         )
