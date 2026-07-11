@@ -1,8 +1,10 @@
 """Authentication guard.
 
-Verifies Supabase-issued access tokens (``Authorization: Bearer <token>``) using
-the project's JWT secret (HS256), per doc 14.2. The old Flask backends had **no**
-backend auth and trusted client-supplied ids; this closes that gap.
+Verifies Supabase-issued access tokens (``Authorization: Bearer <token>``).
+Supabase projects may issue either legacy HS256 tokens signed with the project's
+JWT secret, or newer asymmetric tokens (for example ES256) discoverable through
+the project's JWKS endpoint. The old Flask backends had **no** backend auth and
+trusted client-supplied ids; this closes that gap.
 
 For the foundation, ``AUTH_DEV_BYPASS`` lets the app run before profiles/roles are
 fully wired (Phase 5): when enabled and no valid token is present, a dev principal
@@ -12,6 +14,7 @@ is injected. It MUST be disabled in production (enforced below).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 from fastapi import Depends, Header, HTTPException, status
 
@@ -43,16 +46,40 @@ class Principal:
     profile: dict = field(default_factory=dict)
 
 
-def _decode_token(token: str, secret: str) -> dict:
+def _decode_token(token: str, settings: Settings) -> dict:
     import jwt  # PyJWT
 
-    return jwt.decode(
-        token,
-        secret,
-        algorithms=["HS256"],
-        audience="authenticated",
-        options={"verify_aud": False},  # Supabase aud can vary; verify signature+exp
-    )
+    header = jwt.get_unverified_header(token)
+    algorithm = header.get("alg")
+
+    if algorithm == "HS256" and settings.supabase_jwt_secret:
+        return jwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+            audience="authenticated",
+            options={"verify_aud": False},  # Supabase aud can vary; verify signature+exp
+        )
+
+    if settings.supabase_url:
+        signing_key = _jwks_client(settings.supabase_url).get_signing_key_from_jwt(token)
+        return jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["ES256", "RS256"],
+            audience="authenticated",
+            options={"verify_aud": False},
+        )
+
+    raise ValueError("Supabase JWT verification is not configured.")
+
+
+@lru_cache(maxsize=8)
+def _jwks_client(supabase_url: str):
+    from jwt import PyJWKClient
+
+    base = supabase_url.rstrip("/")
+    return PyJWKClient(f"{base}/auth/v1/.well-known/jwks.json")
 
 
 def get_current_principal(
@@ -62,9 +89,9 @@ def get_current_principal(
     """FastAPI dependency resolving the current authenticated principal."""
     token = _extract_bearer(authorization)
 
-    if token and settings.supabase_jwt_secret:
+    if token and (settings.supabase_jwt_secret or settings.supabase_url):
         try:
-            claims = _decode_token(token, settings.supabase_jwt_secret)
+            claims = _decode_token(token, settings)
             return Principal(
                 user_id=claims.get("sub", ""),
                 email=claims.get("email"),

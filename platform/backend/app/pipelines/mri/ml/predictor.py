@@ -5,6 +5,7 @@ Uses ConViT model for multi-class classification with majority voting.
 
 import os
 import logging
+import time
 from typing import List, Dict, Any, Optional
 from collections import Counter
 from pathlib import Path
@@ -71,13 +72,30 @@ class MRIPredictor:
                 return
 
             # Load the ConViT model
+            model_start = time.perf_counter()
+            logger.info("Creating ConViT architecture: convit_base.fb_in1k")
             self.model = timm.create_model('convit_base.fb_in1k', pretrained=False, num_classes=3)
+            logger.info("ConViT architecture created in %.2fs", time.perf_counter() - model_start)
 
             # Load checkpoint weights
+            load_start = time.perf_counter()
+            checkpoint_size_mb = os.path.getsize(self.checkpoint_path) / (1024 * 1024)
+            logger.info(
+                "Loading MRI checkpoint %.1f MB from %s",
+                checkpoint_size_mb,
+                self.checkpoint_path,
+            )
             checkpoint = torch.load(self.checkpoint_path, map_location=self.device)
+            logger.info("MRI checkpoint deserialized in %.2fs", time.perf_counter() - load_start)
+
+            state_start = time.perf_counter()
             self.model.load_state_dict(checkpoint['model_state_dict'])
+            logger.info("MRI checkpoint state loaded in %.2fs", time.perf_counter() - state_start)
+
+            device_start = time.perf_counter()
             self.model = self.model.to(self.device)
             self.model.eval()
+            logger.info("MRI model moved to %s in %.2fs", self.device, time.perf_counter() - device_start)
 
             logger.info(f"Model loaded from: {self.checkpoint_path}")
             logger.info(f"Checkpoint epoch: {checkpoint.get('epoch', 'N/A')}")
@@ -168,7 +186,10 @@ class MRIPredictor:
 
         for i, img_path in enumerate(image_paths, 1):
             try:
+                slice_start = time.perf_counter()
+                logger.info("Predicting MRI slice %s/%s: %s", i, len(image_paths), os.path.basename(img_path))
                 prediction = self.predict_single_image(img_path)
+                logger.info("MRI slice %s/%s predicted in %.2fs", i, len(image_paths), time.perf_counter() - slice_start)
                 individual_predictions.append({
                     'image_index': i,
                     'image_path': os.path.basename(img_path),
@@ -254,6 +275,7 @@ class MRIPredictor:
 
 # Global predictor instance (initialized lazily)
 _predictor: Optional[MRIPredictor] = None
+_predictor_checkpoint_path: Optional[str] = None
 
 
 def create_predictor(checkpoint_path: str = None) -> MRIPredictor:
@@ -266,7 +288,7 @@ def create_predictor(checkpoint_path: str = None) -> MRIPredictor:
     Returns:
         MRIPredictor instance
     """
-    global _predictor
+    global _predictor, _predictor_checkpoint_path
 
     if checkpoint_path is None:
         # Default checkpoint path
@@ -276,7 +298,10 @@ def create_predictor(checkpoint_path: str = None) -> MRIPredictor:
             'ConViT_model.pth'
         )
 
-    if _predictor is None:
+    checkpoint_path = os.path.abspath(checkpoint_path)
+
+    if _predictor is None or _predictor_checkpoint_path != checkpoint_path:
         _predictor = MRIPredictor(checkpoint_path)
+        _predictor_checkpoint_path = checkpoint_path
 
     return _predictor
