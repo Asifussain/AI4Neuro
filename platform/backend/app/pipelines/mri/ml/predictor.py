@@ -204,11 +204,25 @@ class MRIPredictor:
             }
             for cls in self.class_names
         }
+        average_probabilities = {cls: 0.0 for cls in self.class_names}
+        probability_rows = [
+            pred.get('probabilities') or {}
+            for pred in individual_predictions
+            if isinstance(pred.get('probabilities'), dict)
+        ]
+        if probability_rows:
+            for cls in self.class_names:
+                average_probabilities[cls] = round(
+                    sum(float(row.get(cls, 0.0)) for row in probability_rows)
+                    / len(probability_rows),
+                    2,
+                )
 
         result = {
             'patient_diagnosis': final_diagnosis,
             'diagnosis_label': self.CLASS_LABELS.get(final_diagnosis, final_diagnosis),
             'confidence': round(avg_confidence, 2),
+            'average_probabilities': average_probabilities,
             'vote_distribution': vote_distribution,
             'individual_predictions': individual_predictions,
             'consensus_strength': round(consensus_strength, 1),

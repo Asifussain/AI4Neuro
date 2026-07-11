@@ -117,6 +117,7 @@ class PdfReportService:
             build_technical_pdf_report_content,
         )
 
+        context["prediction"] = _eeg_prediction_context(result, context)
         stats = result.metrics.get("eeg_stats")
         similarity = result.similarity
         consistency = result.consistency
@@ -222,5 +223,43 @@ def _mri_ml_results(result: PipelineResult, session: dict) -> dict:
         "ventricular_volume": m.get("ventricular_volume"),
         "model_version": result.model_version,
         "analysis_type": session.get("analysis_type"),
+        "processing_time": _processing_seconds(m.get("processing_time_ms")),
         "used_cat12": m.get("used_cat12"),
     }
+
+
+def _eeg_prediction_context(result: PipelineResult, context: dict) -> dict:
+    """Reconstruct the legacy prediction dict the EEG builders expect."""
+    session = context.get("session") or {}
+    analysis_type = session.get("analysis_type")
+    return {
+        "prediction": result.prediction,
+        "confidence": result.confidence,
+        "probabilities": _ordered_eeg_probabilities(result.probabilities, analysis_type),
+        "model_version": result.model_version,
+        "analysis_type": analysis_type,
+        "created_at": session.get("scan_date") or session.get("session_date"),
+        "session_code": session.get("session_code"),
+    }
+
+
+def _ordered_eeg_probabilities(probabilities: dict, analysis_type: str | None) -> list[float]:
+    """Return the probability list shape expected by the ported EEG PDFs."""
+    if analysis_type == "multiclass":
+        labels = ["CN", "MCI", "AD"]
+    else:
+        labels = ["Normal", "Alzheimer's"]
+    return [float(probabilities.get(label, 0.0)) for label in labels]
+
+
+def _processing_seconds(value: object) -> float:
+    if value is None:
+        return 0.0
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    # Real MRI returns milliseconds; older/mock paths used seconds.
+    if numeric > 1000:
+        return round(numeric / 1000, 2)
+    return round(numeric, 2)

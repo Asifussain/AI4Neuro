@@ -47,7 +47,7 @@ export const Navbar = () => {
   return (
     <nav className={styles.navbar}>
       <div className={styles.navbarBrand}>
-        <Link href={user && userProfile ? "/home" : "/landing"}>NeuroXiva</Link>
+        <Link href={user && userProfile ? `/${userProfile.role}/dashboard` : '/login'}>AI4NEURO</Link>
       </div>
 
       <button
@@ -62,14 +62,14 @@ export const Navbar = () => {
         {user && userProfile ? (
           <>
             <li>
-              <Link href="/home" onClick={closeMobileMenu}>
-                Home
+              <Link href={`/${userProfile.role}/dashboard`} onClick={closeMobileMenu}>
+                Dashboard
               </Link>
             </li>
             {userProfile.role && userProfile.account_status === 'active' && (
               <li>
-                <Link href={`/${userProfile.role}/dashboard`} onClick={closeMobileMenu}>
-                  Dashboard
+                <Link href="/analysis/new" onClick={closeMobileMenu}>
+                  New Analysis
                 </Link>
               </li>
             )}

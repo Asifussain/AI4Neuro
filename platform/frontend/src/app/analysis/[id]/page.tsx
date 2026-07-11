@@ -16,8 +16,8 @@ function AnalysisDetailPage() {
   return (
     <>
       <Navbar />
-      <div className="bg-background min-h-screen px-4 pt-24">
-        <div className="mx-auto max-w-2xl space-y-4">
+      <div className="ai4-page min-h-screen px-4 pb-12 pt-24">
+        <div className="mx-auto max-w-5xl space-y-4">
           <AnalysisStatusPanel status={status} onRetry={retry} />
           {result && <AnalysisResultPanel result={result} />}
         </div>

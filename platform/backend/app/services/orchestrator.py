@@ -17,6 +17,7 @@ import shutil
 from app.core.logging import get_logger
 from app.pipelines.base import AnalysisContext, run_pipeline
 from app.services.database import DatabaseService
+from app.services.error_messages import public_analysis_error
 from app.services.reports import PdfReportService, ReportService
 from app.services.storage import StorageService, new_temp_dir
 from app.schemas.analysis import SessionStatus
@@ -117,10 +118,11 @@ def run_analysis_job(
 
     except Exception as exc:  # noqa: BLE001 - orchestrator is the top of the job
         logger.exception("Analysis failed for session %s", session_id)
+        public_message = public_analysis_error(exc)
         try:
-            db.mark_failed(session_id, str(exc))
+            db.mark_failed(session_id, public_message)
             db.insert_job_event(
-                session_id, level="error", message=f"Job failed: {exc}",
+                session_id, level="error", message=f"Job failed: {public_message}",
             )
         except Exception:  # pragma: no cover - never mask the original error
             logger.exception("Also failed to record failure for %s", session_id)

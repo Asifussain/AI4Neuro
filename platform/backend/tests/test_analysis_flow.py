@@ -52,7 +52,7 @@ def test_eeg_upload_runs_to_completion(client):
 
 
 def test_mri_multiclass_shape(client):
-    res = _upload(client, modality="mri", analysis_type="multi-disease", filename="scan.nii.gz")
+    res = _upload(client, modality="mri", analysis_type="multiclass", filename="scan.nii.gz")
     assert res.status_code == 202
     session_id = res.json()["session_id"]
     result = client.get(f"/api/v1/analysis/{session_id}/result").json()

@@ -56,7 +56,7 @@ def _extract_viewer_slices(scan_path: str, work_dir: str) -> dict[str, list[str]
 
 
 def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
-    analysis_type = context.analysis_type or "multi-disease"
+    analysis_type = _normalize_analysis_type(context.analysis_type)
     scan_path = context.local_input_path
     work_dir = os.path.dirname(os.path.abspath(scan_path))
 
@@ -133,3 +133,11 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
         artifacts=artifacts,
         viewer_slices=viewer_slices,
     )
+
+
+def _normalize_analysis_type(analysis_type: str | None) -> str:
+    aliases = {
+        "multi-disease": "multiclass",
+        "ad-only": "binary",
+    }
+    return aliases.get((analysis_type or "multiclass").strip().lower(), analysis_type or "multiclass")

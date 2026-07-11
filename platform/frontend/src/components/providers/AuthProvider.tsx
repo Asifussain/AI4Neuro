@@ -2,8 +2,20 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
+import { createClient, resetClient } from '@/lib/supabase/client';
+import { AuthChangeEvent, User, Session } from '@supabase/supabase-js';
+
+interface RoleProfile {
+  date_of_birth?: string;
+  blood_groups?: { blood_group?: string };
+  emergency_contact?: string;
+  license_number?: string;
+  specialization?: string;
+  hospitals?: { name?: string };
+  years_of_experience?: number;
+  admin_level?: string;
+  patient_code?: string;
+}
 
 interface UserProfile {
   id: string;
@@ -12,7 +24,7 @@ interface UserProfile {
   role: 'patient' | 'doctor' | 'radiologist' | 'technician' | 'admin';
   phone?: string;
   account_status: 'active' | 'inactive' | 'suspended';
-  roleProfile?: any;
+  roleProfile?: RoleProfile | null;
 }
 
 interface AuthContextType {
@@ -92,11 +104,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       return null;
-    } catch (e: any) {
-      if (e.name === 'AbortError') {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === 'AbortError') {
         console.log('Profile fetch timed out');
       } else {
-        console.log('Profile fetch error:', e.message);
+        console.log('Profile fetch error:', e instanceof Error ? e.message : e);
       }
       return null;
     }
@@ -129,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Clear stale/invalid session from storage to prevent repeated errors
           try {
             await supabase.auth.signOut();
-          } catch (_) {}
+          } catch {}
           setLoading(false);
           return;
         }
@@ -173,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Safety timeout
     const safetyTimeout = setTimeout(() => {
-      if (mounted && loading) {
+      if (mounted) {
         console.log('Safety timeout - forcing load complete');
         setLoading(false);
       }
@@ -182,7 +194,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
 
     // Auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, currentSession: any) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (
+      event: AuthChangeEvent,
+      currentSession: Session | null
+    ) => {
       if (!mounted) return;
       console.log('Auth event:', event);
 
@@ -221,6 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign out
   const signOut = useCallback(async () => {
+    setLoading(false);
     setUser(null);
     setUserProfile(null);
     setSession(null);
@@ -229,9 +245,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.log('Signout error:', e);
     }
-    // Signal to login page that we just logged out so it skips the session redirect
-    window.location.href = '/login?logged_out=1';
-  }, [supabase]);
+    resetClient();
+    router.replace('/login?logged_out=1');
+    router.refresh();
+  }, [router, supabase]);
 
   return (
     <AuthContext.Provider value={{ user, userProfile, session, loading, signOut, refreshProfile }}>

@@ -49,7 +49,7 @@ export default function AccountSuspendedPage() {
             </svg>
             <div className="text-left text-sm text-amber-300">
               <p className="font-medium">Need help?</p>
-              <p className="text-amber-400/80">Contact support at support@neuroxiva.com or speak with your hospital administrator.</p>
+              <p className="text-amber-400/80">Contact support at support@ai4neuro.com or speak with your hospital administrator.</p>
             </div>
           </div>
         </div>
@@ -62,7 +62,7 @@ export default function AccountSuspendedPage() {
             Sign Out
           </button>
           <Link
-            href="mailto:support@neuroxiva.com"
+            href="mailto:support@ai4neuro.com"
             className="px-6 py-2.5 text-white bg-gradient-to-r from-purple-600 to-teal-500 rounded-xl hover:from-purple-500 hover:to-teal-400 transition-all shadow-lg shadow-purple-500/25"
           >
             Contact Support
@@ -77,7 +77,7 @@ export default function AccountSuspendedPage() {
                 <path d="M12 2C9.243 2 7 4.243 7 7c0 .836.194 1.625.537 2.331C5.397 10.148 4 12.233 4 14.667c0 1.545.627 2.944 1.64 3.96C4.626 19.642 4 21.026 4 22.5c0 .828.672 1.5 1.5 1.5h13c.828 0 1.5-.672 1.5-1.5 0-1.474-.627-2.858-1.64-3.873 1.013-1.016 1.64-2.415 1.64-3.96 0-2.434-1.397-4.519-3.537-5.336A4.984 4.984 0 0017 7c0-2.757-2.243-5-5-5z" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <span className="text-sm font-medium">NeuroXiva</span>
+            <span className="text-sm font-medium">AI4NEURO</span>
           </Link>
         </div>
       </div>

@@ -63,6 +63,39 @@ def _validate_upload(modality: str, filename: str) -> None:
         )
 
 
+def _normalize_analysis_type(modality: str, analysis_type: str) -> str:
+    value = (analysis_type or "").strip().lower()
+    if modality == Modality.mri.value:
+        aliases = {
+            "multi-disease": "multiclass",
+            "ad-only": "binary",
+        }
+        value = aliases.get(value, value)
+    allowed = {"binary", "multiclass"}
+    if value not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "invalid_analysis_type",
+                "message": "Analysis type must be Binary or Multiclass.",
+            },
+        )
+    return value
+
+
+def _safe_exception_details(exc: Exception) -> dict:
+    """Expose concise DB/storage diagnostics without leaking stack traces."""
+    details = {
+        "type": exc.__class__.__name__,
+        "message": str(exc)[:500],
+    }
+    for attr in ("code", "message", "details", "hint"):
+        value = getattr(exc, attr, None)
+        if value:
+            details[attr] = str(value)[:500]
+    return details
+
+
 @router.post("", response_model=CreateAnalysisResponse, status_code=status.HTTP_202_ACCEPTED)
 async def create_analysis(
     file: UploadFile = File(...),
@@ -83,6 +116,7 @@ async def create_analysis(
 ) -> CreateAnalysisResponse:
     modality = modality.lower().strip()
     _validate_upload(modality, file.filename or "")
+    analysis_type = _normalize_analysis_type(modality, analysis_type)
 
     if not permissions.can_create_analysis(principal.role, modality):
         raise _forbid(f"Your role may not create {modality} analyses.")
@@ -98,35 +132,81 @@ async def create_analysis(
         )
 
     pipeline_options = _build_pipeline_options(modality, channel_index, scan_metadata_json)
+    uploaded_by_role = uploaded_by_role or principal.role
+    hospital_id = hospital_id or principal.hospital_id
+    if principal.role == "technician" and not technician_id:
+        technician_id = principal.user_id
+    if principal.role == "radiologist" and not radiologist_id:
+        radiologist_id = principal.user_id
+    if principal.role == "doctor" and not doctor_id:
+        doctor_id = principal.user_id
 
     # 1) Create the session row (queued).
-    session = db.create_session(
-        modality=modality,
-        analysis_type=analysis_type,
-        original_filename=file.filename or "upload",
-        patient_id=patient_id,
-        doctor_id=doctor_id,
-        radiologist_id=radiologist_id,
-        technician_id=technician_id,
-        hospital_id=hospital_id,
-        uploaded_by=None if principal.is_dev else principal.user_id,
-        uploaded_by_role=uploaded_by_role,
-        pipeline_options=pipeline_options,
-    )
+    try:
+        session = db.create_session(
+            modality=modality,
+            analysis_type=analysis_type,
+            original_filename=file.filename or "upload",
+            patient_id=patient_id,
+            doctor_id=doctor_id,
+            radiologist_id=radiologist_id,
+            technician_id=technician_id,
+            hospital_id=hospital_id,
+            uploaded_by=None if principal.is_dev else principal.user_id,
+            uploaded_by_role=uploaded_by_role,
+            pipeline_options=pipeline_options,
+        )
+    except Exception as exc:
+        logger.exception("Failed to create analysis session.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "analysis_session_create_failed",
+                "message": (
+                    "Could not create the analysis session. Verify the selected patient, "
+                    "doctor, hospital, and unified Supabase schema."
+                ),
+                "details": _safe_exception_details(exc),
+            },
+        ) from exc
     session_id = str(session["id"])
 
     # 2) Upload the raw file and record its location.
-    bucket, path = storage.upload_raw_file(
-        modality=modality,
-        session_id=session_id,
-        filename=file.filename or "upload",
-        data=data,
-    )
-    db.set_raw_file(session_id, path=path, bucket=bucket)
-    db.insert_job_event(session_id, message="Upload stored", stage="saved_upload")
+    try:
+        bucket, path = storage.upload_raw_file(
+            modality=modality,
+            session_id=session_id,
+            filename=file.filename or "upload",
+            data=data,
+        )
+        db.set_raw_file(session_id, path=path, bucket=bucket)
+        db.insert_job_event(session_id, message="Upload stored", stage="saved_upload")
+    except Exception as exc:
+        logger.exception("Failed to store raw upload for session %s.", session_id)
+        db.mark_failed(session_id, f"Upload storage failed: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "raw_upload_failed",
+                "message": "Could not store the uploaded file. Verify Supabase storage buckets.",
+                "details": _safe_exception_details(exc),
+            },
+        ) from exc
 
     # 3) Enqueue background processing (behind the JobService boundary).
-    get_job_service().enqueue_analysis(session_id)
+    try:
+        get_job_service().enqueue_analysis(session_id)
+    except Exception as exc:
+        logger.exception("Failed to enqueue analysis job for session %s.", session_id)
+        db.mark_failed(session_id, f"Job enqueue failed: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "job_enqueue_failed",
+                "message": "Analysis session was created, but processing could not be started.",
+                "details": _safe_exception_details(exc),
+            },
+        ) from exc
 
     return CreateAnalysisResponse(
         session_id=session_id,
@@ -284,6 +364,8 @@ def _to_status(session: dict) -> SessionStatusResponse:
         id=str(session["id"]),
         modality=session["modality"],
         analysis_type=session["analysis_type"],
+        patient_id=str(session.get("patient_id")) if session.get("patient_id") else None,
+        doctor_id=str(session.get("doctor_id")) if session.get("doctor_id") else None,
         status=session["status"],
         current_stage=session.get("current_stage"),
         progress_percent=session.get("progress_percent", 0) or 0,

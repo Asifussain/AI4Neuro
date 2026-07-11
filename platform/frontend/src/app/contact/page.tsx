@@ -20,8 +20,8 @@ const contactInfo = [
   {
     icon: Mail,
     title: 'Email',
-    primary: 'support@neuroxiva.com',
-    secondary: 'sales@neuroxiva.com',
+    primary: 'support@ai4neuro.com',
+    secondary: 'sales@ai4neuro.com',
   },
   {
     icon: Phone,
@@ -87,7 +87,7 @@ export default function ContactPage() {
             Contact Us
           </h1>
           <p className="body-lg text-muted-foreground max-w-2xl mx-auto">
-            Have questions about NeuroXiva? Our team is here to help. Reach out to us
+            Have questions about AI4NEURO? Our team is here to help. Reach out to us
             and we'll respond as soon as possible.
           </p>
         </div>
@@ -225,11 +225,11 @@ export default function ContactPage() {
                 <h3 className="text-lg font-semibold text-foreground mb-4">Quick Contact</h3>
                 <div className="space-y-4">
                   <a
-                    href="mailto:support@neuroxiva.com"
+                    href="mailto:support@ai4neuro.com"
                     className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                   >
                     <Mail className="w-5 h-5 text-primary" />
-                    <span className="text-foreground">support@neuroxiva.com</span>
+                    <span className="text-foreground">support@ai4neuro.com</span>
                   </a>
                   <a
                     href="tel:+15551234567"
@@ -278,7 +278,7 @@ export default function ContactPage() {
       {/* Footer */}
       <footer className="py-8 px-4 border-t border-border">
         <div className="max-w-6xl mx-auto text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} NeuroXiva. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} AI4NEURO. All rights reserved.</p>
         </div>
       </footer>
     </div>

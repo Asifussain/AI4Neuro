@@ -74,6 +74,8 @@ class SessionStatusResponse(BaseModel):
     id: str
     modality: str
     analysis_type: str
+    patient_id: str | None = None
+    doctor_id: str | None = None
     status: str
     current_stage: str | None = None
     progress_percent: int = 0

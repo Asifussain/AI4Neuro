@@ -7,3 +7,9 @@ __pycache__/
 .pytest_cache/
 /tmp/
 uploads/
+.DS_Store
+models/.DS_Store
+models/eeg/checkpoints/
+models/mri/*.pth
+models/mri/*.pt
+models/mri/*.ckpt

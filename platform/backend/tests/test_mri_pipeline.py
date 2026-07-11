@@ -39,7 +39,7 @@ def _make_context(base_dir, filename: str, analysis_type: str, sid: str) -> Anal
 def test_mock_unified_shape(tmp_path):
     from app.pipelines.mri.runner import run_mri_pipeline
 
-    ctx = _make_context(tmp_path, "scan.nii.gz", "multi-disease", "mri-mock")
+    ctx = _make_context(tmp_path, "scan.nii.gz", "multiclass", "mri-mock")
     res = run_mri_pipeline(ctx)
 
     assert res.prediction in {"CN", "MCI", "AD"}
@@ -59,10 +59,10 @@ def test_mock_unified_shape(tmp_path):
     assert res.model_version  # e.g. 'mock-v1.0' or 'ConViT-v1.0'
 
 
-def test_ad_only_two_classes(tmp_path):
+def test_binary_two_classes(tmp_path):
     from app.pipelines.mri.runner import run_mri_pipeline
 
-    ctx = _make_context(tmp_path, "scan.nii.gz", "ad-only", "mri-adonly")
+    ctx = _make_context(tmp_path, "scan.nii.gz", "binary", "mri-binary")
     res = run_mri_pipeline(ctx)
     assert set(res.probabilities.keys()) == {"CN", "AD"}
 
@@ -109,7 +109,7 @@ def test_full_loop_via_orchestrator(tmp_path):
 
     session = db.create_session(
         modality="mri",
-        analysis_type="multi-disease",
+        analysis_type="multiclass",
         original_filename="scan.nii.gz",
         patient_id="11111111-1111-1111-1111-111111111111",
     )

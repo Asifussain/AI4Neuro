@@ -190,9 +190,9 @@ export async function POST(request: NextRequest) {
       const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
 
       await transporter.sendMail({
-        from: `"NeuroXiva Platform" <${process.env.EMAIL_USER}>`,
+        from: `"AI4NEURO Platform" <${process.env.EMAIL_USER}>`,
         to: email,
-        subject: 'Welcome to NeuroXiva — Your Login Credentials',
+        subject: 'Welcome to AI4NEURO — Your Login Credentials',
         html: `
 <!DOCTYPE html>
 <html>
@@ -203,14 +203,14 @@ export async function POST(request: NextRequest) {
       <table width="560" cellpadding="0" cellspacing="0" style="background-color:#111827;border-radius:16px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;">
         <!-- Header -->
         <tr><td style="background:linear-gradient(135deg,#7c3aed,#14b8a6);padding:32px 40px;">
-          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">NeuroXiva</h1>
+          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">AI4NEURO</h1>
           <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">AI-Powered MRI Analysis Platform</p>
         </td></tr>
         <!-- Body -->
         <tr><td style="padding:32px 40px;">
           <h2 style="margin:0 0 8px;color:#f1f5f9;font-size:20px;">Welcome, ${full_name}!</h2>
           <p style="margin:0 0 24px;color:#94a3b8;font-size:14px;line-height:1.6;">
-            Your <strong style="color:#e2e8f0;">${roleLabel}</strong> account has been created on NeuroXiva. Below are your login credentials.
+            Your <strong style="color:#e2e8f0;">${roleLabel}</strong> account has been created on AI4NEURO. Below are your login credentials.
           </p>
           <!-- Credentials Box -->
           <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#1e293b;border-radius:12px;border:1px solid rgba(255,255,255,0.06);">
@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr><td align="center" style="padding:8px 0 0;">
               <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#7c3aed,#14b8a6);color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:10px;">
-                Login to NeuroXiva
+                Login to AI4NEURO
               </a>
             </td></tr>
           </table>
@@ -246,8 +246,8 @@ export async function POST(request: NextRequest) {
         <!-- Footer -->
         <tr><td style="padding:24px 40px;border-top:1px solid rgba(255,255,255,0.05);">
           <p style="margin:0;color:#475569;font-size:11px;text-align:center;line-height:1.5;">
-            This is an automated message from NeuroXiva. Do not reply to this email.<br/>
-            &copy; 2026 NeuroXiva. All rights reserved.
+            This is an automated message from AI4NEURO. Do not reply to this email.<br/>
+            &copy; 2026 AI4NEURO. All rights reserved.
           </p>
         </td></tr>
       </table>

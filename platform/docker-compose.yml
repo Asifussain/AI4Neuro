@@ -4,7 +4,11 @@
 # container here: point the services at it via SUPABASE_* / NEXT_PUBLIC_SUPABASE_*.
 #
 #   cp backend/.env.example backend/.env      # fill in SUPABASE_* etc.
-#   cp frontend/.env.example frontend/.env    # fill in NEXT_PUBLIC_* etc.
+#   cp frontend/.env.example frontend/.env    # fill in runtime frontend env
+#
+# Compose build args are interpolated from the project shell/.env, not env_file.
+# For real frontend Docker builds, export NEXT_PUBLIC_* or create platform/.env
+# with the same NEXT_PUBLIC_* values before running `docker compose up --build`.
 #   docker compose up --build
 #
 # The backend here is the all-in-one MVP image (API + both pipelines, jobs run
@@ -35,8 +39,8 @@ services:
       dockerfile: Dockerfile
       args:
         # NEXT_PUBLIC_* are inlined at build time.
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-https://placeholder.supabase.co}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-placeholder}
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
     env_file:
       - ./frontend/.env

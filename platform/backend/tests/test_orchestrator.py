@@ -61,7 +61,7 @@ def test_pipeline_error_marks_failed():
 
     session = db.get_session(sid)
     assert session["status"] == "failed"
-    assert "model exploded" in (session["error_message"] or "")
+    assert "Analysis could not be completed" in (session["error_message"] or "")
     assert any(
         e["level"] == "error" for e in fake.tables.get("job_events", [])
     )

@@ -6,7 +6,7 @@ import { useAuth } from '@/components/providers/AuthProvider';
 
 /**
  * Root page with smart redirects:
- * - Not authenticated → /landing (public landing page)
+ * - Not authenticated -> /login
  * - Authenticated with active account → /{role}/dashboard
  * - Authenticated but suspended → /account-suspended
  */
@@ -18,9 +18,9 @@ export default function RootPage() {
     // Wait for auth state to load
     if (loading) return;
 
-    // Not authenticated - go to public landing page
+    // Not authenticated - go to the hospital login page
     if (!user) {
-      router.replace('/landing');
+      router.replace('/login');
       return;
     }
 
@@ -39,10 +39,10 @@ export default function RootPage() {
     }
 
     // User exists but no profile yet - might still be loading
-    // Wait a bit then redirect to landing if still no profile
+    // Wait a bit then redirect to login if still no profile
     const timeout = setTimeout(() => {
       if (!userProfile) {
-        router.replace('/landing');
+        router.replace('/login');
       }
     }, 3000);
 
@@ -51,17 +51,10 @@ export default function RootPage() {
 
   // Full-screen loading state while determining redirect
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0f]">
-      {/* Background orbs */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[100px]"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-teal-500/15 rounded-full blur-[80px]"></div>
-      </div>
-
-      <div className="relative z-10 flex flex-col items-center gap-6">
-        {/* Brain icon with pulse animation */}
+    <div className="ai4-page min-h-screen flex items-center justify-center">
+      <div className="flex flex-col items-center gap-6">
         <div className="relative">
-          <div className="w-20 h-20 bg-gradient-to-br from-purple-500 via-violet-500 to-teal-400 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/30">
+          <div className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center shadow-sm">
             <svg
               viewBox="0 0 24 24"
               className="w-10 h-10 text-white"
@@ -76,18 +69,17 @@ export default function RootPage() {
               />
             </svg>
           </div>
-          {/* Animated rings */}
           <div className="absolute inset-0 -m-4 flex items-center justify-center">
-            <div className="w-28 h-28 rounded-2xl border-2 border-purple-500/30 animate-ping"></div>
+            <div className="w-28 h-28 rounded-2xl border-2 border-primary/20 animate-ping"></div>
           </div>
         </div>
 
         <div className="text-center">
-          <p className="text-xl font-semibold text-white mb-2">NeuroXiva</p>
-          <div className="flex items-center gap-2 text-slate-400">
+          <p className="text-xl font-semibold text-foreground mb-2">AI4NEURO</p>
+          <div className="flex items-center gap-2 text-muted-foreground">
             <div className="relative w-5 h-5">
-              <div className="w-5 h-5 border-2 border-purple-500/20 rounded-full"></div>
-              <div className="absolute inset-0 w-5 h-5 border-2 border-transparent border-t-purple-500 rounded-full animate-spin"></div>
+              <div className="w-5 h-5 border-2 border-primary/20 rounded-full"></div>
+              <div className="absolute inset-0 w-5 h-5 border-2 border-transparent border-t-primary rounded-full animate-spin"></div>
             </div>
             <span className="text-sm">Loading your dashboard...</span>
           </div>
