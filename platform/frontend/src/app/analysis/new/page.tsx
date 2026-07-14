@@ -17,5 +17,5 @@ function NewAnalysisPage() {
 
 // Anyone who may create an analysis (backend enforces the modality/role matrix too).
 export default withAuth(NewAnalysisPage, {
-  allowedRoles: ['admin', 'doctor', 'radiologist', 'technician'],
+  allowedRoles: ['super_admin', 'hospital_admin', 'doctor', 'radiologist'],
 });

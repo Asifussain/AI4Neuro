@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 
-type UserRole = 'patient' | 'doctor' | 'radiologist' | 'technician' | 'admin' | 'super_admin';
+type UserRole = 'patient' | 'doctor' | 'radiologist' | 'hospital_admin' | 'super_admin';
 
 interface WithAuthOptions {
   allowedRoles?: UserRole[];

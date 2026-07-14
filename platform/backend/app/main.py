@@ -15,8 +15,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.v1 import admin as admin_routes
 from app.api.v1 import analysis as analysis_routes
 from app.api.v1 import health as health_routes
+from app.api.v1 import hospitals as hospitals_routes
 from app.api.v1 import users as users_routes
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
@@ -77,6 +79,8 @@ def create_app() -> FastAPI:
     v1.include_router(health_routes.router)
     v1.include_router(analysis_routes.router)
     v1.include_router(users_routes.router)
+    v1.include_router(hospitals_routes.router)
+    v1.include_router(admin_routes.router)
     app.include_router(v1)
 
     _install_error_handlers(app)

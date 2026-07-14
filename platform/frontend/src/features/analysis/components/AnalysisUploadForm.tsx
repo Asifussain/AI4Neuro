@@ -277,7 +277,6 @@ export function AnalysisUploadForm() {
     if (doctorId.trim() && doctorId !== NO_DOCTOR_VALUE) form.append('doctor_id', doctorId.trim());
     if (userProfile?.id) {
       form.append('uploaded_by_role', userProfile.role);
-      if (userProfile.role === 'technician') form.append('technician_id', userProfile.id);
       if (userProfile.role === 'radiologist') form.append('radiologist_id', userProfile.id);
       if (userProfile.role === 'doctor' && !doctorId.trim()) form.append('doctor_id', userProfile.id);
     }

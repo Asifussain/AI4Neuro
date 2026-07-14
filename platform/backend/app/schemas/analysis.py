@@ -139,4 +139,4 @@ class ErrorResponse(BaseModel):
     error: ErrorDetail
 
 
-UploadedByRole = Literal["admin", "doctor", "radiologist", "technician", "patient"]
+UploadedByRole = Literal["super_admin", "hospital_admin", "doctor", "radiologist", "patient"]

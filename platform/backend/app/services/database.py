@@ -62,7 +62,6 @@ class DatabaseService:
         patient_id: str,
         doctor_id: str | None = None,
         radiologist_id: str | None = None,
-        technician_id: str | None = None,
         hospital_id: str | None = None,
         uploaded_by: str | None = None,
         uploaded_by_role: str | None = None,
@@ -76,7 +75,6 @@ class DatabaseService:
             "patient_id": patient_id,
             "doctor_id": doctor_id,
             "radiologist_id": radiologist_id,
-            "technician_id": technician_id,
             "hospital_id": hospital_id,
             "uploaded_by": uploaded_by,
             "uploaded_by_role": uploaded_by_role,
@@ -264,6 +262,99 @@ class DatabaseService:
             .execute()
         )
         return _one(res)
+
+    # ---------------------------- hospitals ------------------------------ #
+
+    def create_hospital(self, row: dict) -> dict:
+        row = {"status": "active", **row}
+        res = self.client.table("hospitals").insert(row).execute()
+        created = _one(res)
+        if not created:
+            raise RuntimeError("Failed to create hospital (empty insert result).")
+        return created
+
+    def get_hospital(self, hospital_id: str) -> dict | None:
+        res = (
+            self.client.table("hospitals")
+            .select("*")
+            .eq("id", hospital_id)
+            .maybe_single()
+            .execute()
+        )
+        return _one(res)
+
+    def list_hospitals(self) -> list[dict]:
+        res = self.client.table("hospitals").select("*").execute()
+        return list(getattr(res, "data", None) or [])
+
+    def update_hospital(self, hospital_id: str, patch: dict) -> dict | None:
+        patch = {**patch, "updated_at": _now()}
+        self.client.table("hospitals").update(patch).eq("id", hospital_id).execute()
+        return self.get_hospital(hospital_id)
+
+    def set_hospital_status(self, hospital_id: str, status_value: str) -> dict | None:
+        return self.update_hospital(hospital_id, {"status": status_value})
+
+    # ------------------------------ users --------------------------------- #
+
+    def create_user_profile(self, row: dict) -> dict:
+        res = self.client.table("user_profiles").insert(row).execute()
+        created = _one(res)
+        if not created:
+            raise RuntimeError("Failed to create user profile (empty insert result).")
+        return created
+
+    def list_user_profiles(
+        self, *, hospital_id: str | None = None, role: str | None = None
+    ) -> list[dict]:
+        query = self.client.table("user_profiles").select("*")
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        if role:
+            query = query.eq("role", role)
+        res = query.execute()
+        return list(getattr(res, "data", None) or [])
+
+    def update_user_profile(self, user_id: str, patch: dict) -> dict | None:
+        patch = {**patch, "updated_at": _now()}
+        self.client.table("user_profiles").update(patch).eq("id", user_id).execute()
+        return self.get_user_profile(user_id)
+
+    def create_role_profile(self, table: str, row: dict) -> dict:
+        res = self.client.table(table).insert(row).execute()
+        return _one(res) or {}
+
+    def create_doctor_patient_relationship(self, row: dict) -> dict:
+        res = self.client.table("doctor_patient_relationships").insert(row).execute()
+        return _one(res) or {}
+
+    # ---------------------------- audit log ------------------------------- #
+
+    def insert_audit_log(
+        self,
+        *,
+        actor_id: str | None,
+        actor_role: str | None,
+        hospital_id: str | None,
+        action: str,
+        target_table: str | None = None,
+        target_id: str | None = None,
+        metadata: dict | None = None,
+    ) -> None:
+        try:
+            self.client.table("audit_log").insert(
+                {
+                    "actor_id": actor_id,
+                    "actor_role": actor_role,
+                    "hospital_id": hospital_id,
+                    "action": action,
+                    "target_table": target_table,
+                    "target_id": target_id,
+                    "metadata": metadata or {},
+                }
+            ).execute()
+        except Exception as exc:  # audit logging is best-effort, never fatal
+            logger.warning("Failed to write audit_log entry for %s: %s", action, exc)
 
     # ---------------------------- job events ---------------------------- #
 

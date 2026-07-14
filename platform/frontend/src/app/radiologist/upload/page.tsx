@@ -21,4 +21,4 @@ function RadiologistUploadPage() {
   );
 }
 
-export default withAuth(RadiologistUploadPage, { allowedRoles: ['radiologist', 'admin'] });
+export default withAuth(RadiologistUploadPage, { allowedRoles: ['radiologist', 'hospital_admin', 'super_admin'] });

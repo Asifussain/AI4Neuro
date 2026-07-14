@@ -51,7 +51,8 @@ jobs:
           src/features/analysis
           src/app/analysis
           src/app/dashboard
-          src/app/technician
+          src/app/hospital-admin
+          src/app/super-admin
       - name: Build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co

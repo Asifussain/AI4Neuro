@@ -105,7 +105,6 @@ async def create_analysis(
     doctor_id: str | None = Form(default=None),
     hospital_id: str | None = Form(default=None),
     radiologist_id: str | None = Form(default=None),
-    technician_id: str | None = Form(default=None),
     uploaded_by_role: str | None = Form(default=None),
     channel_index: int | None = Form(default=None),        # EEG: similarity-plot channel
     scan_metadata_json: str | None = Form(default=None),   # MRI: scanner/sequence metadata
@@ -134,8 +133,6 @@ async def create_analysis(
     pipeline_options = _build_pipeline_options(modality, channel_index, scan_metadata_json)
     uploaded_by_role = uploaded_by_role or principal.role
     hospital_id = hospital_id or principal.hospital_id
-    if principal.role == "technician" and not technician_id:
-        technician_id = principal.user_id
     if principal.role == "radiologist" and not radiologist_id:
         radiologist_id = principal.user_id
     if principal.role == "doctor" and not doctor_id:
@@ -150,7 +147,6 @@ async def create_analysis(
             patient_id=patient_id,
             doctor_id=doctor_id,
             radiologist_id=radiologist_id,
-            technician_id=technician_id,
             hospital_id=hospital_id,
             uploaded_by=None if principal.is_dev else principal.user_id,
             uploaded_by_role=uploaded_by_role,
@@ -228,10 +224,11 @@ def list_analyses(
 ) -> list[SessionStatusResponse]:
     """Role-scoped list of analysis sessions the caller may see (doc 8.5).
 
-    Non-admins are pre-filtered to their hospital, then each row is checked with
-    the same per-session permission used for reads.
+    super_admin sees across all hospitals; every other role is pre-filtered to
+    their own hospital, then each row is checked with the same per-session
+    permission used for reads.
     """
-    hospital = None if principal.role == "admin" else principal.hospital_id
+    hospital = None if principal.role == "super_admin" else principal.hospital_id
     rows = db.list_sessions(
         modality=modality,
         status=status_filter,

@@ -422,7 +422,7 @@ class StatsApi {
       const totalPatients = allUsers.filter((u: any) => u.role === 'patient').length;
       const totalDoctors = allUsers.filter((u: any) => u.role === 'doctor').length;
       const totalRadiologists = allUsers.filter((u: any) => u.role === 'radiologist').length;
-      const totalAdmins = allUsers.filter((u: any) => u.role === 'admin').length;
+      const totalAdmins = allUsers.filter((u: any) => u.role === 'hospital_admin').length;
       const activeUsers = allUsers.filter((u: any) => u.account_status === 'active').length;
       const suspendedUsers = allUsers.filter((u: any) => u.account_status === 'suspended').length;
 

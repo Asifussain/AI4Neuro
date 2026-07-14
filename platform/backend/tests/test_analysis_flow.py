@@ -22,7 +22,7 @@ def _upload(client, *, modality="eeg", analysis_type="binary", filename="input.n
             "analysis_type": analysis_type,
             "patient_id": "11111111-1111-1111-1111-111111111111",
             "doctor_id": "22222222-2222-2222-2222-222222222222",
-            "uploaded_by_role": "technician",
+            "uploaded_by_role": "doctor",
         },
         files={"file": (filename, data if data is not None else _npy_bytes(), "application/octet-stream")},
     )
