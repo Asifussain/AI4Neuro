@@ -52,7 +52,7 @@ const predictionConfig: Record<string, {
   CN: {
     label: 'Cognitively Normal',
     shortLabel: 'CN',
-    color: 'text-emerald-400',
+    color: 'text-emerald-600',
     bgColor: 'bg-emerald-500/10',
     borderColor: 'border-emerald-500/30',
     ringColor: 'green',
@@ -61,7 +61,7 @@ const predictionConfig: Record<string, {
   MCI: {
     label: 'Mild Cognitive Impairment',
     shortLabel: 'MCI',
-    color: 'text-amber-400',
+    color: 'text-amber-600',
     bgColor: 'bg-amber-500/10',
     borderColor: 'border-amber-500/30',
     ringColor: 'yellow',
@@ -70,7 +70,7 @@ const predictionConfig: Record<string, {
   AD: {
     label: "Alzheimer's Disease",
     shortLabel: 'AD',
-    color: 'text-red-400',
+    color: 'text-red-600',
     bgColor: 'bg-red-500/10',
     borderColor: 'border-red-500/30',
     ringColor: 'red',
@@ -80,11 +80,11 @@ const predictionConfig: Record<string, {
 
 // Status badge styles
 const statusStyles: Record<string, string> = {
-  completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-  processing: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-  uploaded: 'bg-gray-500/10 text-gray-400 border-gray-500/30',
-  failed: 'bg-red-500/10 text-red-400 border-red-500/30',
-  reviewed: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+  completed: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
+  processing: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+  uploaded: 'bg-gray-500/10 text-slate-500 border-gray-500/30',
+  failed: 'bg-red-500/10 text-red-600 border-red-500/30',
+  reviewed: 'bg-purple-500/10 text-violet-600 border-purple-500/30',
 };
 
 function calculateAge(dateOfBirth: string | null): string {
@@ -187,7 +187,7 @@ export default function DoctorPatientDetailPage({ params }: { params: Promise<{ 
             <div className="flex items-start justify-between">
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Age</p>
-                <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-violet-400 bg-clip-text text-transparent">
+                <span className="text-2xl font-bold text-violet-600">
                   {age}
                 </span>
                 <p className="text-xs text-muted-foreground">
@@ -258,14 +258,14 @@ export default function DoctorPatientDetailPage({ params }: { params: Promise<{ 
                   <Brain className="h-5 w-5 text-purple-500" />
                   <h2 className="text-lg font-semibold text-foreground">MRI Scan History</h2>
                   {sessionsLoading && (
-                    <Loader2 className="h-4 w-4 animate-spin text-purple-400 ml-2" />
+                    <Loader2 className="h-4 w-4 animate-spin text-violet-600 ml-2" />
                   )}
                 </div>
 
                 {sessions.length === 0 && !sessionsLoading ? (
                   <div className="text-center py-12">
                     <div className="p-4 rounded-full bg-purple-500/10 w-fit mx-auto mb-4">
-                      <Brain className="h-8 w-8 text-purple-400" />
+                      <Brain className="h-8 w-8 text-violet-600" />
                     </div>
                     <p className="text-foreground font-medium mb-1">No scan history</p>
                     <p className="text-sm text-muted-foreground">
@@ -321,7 +321,7 @@ export default function DoctorPatientDetailPage({ params }: { params: Promise<{ 
                               <TableCell>
                                 {predConf != null ? (
                                   <div className="flex items-center gap-2">
-                                    <div className="w-16 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                    <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                       <div
                                         className={`h-full rounded-full ${predConfig?.barColor || 'bg-gray-500'}`}
                                         style={{ width: `${predConf * 100}%` }}
@@ -349,7 +349,7 @@ export default function DoctorPatientDetailPage({ params }: { params: Promise<{ 
                                     size="sm"
                                     variant="outline"
                                     asChild
-                                    className="h-8 gap-1.5 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                                    className="h-8 gap-1.5 border-purple-500/30 text-violet-600 hover:bg-purple-500/10"
                                   >
                                     <Link href={`/doctor/viewer/${session.id}`}>
                                       <Eye className="h-3.5 w-3.5" />
@@ -358,7 +358,7 @@ export default function DoctorPatientDetailPage({ params }: { params: Promise<{ 
                                   </Button>
                                 )}
                                 {session.status === 'processing' && (
-                                  <span className="flex items-center gap-1.5 text-xs text-blue-400">
+                                  <span className="flex items-center gap-1.5 text-xs text-blue-600">
                                     <Loader2 className="h-3 w-3 animate-spin" />
                                     Analyzing
                                   </span>
@@ -443,7 +443,7 @@ export default function DoctorPatientDetailPage({ params }: { params: Promise<{ 
 
                     {latestSession?.id && (
                       <Button
-                        className="w-full mt-2 gap-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/30 hover:bg-purple-500/20"
+                        className="w-full mt-2 gap-1.5 bg-purple-500/10 text-violet-600 border border-purple-500/30 hover:bg-purple-500/20"
                         variant="outline"
                         size="sm"
                         asChild
@@ -480,7 +480,7 @@ export default function DoctorPatientDetailPage({ params }: { params: Promise<{ 
                         className="flex items-center gap-3 p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]"
                       >
                         <div className="p-1.5 rounded-lg bg-purple-500/10 shrink-0">
-                          <Stethoscope className="h-3.5 w-3.5 text-purple-400" />
+                          <Stethoscope className="h-3.5 w-3.5 text-violet-600" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs text-foreground font-medium truncate">

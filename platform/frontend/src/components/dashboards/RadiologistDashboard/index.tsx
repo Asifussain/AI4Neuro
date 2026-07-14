@@ -29,71 +29,27 @@ import {
   ArrowUpDown,
   Filter,
   CalendarDays,
+  Settings,
+  ScanLine,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
+import { DashboardShell, type NavItem } from '@/components/dashboards/shared/DashboardShell';
 import {
-  SpotlightCard,
-  GradientText,
-  AnimatedCounter,
-  AuroraBackground,
-  GridPattern,
-} from '@/components/ui/animated';
+  SectionCard,
+  StatCard as SharedStatCard,
+  QuickActionsList,
+  DashboardPageHeader,
+} from '@/components/dashboards/shared/primitives';
 
-// ============================================================================
-// STAT CARD
-// ============================================================================
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  description,
-  color = 'purple',
-}: {
-  title: string;
-  value: string | number;
-  icon: React.ElementType;
-  description: string;
-  color?: 'purple' | 'teal' | 'blue' | 'green' | 'orange';
-}) {
-  const colorStyles: Record<string, string> = {
-    purple: 'from-purple-500 to-violet-500',
-    teal: 'from-teal-500 to-cyan-500',
-    blue: 'from-blue-500 to-indigo-500',
-    green: 'from-green-500 to-emerald-500',
-    orange: 'from-orange-500 to-amber-500',
-  };
-  const bgColorStyles: Record<string, string> = {
-    purple: 'bg-purple-500/10',
-    teal: 'bg-teal-500/10',
-    blue: 'bg-blue-500/10',
-    green: 'bg-green-500/10',
-    orange: 'bg-orange-500/10',
-  };
-  const iconColors: Record<string, string> = {
-    purple: '#a855f7',
-    teal: '#14b8a6',
-    blue: '#3b82f6',
-    green: '#22c55e',
-    orange: '#f97316',
-  };
-
-  return (
-    <SpotlightCard className="p-5">
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <p className="text-sm text-slate-400">{title}</p>
-          <span className={`text-2xl font-bold bg-gradient-to-r ${colorStyles[color]} bg-clip-text text-transparent`}>
-            {typeof value === 'number' ? <AnimatedCounter value={value} /> : value}
-          </span>
-          <p className="text-xs text-slate-500">{description}</p>
-        </div>
-        <div className={`p-3 rounded-xl ${bgColorStyles[color]}`}>
-          <Icon className="h-5 w-5" style={{ color: iconColors[color] }} />
-        </div>
-      </div>
-    </SpotlightCard>
-  );
-}
+const NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard', href: '/radiologist/dashboard', icon: LayoutGrid },
+  { label: 'Upload Scans', href: '/radiologist/upload', icon: Upload },
+  { label: 'Reports', href: '/radiologist/dashboard', icon: FileText },
+  { label: 'Processed Cases', href: '/radiologist/dashboard', icon: ScanLine },
+  { label: 'Patients', href: '/radiologist/dashboard', icon: Users },
+  { label: 'Settings', href: '/profile', icon: Settings },
+];
 
 // ============================================================================
 // SESSION ROW (List View)
@@ -108,11 +64,11 @@ function SessionRow({
   onDelete?: (sessionId: string) => void;
 }) {
   const statusConfig: Record<string, { icon: React.ElementType; color: string; bg: string; animate?: boolean }> = {
-    completed: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/10' },
-    reviewed: { icon: CheckCircle, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-    processing: { icon: Loader2, color: 'text-yellow-400', bg: 'bg-yellow-500/10', animate: true },
-    uploaded: { icon: Clock, color: 'text-orange-400', bg: 'bg-orange-500/10' },
-    failed: { icon: AlertCircle, color: 'text-red-400', bg: 'bg-red-500/10' },
+    completed: { icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    reviewed: { icon: CheckCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
+    processing: { icon: Loader2, color: 'text-amber-600', bg: 'bg-amber-50', animate: true },
+    uploaded: { icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50' },
+    failed: { icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50' },
   };
 
   const status = statusConfig[session.status] || statusConfig.processing;
@@ -121,15 +77,15 @@ function SessionRow({
   const prediction = session.prediction?.prediction;
 
   return (
-    <div className="group p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-teal-500/30 hover:bg-white/[0.04] transition-all duration-300">
+    <div className="group p-4 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all duration-300">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 min-w-0 flex-1">
-          <div className="p-2 rounded-lg bg-teal-500/10 shrink-0">
-            <Brain className="h-5 w-5 text-teal-400" />
+          <div className="p-2 rounded-lg bg-indigo-50 shrink-0">
+            <Brain className="h-5 w-5 text-indigo-600" />
           </div>
           <div className="min-w-0">
-            <p className="font-medium text-foreground truncate">{session.session_code}</p>
-            <p className="text-sm text-muted-foreground truncate">
+            <p className="font-medium text-slate-900 truncate">{session.session_code}</p>
+            <p className="text-sm text-slate-500 truncate">
               {patientName} <span className="hidden sm:inline">| {new Date(session.scan_date).toLocaleDateString()}</span>
             </p>
           </div>
@@ -138,9 +94,9 @@ function SessionRow({
         <div className="flex items-center gap-3 shrink-0">
           {prediction && (
             <div className={`px-3 py-1 rounded-full text-sm font-medium hidden sm:block ${
-              prediction === 'CN' ? 'bg-green-500/10 text-green-400'
-                : prediction === 'MCI' ? 'bg-yellow-500/10 text-yellow-400'
-                : 'bg-red-500/10 text-red-400'
+              prediction === 'CN' ? 'bg-emerald-50 text-emerald-700'
+                : prediction === 'MCI' ? 'bg-amber-50 text-amber-700'
+                : 'bg-red-50 text-red-700'
             }`}>
               {prediction}
             </div>
@@ -152,17 +108,17 @@ function SessionRow({
           <div className="flex gap-1">
             {(session.status === 'completed' || session.status === 'reviewed') && (
               <>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-teal-500/10" asChild>
-                  <Link href={`/radiologist/viewer/${session.id}`}><Eye className="h-4 w-4 text-teal-400" /></Link>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-indigo-50" asChild>
+                  <Link href={`/radiologist/viewer/${session.id}`}><Eye className="h-4 w-4 text-indigo-600" /></Link>
                 </Button>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-purple-500/10" onClick={() => onViewReport(session)}>
-                  <Download className="h-4 w-4 text-purple-400" />
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-violet-50" onClick={() => onViewReport(session)}>
+                  <Download className="h-4 w-4 text-violet-600" />
                 </Button>
               </>
             )}
             {onDelete && (
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-red-500/10" onClick={() => onDelete(session.id)}>
-                <Trash2 className="h-4 w-4 text-red-400" />
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-red-50" onClick={() => onDelete(session.id)}>
+                <Trash2 className="h-4 w-4 text-red-600" />
               </Button>
             )}
           </div>
@@ -190,27 +146,26 @@ function ScanGridCard({
   const isCompleted = session.status === 'completed' || session.status === 'reviewed';
 
   const predictionColors: Record<string, { border: string; bg: string; text: string }> = {
-    CN: { border: 'border-green-500/30', bg: 'bg-green-500/10', text: 'text-green-400' },
-    MCI: { border: 'border-yellow-500/30', bg: 'bg-yellow-500/10', text: 'text-yellow-400' },
-    AD: { border: 'border-red-500/30', bg: 'bg-red-500/10', text: 'text-red-400' },
+    CN: { border: 'border-emerald-200', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+    MCI: { border: 'border-amber-200', bg: 'bg-amber-50', text: 'text-amber-700' },
+    AD: { border: 'border-red-200', bg: 'bg-red-50', text: 'text-red-700' },
   };
   const pColor = prediction ? predictionColors[prediction] : null;
 
   const statusColors: Record<string, string> = {
-    completed: 'text-green-400',
-    reviewed: 'text-blue-400',
-    processing: 'text-yellow-400',
-    uploaded: 'text-orange-400',
-    failed: 'text-red-400',
+    completed: 'text-emerald-600',
+    reviewed: 'text-blue-600',
+    processing: 'text-amber-600',
+    uploaded: 'text-orange-600',
+    failed: 'text-red-600',
   };
 
   return (
-    <SpotlightCard className={`p-4 h-full flex flex-col ${pColor ? pColor.border : 'border-white/[0.05]'}`}>
-      {/* Header */}
+    <SectionCard className={`p-4 h-full flex flex-col ${pColor ? pColor.border : 'border-slate-200'}`}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-teal-400" />
-          <span className="text-sm font-semibold text-foreground truncate">{session.session_code}</span>
+          <Brain className="h-4 w-4 text-indigo-600" />
+          <span className="text-sm font-semibold text-slate-900 truncate">{session.session_code}</span>
         </div>
         {prediction && pColor && (
           <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${pColor.bg} ${pColor.text}`}>
@@ -219,29 +174,27 @@ function ScanGridCard({
         )}
       </div>
 
-      {/* Patient & Date */}
       <div className="space-y-1.5 mb-3 flex-1">
-        <p className="text-sm text-foreground truncate">{patientName}</p>
-        <p className="text-xs text-muted-foreground">{new Date(session.scan_date).toLocaleDateString()}</p>
+        <p className="text-sm text-slate-900 truncate">{patientName}</p>
+        <p className="text-xs text-slate-500">{new Date(session.scan_date).toLocaleDateString()}</p>
         <div className="flex items-center gap-1.5">
           <span className={`text-xs font-medium capitalize ${statusColors[session.status] || 'text-slate-400'}`}>
             {session.status}
           </span>
-          {session.status === 'processing' && <Loader2 className="h-3 w-3 text-yellow-400 animate-spin" />}
+          {session.status === 'processing' && <Loader2 className="h-3 w-3 text-amber-600 animate-spin" />}
         </div>
       </div>
 
-      {/* Confidence Bar */}
       {confidence != null && confidence > 0 && (
         <div className="mb-3">
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-muted-foreground">Confidence</span>
-            <span className="text-foreground font-medium">{(confidence * 100).toFixed(0)}%</span>
+            <span className="text-slate-500">Confidence</span>
+            <span className="text-slate-800 font-medium">{(confidence * 100).toFixed(0)}%</span>
           </div>
-          <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full ${
-                prediction === 'CN' ? 'bg-green-500' : prediction === 'MCI' ? 'bg-yellow-500' : 'bg-red-500'
+                prediction === 'CN' ? 'bg-emerald-500' : prediction === 'MCI' ? 'bg-amber-500' : 'bg-red-500'
               }`}
               style={{ width: `${confidence * 100}%` }}
             />
@@ -249,30 +202,29 @@ function ScanGridCard({
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex gap-1.5 pt-2 border-t border-white/[0.05]">
+      <div className="flex gap-1.5 pt-2 border-t border-slate-100">
         {isCompleted && (
           <>
-            <Button size="sm" variant="outline" className="flex-1 h-7 text-xs gap-1 border-teal-500/30 text-teal-400 hover:bg-teal-500/10" asChild>
+            <Button size="sm" variant="outline" className="flex-1 h-7 text-xs gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50" asChild>
               <Link href={`/radiologist/viewer/${session.id}`}><Eye className="h-3 w-3" />View</Link>
             </Button>
-            <Button size="sm" variant="outline" className="flex-1 h-7 text-xs gap-1 border-purple-500/30 text-purple-400 hover:bg-purple-500/10" onClick={() => onViewReport(session)}>
+            <Button size="sm" variant="outline" className="flex-1 h-7 text-xs gap-1 border-violet-200 text-violet-700 hover:bg-violet-50" onClick={() => onViewReport(session)}>
               <FileText className="h-3 w-3" />Reports
             </Button>
           </>
         )}
         {!isCompleted && (
-          <span className="flex-1 text-xs text-muted-foreground text-center py-1">
+          <span className="flex-1 text-xs text-slate-500 text-center py-1">
             {session.status === 'processing' ? 'Analyzing...' : session.status}
           </span>
         )}
         {onDelete && (
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-red-500/10" onClick={() => onDelete(session.id)}>
-            <Trash2 className="h-3 w-3 text-red-400" />
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-red-50" onClick={() => onDelete(session.id)}>
+            <Trash2 className="h-3 w-3 text-red-600" />
           </Button>
         )}
       </div>
-    </SpotlightCard>
+    </SectionCard>
   );
 }
 
@@ -312,30 +264,28 @@ function MiniCalendar({
   };
 
   return (
-    <SpotlightCard className="p-4">
+    <SectionCard className="p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <CalendarDays className="h-4 w-4 text-teal-400" />
+        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+          <CalendarDays className="h-4 w-4 text-indigo-600" />
           {monthName}
         </h3>
         <div className="flex gap-1">
-          <button onClick={() => setViewMonth(new Date(year, month - 1, 1))} className="p-1 rounded hover:bg-white/10 text-muted-foreground">
+          <button onClick={() => setViewMonth(new Date(year, month - 1, 1))} className="p-1 rounded hover:bg-slate-100 text-slate-500">
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
-          <button onClick={() => setViewMonth(new Date(year, month + 1, 1))} className="p-1 rounded hover:bg-white/10 text-muted-foreground">
+          <button onClick={() => setViewMonth(new Date(year, month + 1, 1))} className="p-1 rounded hover:bg-slate-100 text-slate-500">
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Day headers */}
       <div className="grid grid-cols-7 gap-0.5 mb-1">
         {dayNames.map((d) => (
-          <div key={d} className="text-center text-[10px] text-muted-foreground font-medium py-1">{d}</div>
+          <div key={d} className="text-center text-[10px] text-slate-400 font-medium py-1">{d}</div>
         ))}
       </div>
 
-      {/* Days grid */}
       <div className="grid grid-cols-7 gap-0.5">
         {days.map((day, i) => {
           if (day === null) return <div key={`e-${i}`} />;
@@ -349,15 +299,15 @@ function MiniCalendar({
               onClick={() => onSelectDate(sel ? null : new Date(year, month, day))}
               className={`relative text-xs py-1.5 rounded transition-all ${
                 sel
-                  ? 'bg-teal-500 text-white font-bold'
+                  ? 'bg-indigo-600 text-white font-bold'
                   : today
-                  ? 'bg-white/10 text-foreground font-medium'
-                  : 'text-muted-foreground hover:bg-white/5'
+                  ? 'bg-slate-100 text-slate-900 font-medium'
+                  : 'text-slate-500 hover:bg-slate-50'
               }`}
             >
               {day}
               {hasScan && !sel && (
-                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-teal-400" />
+                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-500" />
               )}
             </button>
           );
@@ -367,12 +317,12 @@ function MiniCalendar({
       {selectedDate && (
         <button
           onClick={() => onSelectDate(null)}
-          className="mt-2 w-full text-xs text-teal-400 hover:text-teal-300 transition-colors"
+          className="mt-2 w-full text-xs text-indigo-600 hover:text-indigo-700 transition-colors"
         >
           Clear date filter
         </button>
       )}
-    </SpotlightCard>
+    </SectionCard>
   );
 }
 
@@ -407,7 +357,7 @@ function Pagination({
 
   return (
     <div className="flex items-center justify-between pt-4">
-      <span className="text-sm text-muted-foreground">
+      <span className="text-sm text-slate-500">
         Showing {from}-{to} of {totalItems}
       </span>
       <div className="flex items-center gap-1">
@@ -416,13 +366,13 @@ function Pagination({
         </Button>
         {pages.map((p, i) =>
           typeof p === 'string' ? (
-            <span key={`dots-${i}`} className="px-1 text-muted-foreground text-sm">...</span>
+            <span key={`dots-${i}`} className="px-1 text-slate-400 text-sm">...</span>
           ) : (
             <Button
               key={p}
               size="sm"
               variant={p === currentPage ? 'default' : 'ghost'}
-              className={`h-8 w-8 p-0 text-xs ${p === currentPage ? 'bg-teal-500 hover:bg-teal-600' : ''}`}
+              className={`h-8 w-8 p-0 text-xs ${p === currentPage ? 'bg-indigo-600 hover:bg-indigo-700' : ''}`}
               onClick={() => onPageChange(p)}
             >
               {p}
@@ -442,48 +392,43 @@ function Pagination({
 // ============================================================================
 function StatCardSkeleton() {
   return (
-    <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.05] animate-pulse">
-      <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <div className="h-4 w-20 bg-slate-700 rounded" />
-          <div className="h-7 w-14 bg-slate-600 rounded" />
-          <div className="h-3 w-24 bg-slate-700 rounded" />
-        </div>
-        <div className="h-11 w-11 bg-slate-700 rounded-xl" />
-      </div>
+    <div className="p-5 rounded-2xl bg-white border border-slate-200 animate-pulse">
+      <div className="h-11 w-11 bg-slate-100 rounded-xl mb-4" />
+      <div className="h-4 w-20 bg-slate-100 rounded mb-2" />
+      <div className="h-7 w-14 bg-slate-200 rounded" />
     </div>
   );
 }
 
 function GridCardSkeleton() {
   return (
-    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] animate-pulse">
+    <div className="p-4 rounded-xl bg-white border border-slate-200 animate-pulse">
       <div className="flex items-center gap-2 mb-3">
-        <div className="h-4 w-4 bg-slate-700 rounded" />
-        <div className="h-4 w-24 bg-slate-600 rounded" />
+        <div className="h-4 w-4 bg-slate-100 rounded" />
+        <div className="h-4 w-24 bg-slate-200 rounded" />
       </div>
       <div className="space-y-2 mb-3">
-        <div className="h-4 w-32 bg-slate-700 rounded" />
-        <div className="h-3 w-20 bg-slate-700 rounded" />
+        <div className="h-4 w-32 bg-slate-100 rounded" />
+        <div className="h-3 w-20 bg-slate-100 rounded" />
       </div>
-      <div className="h-1.5 w-full bg-slate-700 rounded-full mb-3" />
-      <div className="h-7 w-full bg-slate-700 rounded" />
+      <div className="h-1.5 w-full bg-slate-100 rounded-full mb-3" />
+      <div className="h-7 w-full bg-slate-100 rounded" />
     </div>
   );
 }
 
 function RowSkeleton() {
   return (
-    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] animate-pulse">
+    <div className="p-4 rounded-xl bg-white border border-slate-200 animate-pulse">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="h-9 w-9 bg-slate-700 rounded-lg" />
+          <div className="h-9 w-9 bg-slate-100 rounded-lg" />
           <div className="space-y-2">
-            <div className="h-4 w-28 bg-slate-600 rounded" />
-            <div className="h-3 w-20 bg-slate-700 rounded" />
+            <div className="h-4 w-28 bg-slate-200 rounded" />
+            <div className="h-3 w-20 bg-slate-100 rounded" />
           </div>
         </div>
-        <div className="h-6 w-16 bg-slate-700 rounded-full" />
+        <div className="h-6 w-16 bg-slate-100 rounded-full" />
       </div>
     </div>
   );
@@ -623,370 +568,371 @@ export const RadiologistDashboard: React.FC = () => {
   const isLoading = statsLoading && sessionsLoading && allSessions.length === 0;
 
   return (
-    <div className="relative min-h-screen bg-background">
-      <AuroraBackground />
-      <GridPattern />
+    <DashboardShell roleLabel="Radiologist" accent="indigo" navItems={NAV_ITEMS}>
+      <DashboardPageHeader
+        eyebrow="Radiologist"
+        title="Radiologist Dashboard"
+        description="Scan upload, imaging review, AI output validation, and technical reporting."
+        routeChip="/radiologist-dashboard"
+        accent="indigo"
+      />
 
-      <div className="relative z-10 p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      {statsError && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          Failed to load stats: {statsError}
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {isLoading ? (
+          <>{[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}</>
+        ) : (
+          <>
+            <SharedStatCard label="Total Scans" value={stats?.totalScans || allSessions.length} icon={Activity} sublabel="All-time processed" accent="indigo" />
+            <SharedStatCard label="Processing" value={stats?.processingScans || allSessions.filter((s) => s.status === 'processing').length} icon={Clock} sublabel="Currently in queue" accent="indigo" />
+            <SharedStatCard label="Completed Today" value={stats?.completedToday || 0} icon={CheckCircle2} sublabel="Finished today" accent="indigo" />
+            <SharedStatCard label="This Week" value={stats?.completedThisWeek || 0} icon={CalendarDays} sublabel="Completed this week" accent="indigo" />
+          </>
+        )}
+      </div>
+
+      {/* Quick actions row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <SectionCard className="p-5 lg:col-span-2 flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold">
-              <GradientText from="from-teal-400" via="via-cyan-400" to="to-purple-400">
-                Radiologist Dashboard
-              </GradientText>
-            </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Welcome back
-              <span className="mx-2 text-muted">|</span>
-              <span className="px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 text-xs font-medium">
-                Radiology Department
-              </span>
-            </p>
+            <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">Quick Actions</p>
+            <p className="text-lg font-semibold text-slate-900 mt-1">Upload scans and review AI results</p>
           </div>
-          <Button className="gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600" asChild>
+          <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700" asChild>
             <Link href="/radiologist/upload">
               <Upload className="h-4 w-4" />
-              Upload Scan
+              Upload Scans
             </Link>
           </Button>
-        </div>
+        </SectionCard>
+        <QuickActionsList
+          accent="indigo"
+          actions={[
+            { label: 'Upload MRI Scan', href: '/radiologist/upload' },
+            { label: 'View Processed Cases', onClick: () => paginatedSessions[0] && setSelectedSession(paginatedSessions[0]) },
+          ]}
+        />
+      </div>
 
-        {/* Error */}
-        {statsError && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-            Failed to load stats: {statsError}
-          </div>
-        )}
-
-        {/* Stats */}
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          {isLoading ? (
-            <>{[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}</>
-          ) : (
-            <>
-              <StatCard title="Total Scans" value={stats?.totalScans || allSessions.length} icon={Activity} description="All-time processed" color="teal" />
-              <StatCard title="Processing" value={stats?.processingScans || allSessions.filter((s) => s.status === 'processing').length} icon={Clock} description="Currently in queue" color="orange" />
-              <StatCard title="Completed Today" value={stats?.completedToday || 0} icon={CheckCircle2} description="Finished today" color="green" />
-              <StatCard title="This Week" value={stats?.completedThisWeek || 0} icon={CalendarDays} description="Completed this week" color="blue" />
-            </>
-          )}
-        </div>
-
-        {/* Main Content + Sidebar */}
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-          {/* Main Content Area */}
-          <div className="xl:col-span-3 space-y-4">
-            {/* Toolbar */}
-            <SpotlightCard className="p-4">
-              <div className="flex flex-col gap-3">
-                {/* Top row: View toggle, filters button, search, sort */}
-                <div className="flex items-center gap-3 flex-wrap">
-                  {/* View mode toggle */}
-                  <div className="flex rounded-lg border border-white/[0.08] overflow-hidden">
-                    <button
-                      onClick={() => setViewMode('grid')}
-                      className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-teal-500/20 text-teal-400' : 'text-muted-foreground hover:bg-white/5'}`}
-                    >
-                      <LayoutGrid className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => setViewMode('list')}
-                      className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-teal-500/20 text-teal-400' : 'text-muted-foreground hover:bg-white/5'}`}
-                    >
-                      <List className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {/* Filter toggle */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className={`gap-1.5 ${showFilters || activeFilterCount > 0 ? 'border-teal-500/30 text-teal-400' : 'border-white/[0.08]'}`}
-                    onClick={() => setShowFilters(!showFilters)}
+      {/* Main Content + Sidebar */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+        {/* Main Content Area */}
+        <div className="xl:col-span-3 space-y-4">
+          {/* Toolbar */}
+          <SectionCard className="p-4">
+            <div className="flex flex-col gap-3">
+              {/* Top row: View toggle, filters button, search, sort */}
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* View mode toggle */}
+                <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-400 hover:bg-slate-50'}`}
                   >
-                    <Filter className="h-3.5 w-3.5" />
-                    Filters
-                    {activeFilterCount > 0 && (
-                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-teal-500 text-white text-[10px] font-bold">
-                        {activeFilterCount}
-                      </span>
-                    )}
-                  </Button>
-
-                  {/* Search */}
-                  <div className="relative flex-1 min-w-[200px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search by session or patient..."
-                      className="pl-9 h-9 bg-white/[0.02] border-white/[0.08] text-foreground placeholder:text-muted-foreground focus:border-teal-500/50"
-                      value={searchTerm}
-                      onChange={(e) => updateFilter(setSearchTerm, e.target.value)}
-                    />
-                    {searchTerm && (
-                      <button onClick={() => updateFilter(setSearchTerm, '')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Sort */}
-                  <div className="flex items-center gap-1.5">
-                    <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                      className="bg-transparent text-sm text-muted-foreground border-none outline-none cursor-pointer"
-                    >
-                      <option value="date-desc">Newest</option>
-                      <option value="date-asc">Oldest</option>
-                      <option value="patient">Patient</option>
-                      <option value="status">Status</option>
-                    </select>
-                  </div>
+                    <LayoutGrid className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-400 hover:bg-slate-50'}`}
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
                 </div>
 
-                {/* Filter dropdowns (collapsible) */}
-                {showFilters && (
-                  <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-white/[0.05]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Status:</span>
-                      <select
-                        value={statusFilter}
-                        onChange={(e) => updateFilter(setStatusFilter, e.target.value)}
-                        className="bg-white/[0.03] border border-white/[0.08] rounded-md text-sm text-foreground px-2 py-1 outline-none focus:border-teal-500/50"
-                      >
-                        <option value="all">All</option>
-                        <option value="completed">Completed</option>
-                        <option value="processing">Processing</option>
-                        <option value="reviewed">Reviewed</option>
-                        <option value="uploaded">Uploaded</option>
-                        <option value="failed">Failed</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Prediction:</span>
-                      <select
-                        value={predictionFilter}
-                        onChange={(e) => updateFilter(setPredictionFilter, e.target.value)}
-                        className="bg-white/[0.03] border border-white/[0.08] rounded-md text-sm text-foreground px-2 py-1 outline-none focus:border-teal-500/50"
-                      >
-                        <option value="all">All</option>
-                        <option value="CN">CN - Normal</option>
-                        <option value="MCI">MCI - Mild Impairment</option>
-                        <option value="AD">AD - Alzheimer's</option>
-                      </select>
-                    </div>
-                    {activeFilterCount > 0 && (
-                      <button
-                        onClick={() => {
-                          setStatusFilter('all');
-                          setPredictionFilter('all');
-                          setSelectedDate(null);
-                          setSearchTerm('');
-                          setCurrentPage(1);
-                        }}
-                        className="text-xs text-red-400 hover:text-red-300 ml-auto"
-                      >
-                        Clear all filters
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </SpotlightCard>
+                {/* Filter toggle */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`gap-1.5 ${showFilters || activeFilterCount > 0 ? 'border-indigo-200 text-indigo-700' : 'border-slate-200'}`}
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  <Filter className="h-3.5 w-3.5" />
+                  Filters
+                  {activeFilterCount > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </Button>
 
-            {/* Active Filter Chips */}
-            {activeFilterCount > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                {statusFilter !== 'all' && (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-500/10 text-teal-400 text-xs font-medium">
-                    Status: {statusFilter}
-                    <button onClick={() => updateFilter(setStatusFilter, 'all')}><X className="h-3 w-3" /></button>
-                  </span>
-                )}
-                {predictionFilter !== 'all' && (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-medium">
-                    Prediction: {predictionFilter}
-                    <button onClick={() => updateFilter(setPredictionFilter, 'all')}><X className="h-3 w-3" /></button>
-                  </span>
-                )}
-                {selectedDate && (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-medium">
-                    Date: {selectedDate.toLocaleDateString()}
-                    <button onClick={() => updateFilter(setSelectedDate, null)}><X className="h-3 w-3" /></button>
-                  </span>
-                )}
-                {searchTerm && (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400 text-xs font-medium">
-                    Search: "{searchTerm}"
-                    <button onClick={() => updateFilter(setSearchTerm, '')}><X className="h-3 w-3" /></button>
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Results count */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                {filteredSessions.length} {filteredSessions.length === 1 ? 'session' : 'sessions'}
-                {activeFilterCount > 0 && ` (filtered from ${allSessions.length})`}
-              </span>
-            </div>
-
-            {/* Sessions Display */}
-            {sessionsLoading && allSessions.length === 0 ? (
-              viewMode === 'grid' ? (
-                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  {[1, 2, 3, 4, 5, 6].map((i) => <GridCardSkeleton key={i} />)}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {[1, 2, 3].map((i) => <RowSkeleton key={i} />)}
-                </div>
-              )
-            ) : paginatedSessions.length === 0 ? (
-              <SpotlightCard className="p-12">
-                <div className="text-center">
-                  <div className="p-4 rounded-full bg-teal-500/10 w-fit mx-auto mb-4">
-                    <Brain className="h-8 w-8 text-teal-400" />
-                  </div>
-                  <p className="text-foreground font-medium mb-1">No sessions found</p>
-                  <p className="text-sm text-muted-foreground">
-                    {activeFilterCount > 0
-                      ? 'Try adjusting your filters'
-                      : 'Upload a new MRI scan to get started'}
-                  </p>
-                  {activeFilterCount === 0 && (
-                    <Button className="mt-4 gap-2" variant="outline" asChild>
-                      <Link href="/radiologist/upload"><Upload className="h-4 w-4" />Upload Scan</Link>
-                    </Button>
+                {/* Search */}
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search by session or patient..."
+                    className="pl-9 h-9 bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-indigo-400"
+                    value={searchTerm}
+                    onChange={(e) => updateFilter(setSearchTerm, e.target.value)}
+                  />
+                  {searchTerm && (
+                    <button onClick={() => updateFilter(setSearchTerm, '')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   )}
                 </div>
-              </SpotlightCard>
-            ) : viewMode === 'grid' ? (
+
+                {/* Sort */}
+                <div className="flex items-center gap-1.5">
+                  <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                    className="bg-transparent text-sm text-slate-500 border-none outline-none cursor-pointer"
+                  >
+                    <option value="date-desc">Newest</option>
+                    <option value="date-asc">Oldest</option>
+                    <option value="patient">Patient</option>
+                    <option value="status">Status</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Filter dropdowns (collapsible) */}
+              {showFilters && (
+                <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">Status:</span>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => updateFilter(setStatusFilter, e.target.value)}
+                      className="bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 px-2 py-1 outline-none focus:border-indigo-400"
+                    >
+                      <option value="all">All</option>
+                      <option value="completed">Completed</option>
+                      <option value="processing">Processing</option>
+                      <option value="reviewed">Reviewed</option>
+                      <option value="uploaded">Uploaded</option>
+                      <option value="failed">Failed</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">Prediction:</span>
+                    <select
+                      value={predictionFilter}
+                      onChange={(e) => updateFilter(setPredictionFilter, e.target.value)}
+                      className="bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 px-2 py-1 outline-none focus:border-indigo-400"
+                    >
+                      <option value="all">All</option>
+                      <option value="CN">CN - Normal</option>
+                      <option value="MCI">MCI - Mild Impairment</option>
+                      <option value="AD">AD - Alzheimer&apos;s</option>
+                    </select>
+                  </div>
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={() => {
+                        setStatusFilter('all');
+                        setPredictionFilter('all');
+                        setSelectedDate(null);
+                        setSearchTerm('');
+                        setCurrentPage(1);
+                      }}
+                      className="text-xs text-red-600 hover:text-red-700 ml-auto"
+                    >
+                      Clear all filters
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </SectionCard>
+
+          {/* Active Filter Chips */}
+          {activeFilterCount > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {statusFilter !== 'all' && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium">
+                  Status: {statusFilter}
+                  <button onClick={() => updateFilter(setStatusFilter, 'all')}><X className="h-3 w-3" /></button>
+                </span>
+              )}
+              {predictionFilter !== 'all' && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 text-xs font-medium">
+                  Prediction: {predictionFilter}
+                  <button onClick={() => updateFilter(setPredictionFilter, 'all')}><X className="h-3 w-3" /></button>
+                </span>
+              )}
+              {selectedDate && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
+                  Date: {selectedDate.toLocaleDateString()}
+                  <button onClick={() => updateFilter(setSelectedDate, null)}><X className="h-3 w-3" /></button>
+                </span>
+              )}
+              {searchTerm && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-medium">
+                  Search: &quot;{searchTerm}&quot;
+                  <button onClick={() => updateFilter(setSearchTerm, '')}><X className="h-3 w-3" /></button>
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Results count */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-500">
+              {filteredSessions.length} {filteredSessions.length === 1 ? 'session' : 'sessions'}
+              {activeFilterCount > 0 && ` (filtered from ${allSessions.length})`}
+            </span>
+          </div>
+
+          {/* Sessions Display */}
+          {sessionsLoading && allSessions.length === 0 ? (
+            viewMode === 'grid' ? (
               <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                {paginatedSessions.map((session) => (
-                  <ScanGridCard
-                    key={session.id}
-                    session={session}
-                    onViewReport={setSelectedSession}
-                    onDelete={handleDelete}
-                  />
-                ))}
+                {[1, 2, 3, 4, 5, 6].map((i) => <GridCardSkeleton key={i} />)}
               </div>
             ) : (
-              <div className="space-y-2">
-                {paginatedSessions.map((session) => (
-                  <SessionRow
-                    key={session.id}
-                    session={session}
-                    onViewReport={setSelectedSession}
-                    onDelete={handleDelete}
-                  />
-                ))}
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => <RowSkeleton key={i} />)}
               </div>
-            )}
-
-            {/* Pagination */}
-            <Pagination
-              currentPage={safePage}
-              totalPages={totalPages}
-              totalItems={filteredSessions.length}
-              pageSize={PAGE_SIZE}
-              onPageChange={setCurrentPage}
-            />
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="space-y-4">
-            {/* Mini Calendar */}
-            <MiniCalendar
-              selectedDate={selectedDate}
-              onSelectDate={(d) => updateFilter(setSelectedDate, d)}
-              scanDates={scanDates}
-            />
-
-            {/* Recent Activity */}
-            <SpotlightCard className="p-4">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
-                <Activity className="h-4 w-4 text-teal-400" />
-                Recent Activity
-              </h3>
-              <div className="space-y-2">
-                {recentActivity.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No recent activity</p>
-                ) : (
-                  recentActivity.map((s) => {
-                    const statusIcons: Record<string, { icon: React.ElementType; color: string }> = {
-                      completed: { icon: CheckCircle, color: 'text-green-400' },
-                      reviewed: { icon: CheckCircle, color: 'text-blue-400' },
-                      processing: { icon: Loader2, color: 'text-yellow-400' },
-                      failed: { icon: AlertCircle, color: 'text-red-400' },
-                      uploaded: { icon: Clock, color: 'text-orange-400' },
-                    };
-                    const si = statusIcons[s.status] || statusIcons.uploaded;
-                    const SIcon = si.icon;
-                    return (
-                      <div key={s.id} className="flex items-center gap-2 py-1.5 border-b border-white/[0.03] last:border-0">
-                        <SIcon className={`h-3.5 w-3.5 shrink-0 ${si.color} ${s.status === 'processing' ? 'animate-spin' : ''}`} />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs text-foreground truncate">{s.session_code}</p>
-                          <p className="text-[10px] text-muted-foreground">{new Date(s.scan_date).toLocaleDateString()}</p>
-                        </div>
-                        <span className={`text-[10px] capitalize ${si.color}`}>{s.status}</span>
-                      </div>
-                    );
-                  })
+            )
+          ) : paginatedSessions.length === 0 ? (
+            <SectionCard className="p-12">
+              <div className="text-center">
+                <div className="p-4 rounded-full bg-indigo-50 w-fit mx-auto mb-4">
+                  <Brain className="h-8 w-8 text-indigo-600" />
+                </div>
+                <p className="text-slate-900 font-medium mb-1">No sessions found</p>
+                <p className="text-sm text-slate-500">
+                  {activeFilterCount > 0
+                    ? 'Try adjusting your filters'
+                    : 'Upload a new MRI scan to get started'}
+                </p>
+                {activeFilterCount === 0 && (
+                  <Button className="mt-4 gap-2" variant="outline" asChild>
+                    <Link href="/radiologist/upload"><Upload className="h-4 w-4" />Upload Scan</Link>
+                  </Button>
                 )}
               </div>
-            </SpotlightCard>
+            </SectionCard>
+          ) : viewMode === 'grid' ? (
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+              {paginatedSessions.map((session) => (
+                <ScanGridCard
+                  key={session.id}
+                  session={session}
+                  onViewReport={setSelectedSession}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {paginatedSessions.map((session) => (
+                <SessionRow
+                  key={session.id}
+                  session={session}
+                  onViewReport={setSelectedSession}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          )}
 
-            {/* Prediction Distribution */}
-            <SpotlightCard className="p-4">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
-                <Brain className="h-4 w-4 text-purple-400" />
-                Prediction Distribution
-              </h3>
-              <div className="space-y-2">
-                {(['CN', 'MCI', 'AD'] as const).map((cls) => {
-                  const total = predictionCounts.CN + predictionCounts.MCI + predictionCounts.AD;
-                  const pct = total > 0 ? (predictionCounts[cls] / total) * 100 : 0;
-                  const colors = { CN: 'bg-green-500', MCI: 'bg-yellow-500', AD: 'bg-red-500' };
-                  const labels = { CN: 'Normal', MCI: 'MCI', AD: "Alzheimer's" };
+          {/* Pagination */}
+          <Pagination
+            currentPage={safePage}
+            totalPages={totalPages}
+            totalItems={filteredSessions.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+
+        {/* Right Sidebar */}
+        <div className="space-y-4">
+          {/* Mini Calendar */}
+          <MiniCalendar
+            selectedDate={selectedDate}
+            onSelectDate={(d) => updateFilter(setSelectedDate, d)}
+            scanDates={scanDates}
+          />
+
+          {/* Recent Activity */}
+          <SectionCard className="p-4">
+            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3">
+              <Activity className="h-4 w-4 text-indigo-600" />
+              Recent Activity
+            </h3>
+            <div className="space-y-2">
+              {recentActivity.length === 0 ? (
+                <p className="text-xs text-slate-500">No recent activity</p>
+              ) : (
+                recentActivity.map((s) => {
+                  const statusIcons: Record<string, { icon: React.ElementType; color: string }> = {
+                    completed: { icon: CheckCircle, color: 'text-emerald-600' },
+                    reviewed: { icon: CheckCircle, color: 'text-blue-600' },
+                    processing: { icon: Loader2, color: 'text-amber-600' },
+                    failed: { icon: AlertCircle, color: 'text-red-600' },
+                    uploaded: { icon: Clock, color: 'text-orange-600' },
+                  };
+                  const si = statusIcons[s.status] || statusIcons.uploaded;
+                  const SIcon = si.icon;
                   return (
-                    <div key={cls}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-muted-foreground">{labels[cls]}</span>
-                        <span className="text-foreground font-medium">{predictionCounts[cls]}</span>
+                    <div key={s.id} className="flex items-center gap-2 py-1.5 border-b border-slate-100 last:border-0">
+                      <SIcon className={`h-3.5 w-3.5 shrink-0 ${si.color} ${s.status === 'processing' ? 'animate-spin' : ''}`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-slate-900 truncate">{s.session_code}</p>
+                        <p className="text-[10px] text-slate-500">{new Date(s.scan_date).toLocaleDateString()}</p>
                       </div>
-                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full ${colors[cls]} transition-all`} style={{ width: `${pct}%` }} />
-                      </div>
+                      <span className={`text-[10px] capitalize ${si.color}`}>{s.status}</span>
                     </div>
                   );
-                })}
-              </div>
-            </SpotlightCard>
-          </div>
+                })
+              )}
+            </div>
+          </SectionCard>
+
+          {/* Prediction Distribution */}
+          <SectionCard className="p-4">
+            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3">
+              <Brain className="h-4 w-4 text-violet-600" />
+              Prediction Distribution
+            </h3>
+            <div className="space-y-2">
+              {(['CN', 'MCI', 'AD'] as const).map((cls) => {
+                const total = predictionCounts.CN + predictionCounts.MCI + predictionCounts.AD;
+                const pct = total > 0 ? (predictionCounts[cls] / total) * 100 : 0;
+                const colors = { CN: 'bg-emerald-500', MCI: 'bg-amber-500', AD: 'bg-red-500' };
+                const labels = { CN: 'Normal', MCI: 'MCI', AD: "Alzheimer's" };
+                return (
+                  <div key={cls}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-500">{labels[cls]}</span>
+                      <span className="text-slate-800 font-medium">{predictionCounts[cls]}</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${colors[cls]} transition-all`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </SectionCard>
         </div>
       </div>
 
       {/* Report Modal */}
       {selectedSession && selectedSession.prediction && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="relative w-full max-w-2xl max-h-[90vh] overflow-auto">
-            <SpotlightCard className="p-6">
+            <SectionCard className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-teal-500/10">
-                    <FileText className="h-5 w-5 text-teal-400" />
+                  <div className="p-2 rounded-lg bg-indigo-50">
+                    <FileText className="h-5 w-5 text-indigo-600" />
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground">
+                  <h3 className="text-lg font-semibold text-slate-900">
                     Reports - {selectedSession.session_code}
                   </h3>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedSession(null)} className="hover:bg-white/10">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedSession(null)} className="hover:bg-slate-100">
                   <X className="h-5 w-5" />
                 </Button>
               </div>
@@ -1002,10 +948,10 @@ export const RadiologistDashboard: React.FC = () => {
                 prediction={selectedSession.prediction.prediction}
                 confidence={selectedSession.prediction.confidence_score}
               />
-            </SpotlightCard>
+            </SectionCard>
           </div>
         </div>
       )}
-    </div>
+    </DashboardShell>
   );
 };
