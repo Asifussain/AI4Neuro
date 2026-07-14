@@ -1,13 +1,11 @@
 """MRI pipeline runner.
 
-Wraps the CAT12 → NIfTI-slice → ConViT flow (with mock fallback) behind the
+Wraps the NIfTI-slice → ConViT (majority vote) flow behind the
 framework-independent ``run_mri_pipeline(context) -> PipelineResult`` contract.
-Reproduces the analysis half of the legacy background pipeline
-(``mri-platform/backend/app.py:_run_pipeline_background``); PDF report generation
-is deferred to Phase 4.
-
-Mock-first: with no ConViT checkpoint / CAT12 (e.g. on Linux) the ported runner
-returns realistic mock predictions and volumes, so this runs end to end here.
+The uploaded scan is treated as already preprocessed (no CAT12 step) and the
+pipeline is multiclass-only (CN/MCI/AD). If the model can't run (no/invalid
+checkpoint, inference failure), ``ml_runner.run_model`` returns an error dict
+and this raises ``RuntimeError`` rather than returning a fabricated result.
 Real viewer slices are extracted only when the input is a genuine NIfTI.
 """
 
@@ -56,12 +54,11 @@ def _extract_viewer_slices(scan_path: str, work_dir: str) -> dict[str, list[str]
 
 
 def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
-    analysis_type = _normalize_analysis_type(context.analysis_type)
     scan_path = context.local_input_path
     work_dir = os.path.dirname(os.path.abspath(scan_path))
 
-    # --- 1) Model inference (mock unless a real ConViT checkpoint/CAT12 exist) ---
-    ml = ml_runner.run_model(scan_path, analysis_type)
+    # --- 1) Model inference (multiclass-only; raises below if the model can't run) ---
+    ml = ml_runner.run_model(scan_path, "multiclass")
     if ml.get("prediction") == "Error":
         raise RuntimeError(ml.get("error_details", "MRI model returned an error."))
 
@@ -87,7 +84,7 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
 
     # --- 3) Similarity (mock) + charts (serialized: pyplot global state) ---
     with _PLOT_LOCK:
-        sim = run_similarity_analysis(scan_path, analysis_type, ml)
+        sim = run_similarity_analysis(scan_path, "multiclass", ml)
         sim = sim if isinstance(sim, dict) else {}
         sim_b64 = sim.get("plot_base64")
         volume_chart_b64 = generate_volume_comparison_chart(ml)
@@ -133,11 +130,3 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
         artifacts=artifacts,
         viewer_slices=viewer_slices,
     )
-
-
-def _normalize_analysis_type(analysis_type: str | None) -> str:
-    aliases = {
-        "multi-disease": "multiclass",
-        "ad-only": "binary",
-    }
-    return aliases.get((analysis_type or "multiclass").strip().lower(), analysis_type or "multiclass")

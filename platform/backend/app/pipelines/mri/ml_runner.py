@@ -1,22 +1,20 @@
 """
-ML Runner - Implements the 3-Step Pipeline:
-1. CAT12 Preprocessing -> mwp1 file
-2. Slice Extraction -> 5 images
-3. Model Inference -> Prediction
+ML Runner - Implements the MRI Pipeline:
+1. Slice Extraction -> 10 axial slices
+2. Model Inference -> ConViT per-slice prediction, majority vote
+
+The uploaded scan is treated as already preprocessed; no CAT12 step runs.
+Multiclass-only (CN/MCI/AD): the ConViT checkpoint is trained multiclass-only.
+If the model can't run for any reason, this returns an explicit error instead
+of a fabricated prediction.
 """
 
 import logging
 import time
 import os
-import numpy as np
 from typing import Dict, Any
 
-from app.pipelines.mri.config import (
-    USE_MOCK_MODEL, ANALYSIS_TYPES, 
-    USE_CAT12_PREPROCESSING, CONVIT_CHECKPOINT_PATH,
-    NORMATIVE_VOLUMES
-)
-from app.pipelines.mri.cat12_manager import run_cat12_preprocessing
+from app.pipelines.mri.config import CONVIT_CHECKPOINT_PATH, NORMATIVE_VOLUMES
 
 logger = logging.getLogger(__name__)
 
@@ -25,128 +23,75 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 def run_model(scan_path: str, analysis_type: str = 'multiclass') -> Dict[str, Any]:
-    # Check if mock mode is enabled
-    if USE_MOCK_MODEL:
-        try:
-            from app.pipelines.mri.ml_runner_mock import _run_model_mock
-            return _run_model_mock(scan_path, analysis_type)
-        except ImportError:
-            pass
-
     start_time = time.time()
-    
-    # --- Step 1: Preprocessing (CAT12) ---
     processed_path = scan_path
-    used_cat12 = False
-    
-    if USE_CAT12_PREPROCESSING:
-        logger.info("STEP 1: Starting CAT12 Preprocessing...")
-        
-        # Check if already processed
-        if "mwp1" in os.path.basename(scan_path):
-             logger.info("Input file appears to be mwp1 already. Skipping CAT12.")
-             processed_path = scan_path
-             used_cat12 = True
-        else:
-            mwp1_file = run_cat12_preprocessing(scan_path)
-            if mwp1_file and os.path.exists(mwp1_file):
-                processed_path = mwp1_file
-                used_cat12 = True
-                logger.info(f"STEP 1 COMPLETE: Generated {mwp1_file}")
-            else:
-                logger.error("STEP 1 FAILED: CAT12 did not generate an mwp1 file.")
-                return _error_response(
-                    "MRI preprocessing could not complete. Please check the CAT12 "
-                    "and MATLAB Runtime setup, then retry with a valid T1 NIfTI scan."
-                )
 
-    # --- Step 2: Slice Extraction ---
-    logger.info("STEP 2: Extracting 5 slices...")
+    # --- Step 1: Slice Extraction ---
+    logger.info("STEP 1: Extracting 10 slices...")
     slice_paths = []
-    
+
     try:
-        # [FIX] Import the Class, NOT 'quick_slice'
         from app.pipelines.mri.ml.nifti_slicer import NIfTISlicer
-        
-        # Prepare output directory
+
         slice_dir = os.path.join(os.path.dirname(processed_path), "slices")
         os.makedirs(slice_dir, exist_ok=True)
-        
-        # Initialize Slicer
+
         slicer = NIfTISlicer(output_format='png', normalize=True)
-        
-        # Extract Slices (Using the NEW method)
+
         slice_paths = slicer.extract_middle_slices(
-            nifti_path=str(processed_path), 
-            num_slices=5, 
+            nifti_path=str(processed_path),
+            num_slices=10,
             output_dir=slice_dir,
             view_plane='axial'
         )
-        
+
         if not slice_paths:
             raise ValueError("Slicer returned no images.")
-            
-        logger.info(f"STEP 2 COMPLETE: Extracted {len(slice_paths)} slices.")
-        
+
+        logger.info(f"STEP 1 COMPLETE: Extracted {len(slice_paths)} slices.")
+
     except Exception as e:
-        logger.error(f"STEP 2 ERROR: {e}")
+        logger.error(f"STEP 1 ERROR: {e}")
         return _error_response(f"Slice extraction failed: {str(e)}")
 
-    # --- Step 3: Model Inference ---
-    logger.info("STEP 3: Running Model on Slices...")
-    prediction_result = {}
+    # --- Step 2: Model Inference ---
+    logger.info("STEP 2: Running Model on Slices...")
 
     try:
         from app.pipelines.mri.ml.predictor import create_predictor
 
-        if not os.path.exists(CONVIT_CHECKPOINT_PATH):
-            logger.warning(f"Model checkpoint not found: {CONVIT_CHECKPOINT_PATH}")
-            logger.warning("Falling back to mock predictions.")
-            from app.pipelines.mri.ml_runner_mock import _run_model_mock
-            return _run_model_mock(scan_path, analysis_type)
+        if not CONVIT_CHECKPOINT_PATH or not os.path.exists(CONVIT_CHECKPOINT_PATH):
+            logger.error(f"Model checkpoint not found: {CONVIT_CHECKPOINT_PATH!r}")
+            return _error_response(
+                "MRI model checkpoint is not configured or could not be found. "
+                "Analysis cannot run without the trained ConViT checkpoint."
+            )
 
         predictor = create_predictor(CONVIT_CHECKPOINT_PATH)
 
         if not predictor.is_available():
-            logger.warning("Model failed to initialize. Falling back to mock predictions.")
-            from app.pipelines.mri.ml_runner_mock import _run_model_mock
-            return _run_model_mock(scan_path, analysis_type)
+            logger.error("Model failed to initialize.")
+            return _error_response(
+                "MRI model failed to initialize from the configured checkpoint. "
+                "Analysis cannot run."
+            )
 
         prediction_result = predictor.predict_patient(slice_paths)
 
-        logger.info(f"STEP 3 COMPLETE: Diagnosis {prediction_result['patient_diagnosis']}")
+        logger.info(f"STEP 2 COMPLETE: Diagnosis {prediction_result['patient_diagnosis']}")
 
     except Exception as e:
-        logger.error(f"STEP 3 ERROR: {e}")
-        logger.warning("Falling back to mock predictions.")
-        try:
-            from app.pipelines.mri.ml_runner_mock import _run_model_mock
-            return _run_model_mock(scan_path, analysis_type)
-        except Exception:
-            return _error_response(f"Model inference failed: {str(e)}")
+        logger.error(f"STEP 2 ERROR: {e}")
+        return _error_response(f"Model inference failed: {str(e)}")
 
     # --- Formatting Response ---
-    classes = ANALYSIS_TYPES.get(analysis_type, ['CN', 'MCI', 'AD'])
     model_probs = _model_probabilities(prediction_result)
-    probabilities_by_class = _probabilities_for_analysis(model_probs, analysis_type)
+    probabilities_by_class = _probabilities_for_analysis(model_probs)
     classes = list(probabilities_by_class.keys())
     predicted_label = max(probabilities_by_class, key=probabilities_by_class.get)
     confidence = probabilities_by_class[predicted_label]
 
-    # Extract real volumes from mwp1/mwp2 if available, fallback to estimates
-    if 'mwp1' in os.path.basename(processed_path):
-        try:
-            from app.pipelines.mri.volumetric_analyzer import extract_volumes_from_nifti
-            mwp2_path = processed_path.replace('mwp1', 'mwp2')
-            if not os.path.exists(mwp2_path):
-                mwp2_path = None
-            volumes = extract_volumes_from_nifti(processed_path, mwp2_path)
-            logger.info(f"Real volumes extracted from NIfTI: GM={volumes['gm']}, WM={volumes['wm']}")
-        except Exception as e:
-            logger.warning(f"Real volume extraction failed: {e}, using estimates")
-            volumes = _generate_consistent_volumes(predicted_label)
-    else:
-        volumes = _generate_consistent_volumes(predicted_label)
+    volumes = _generate_consistent_volumes(predicted_label)
 
     return {
         'prediction': predicted_label,
@@ -160,8 +105,8 @@ def run_model(scan_path: str, analysis_type: str = 'multiclass') -> Dict[str, An
         'hippocampal_volume': volumes['hippo'],
         'ventricular_volume': volumes['ventricles'],
         'processing_time': int((time.time() - start_time) * 1000),
-        'analysis_type': analysis_type,
-        'used_cat12': used_cat12,
+        'analysis_type': 'multiclass',
+        'used_cat12': False,
         'model_version': 'ConViT-v1.0',
         'status': 'success'
     }
@@ -214,17 +159,8 @@ def _model_probabilities(prediction_result: Dict[str, Any]) -> Dict[str, float]:
     return {cls: value / total for cls, value in probs.items()}
 
 
-def _probabilities_for_analysis(
-    model_probs: Dict[str, float], analysis_type: str
-) -> Dict[str, float]:
-    """Map 3-class ConViT probabilities to the requested product analysis."""
-    if analysis_type in {'binary', 'ad-only'}:
-        ad = float(model_probs.get('AD', 0.0))
-        non_ad = float(model_probs.get('CN', 0.0)) + float(model_probs.get('MCI', 0.0))
-        total = ad + non_ad
-        if total <= 0:
-            return {'CN': 0.5, 'AD': 0.5}
-        return {'CN': non_ad / total, 'AD': ad / total}
+def _probabilities_for_analysis(model_probs: Dict[str, float]) -> Dict[str, float]:
+    """Return the 3-class ConViT probabilities (MRI is multiclass-only)."""
     return {
         'CN': float(model_probs.get('CN', 0.0)),
         'MCI': float(model_probs.get('MCI', 0.0)),
@@ -234,7 +170,8 @@ def _probabilities_for_analysis(
 def _error_response(msg):
     return {
         'prediction': 'Error', 'confidence': 0.0, 'probabilities': [0, 0, 0],
-        'classes': ['Error'], 'brain_volume': 0, 'processing_time': 0, 'error_details': msg
+        'classes': ['Error'], 'brain_volume': 0, 'processing_time': 0, 'error_details': msg,
+        'status': 'error',
     }
 
 def _generate_consistent_volumes(label):

@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend
 import matplotlib.pyplot as plt
-from app.pipelines.mri.config import DISEASE_INFO, USE_MOCK_MODEL
+from app.pipelines.mri.config import DISEASE_INFO
 
 
 def run_similarity_analysis(

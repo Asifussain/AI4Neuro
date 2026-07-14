@@ -132,7 +132,7 @@ class MRIPredictor:
             dict with predicted_class, confidence, and probabilities
         """
         if not self.is_available():
-            return self._mock_prediction()
+            raise RuntimeError("MRI model is not available for inference.")
 
         try:
             import torch
@@ -164,7 +164,7 @@ class MRIPredictor:
 
         except Exception as e:
             logger.error(f"Error predicting image {image_path}: {e}")
-            return self._mock_prediction()
+            raise
 
     def predict_patient(self, image_paths: List[str]) -> Dict[str, Any]:
         """
@@ -252,25 +252,6 @@ class MRIPredictor:
 
         logger.info(f"Diagnosis: {final_diagnosis} ({consensus_strength:.1f}% consensus)")
         return result
-
-    def _mock_prediction(self) -> Dict[str, Any]:
-        """Generate mock prediction when model is not available."""
-        import random
-        import numpy as np
-
-        predicted_class = random.choice(self.class_names)
-
-        # Generate realistic probabilities
-        probs = np.random.dirichlet([3 if c == predicted_class else 1 for c in self.class_names])
-
-        return {
-            'predicted_class': predicted_class,
-            'confidence': round(max(probs) * 100, 2),
-            'probabilities': {
-                cls: round(probs[i] * 100, 2)
-                for i, cls in enumerate(self.class_names)
-            }
-        }
 
 
 # Global predictor instance (initialized lazily)

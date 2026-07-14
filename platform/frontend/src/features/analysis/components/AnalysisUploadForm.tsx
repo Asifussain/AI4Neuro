@@ -384,18 +384,27 @@ export function AnalysisUploadForm() {
 
               <div className="grid gap-2">
                 <Label htmlFor="analysis-type">Analysis type</Label>
-                <Select value={analysisType} onValueChange={setAnalysisType}>
-                  <SelectTrigger id="analysis-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {analysisTypeOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {analysisTypeOptions.length > 1 ? (
+                  <Select value={analysisType} onValueChange={setAnalysisType}>
+                    <SelectTrigger id="analysis-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {analysisTypeOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div
+                    id="analysis-type"
+                    className="flex h-9 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground"
+                  >
+                    {analysisTypeOptions[0]?.label}
+                  </div>
+                )}
               </div>
             </div>
 

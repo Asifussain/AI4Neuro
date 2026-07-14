@@ -66,11 +66,9 @@ def _validate_upload(modality: str, filename: str) -> None:
 def _normalize_analysis_type(modality: str, analysis_type: str) -> str:
     value = (analysis_type or "").strip().lower()
     if modality == Modality.mri.value:
-        aliases = {
-            "multi-disease": "multiclass",
-            "ad-only": "binary",
-        }
-        value = aliases.get(value, value)
+        # MRI is multiclass-only: the ConViT checkpoint is trained multiclass-only,
+        # so there is no binary MRI path regardless of what the client requests.
+        return "multiclass"
     allowed = {"binary", "multiclass"}
     if value not in allowed:
         raise HTTPException(
