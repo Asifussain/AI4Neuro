@@ -39,7 +39,7 @@ export default function LoginPage() {
           }
           const role = session.user.user_metadata?.role;
           if (role) {
-            router.replace(`/${role}/dashboard`);
+            router.replace(`/${role.replace(/_/g, '-')}/dashboard`);
             return;
           }
         }
@@ -83,7 +83,7 @@ export default function LoginPage() {
 
         toast.success('Login successful!');
         const role = data.user.user_metadata?.role || 'patient';
-        router.replace(`/${role}/dashboard`);
+        router.replace(`/${role.replace(/_/g, '-')}/dashboard`);
       }
     } catch (error: unknown) {
       console.error('Login error:', error);

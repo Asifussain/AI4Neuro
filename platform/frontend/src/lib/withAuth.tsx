@@ -68,7 +68,7 @@ export function withAuth<P extends object>(
       if (allowedRoles && allowedRoles.length > 0) {
         if (!allowedRoles.includes(userProfile.role)) {
           console.log('withAuth: Role not allowed, redirecting to correct dashboard');
-          router.replace(`/${userProfile.role}/dashboard`);
+          router.replace(`/${userProfile.role.replace(/_/g, '-')}/dashboard`);
           return;
         }
       }
@@ -123,7 +123,7 @@ export function useRequireAuth(options: WithAuthOptions = {}) {
     if (allowedRoles && allowedRoles.length > 0) {
       if (!userProfile?.role || !allowedRoles.includes(userProfile.role)) {
         if (userProfile?.role) {
-          router.replace(`/${userProfile.role}/dashboard`);
+          router.replace(`/${userProfile.role.replace(/_/g, '-')}/dashboard`);
         } else {
           router.replace('/login');
         }
