@@ -40,7 +40,7 @@ const predictionConfig = {
   CN: {
     label: 'Cognitively Normal',
     shortLabel: 'CN',
-    color: 'text-emerald-400',
+    color: 'text-emerald-600',
     bgColor: 'bg-emerald-500/10',
     borderColor: 'border-emerald-500/30',
     ringColor: 'green' as const,
@@ -50,7 +50,7 @@ const predictionConfig = {
   MCI: {
     label: 'Mild Cognitive Impairment',
     shortLabel: 'MCI',
-    color: 'text-amber-400',
+    color: 'text-amber-600',
     bgColor: 'bg-amber-500/10',
     borderColor: 'border-amber-500/30',
     ringColor: 'yellow' as const,
@@ -60,7 +60,7 @@ const predictionConfig = {
   AD: {
     label: "Alzheimer's Disease",
     shortLabel: 'AD',
-    color: 'text-red-400',
+    color: 'text-red-600',
     bgColor: 'bg-red-500/10',
     borderColor: 'border-red-500/30',
     ringColor: 'red' as const,
@@ -115,11 +115,11 @@ export default function RadiologistViewerPage({ params }: { params: Promise<{ id
 
   // Status badge styling
   const statusStyles: Record<string, string> = {
-    completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    processing: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-    uploaded: 'bg-gray-500/10 text-gray-400 border-gray-500/30',
-    failed: 'bg-red-500/10 text-red-400 border-red-500/30',
-    reviewed: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+    completed: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
+    processing: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+    uploaded: 'bg-gray-500/10 text-slate-500 border-gray-500/30',
+    failed: 'bg-red-500/10 text-red-600 border-red-500/30',
+    reviewed: 'bg-purple-500/10 text-violet-600 border-purple-500/30',
   };
 
   // Check if viz URLs exist
@@ -223,7 +223,7 @@ export default function RadiologistViewerPage({ params }: { params: Promise<{ id
                     <p className={`text-xs font-medium ${predConfig.color} mb-2`}>
                       {predConfig.label}
                     </p>
-                    <div className="w-full bg-white/5 rounded-full h-1.5">
+                    <div className="w-full bg-slate-100 rounded-full h-1.5">
                       <div
                         className={`h-1.5 rounded-full ${predConfig.barColor} transition-all duration-500`}
                         style={{ width: `${prediction.confidence_score * 100}%` }}
@@ -245,7 +245,7 @@ export default function RadiologistViewerPage({ params }: { params: Promise<{ id
                       return (
                         <div key={key} className="flex items-center gap-2">
                           <span className="text-xs w-8 font-medium text-muted-foreground">{key}</span>
-                          <div className="flex-1 bg-white/5 rounded-full h-1.5">
+                          <div className="flex-1 bg-slate-100 rounded-full h-1.5">
                             <div
                               className={`h-1.5 rounded-full ${cfg?.barColor || 'bg-gray-500'} transition-all duration-500`}
                               style={{ width: `${(value || 0) * 100}%` }}
@@ -562,8 +562,8 @@ export default function RadiologistViewerPage({ params }: { params: Promise<{ id
                         onClick={() => setActiveVizTab(tab.key as any)}
                         className={`text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors ${
                           activeVizTab === tab.key
-                            ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                            ? 'bg-teal-500/15 text-teal-600 border border-teal-500/30'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-slate-100'
                         }`}
                       >
                         {tab.label}
@@ -585,7 +585,7 @@ export default function RadiologistViewerPage({ params }: { params: Promise<{ id
                         <img
                           src={tab.url}
                           alt={tab.label}
-                          className="w-full h-auto bg-black/20"
+                          className="w-full h-auto bg-slate-100"
                           loading="lazy"
                         />
                       </a>
@@ -613,7 +613,7 @@ export default function RadiologistViewerPage({ params }: { params: Promise<{ id
                         href={prediction.technical_pdf_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-teal-400 transition-colors p-1.5 rounded-md hover:bg-white/5 group"
+                        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-teal-600 transition-colors p-1.5 rounded-md hover:bg-slate-100 group"
                       >
                         <FileText className="h-3.5 w-3.5 text-teal-500/70" />
                         <span className="flex-1">Technical Report</span>
@@ -625,7 +625,7 @@ export default function RadiologistViewerPage({ params }: { params: Promise<{ id
                         href={prediction.clinician_pdf_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-teal-400 transition-colors p-1.5 rounded-md hover:bg-white/5 group"
+                        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-teal-600 transition-colors p-1.5 rounded-md hover:bg-slate-100 group"
                       >
                         <FileText className="h-3.5 w-3.5 text-blue-500/70" />
                         <span className="flex-1">Clinician Report</span>
@@ -637,7 +637,7 @@ export default function RadiologistViewerPage({ params }: { params: Promise<{ id
                         href={prediction.patient_pdf_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-teal-400 transition-colors p-1.5 rounded-md hover:bg-white/5 group"
+                        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-teal-600 transition-colors p-1.5 rounded-md hover:bg-slate-100 group"
                       >
                         <FileText className="h-3.5 w-3.5 text-purple-500/70" />
                         <span className="flex-1">Patient Report</span>
@@ -700,9 +700,9 @@ function VolumeBar({
   }
 
   const colors = {
-    normal: { dot: 'bg-emerald-500', text: 'text-emerald-400' },
-    borderline: { dot: 'bg-amber-500', text: 'text-amber-400' },
-    abnormal: { dot: 'bg-red-500', text: 'text-red-400' },
+    normal: { dot: 'bg-emerald-500', text: 'text-emerald-600' },
+    borderline: { dot: 'bg-amber-500', text: 'text-amber-600' },
+    abnormal: { dot: 'bg-red-500', text: 'text-red-600' },
   };
 
   // Calculate position on a visual scale
@@ -720,7 +720,7 @@ function VolumeBar({
           {value.toFixed(1)} {unit}
         </span>
       </div>
-      <div className="relative h-2 bg-white/5 rounded-full overflow-hidden">
+      <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
         {/* Normative range band */}
         <div
           className="absolute h-full bg-emerald-500/20 rounded-full"

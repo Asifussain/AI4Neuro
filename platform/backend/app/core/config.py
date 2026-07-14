@@ -80,12 +80,6 @@ class Settings(BaseSettings):
     # MUST be false in production.
     auth_dev_bypass: bool = Field(default=True, alias="AUTH_DEV_BYPASS")
 
-    # ---- Pipeline toggles ----
-    use_mock_model: bool = Field(default=True, alias="USE_MOCK_MODEL")
-    use_cat12_preprocessing: bool = Field(
-        default=False, alias="USE_CAT12_PREPROCESSING"
-    )
-
     # ---- EEG pipeline (Phase 2) ----
     eeg_siddhi_dir: str = Field(
         default=str(_DEFAULT_EEG_SIDDHI_DIR), alias="EEG_SIDDHI_DIR"
@@ -101,9 +95,12 @@ class Settings(BaseSettings):
     eeg_subprocess_timeout: int = Field(default=600, alias="EEG_SUBPROCESS_TIMEOUT")
 
     # ---- MRI pipeline (Phase 3) ----
-    # Empty checkpoint / CAT12 paths => the pipeline degrades to mock mode
-    # (see USE_MOCK_MODEL / USE_CAT12_PREPROCESSING). Real mode needs a
-    # MATLAB-capable host with CAT12 + MATLAB Runtime and a ConViT checkpoint.
+    # The runtime pipeline takes the uploaded scan as already preprocessed (no
+    # CAT12 step) and requires a real ConViT checkpoint; without one, MRI
+    # analysis jobs fail explicitly instead of returning mock predictions.
+    # CAT12_ROOT/CAT12_EXE/MCR_ROOT/CAT12_OUTPUT_DIR remain below only for the
+    # standalone `cat12_manager.py` / `scripts/check_cat12_setup.py` tooling,
+    # which is not invoked by the runtime pipeline.
     convit_checkpoint_path: str = Field(default="", alias="CONVIT_CHECKPOINT_PATH")
     cat12_root: str = Field(default="", alias="CAT12_ROOT")
     cat12_exe: str = Field(default="", alias="CAT12_EXE")

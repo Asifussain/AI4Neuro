@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { withAuth } from '@/lib/withAuth';
@@ -19,26 +18,16 @@ import {
   ClipboardList,
   ChevronRight,
 } from 'lucide-react';
-import { SpotlightCard } from '@/components/ui/animated';
-
-// Dynamic imports — these use Three.js / framer-motion which need browser APIs
-const PixelSnow = dynamic(
-  () => import('@/components/ui/PixelSnow/PixelSnow'),
-  { ssr: false }
-);
-const ShinyText = dynamic(
-  () => import('@/components/ui/ShinyText/ShinyText'),
-  { ssr: false }
-);
 
 // ============================================================================
 // ROLE BADGE
 // ============================================================================
 const roleBadgeStyles: Record<string, string> = {
-  patient: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
-  doctor: 'bg-green-500/15 text-green-400 border-green-500/20',
-  radiologist: 'bg-teal-500/15 text-teal-400 border-teal-500/20',
-  admin: 'bg-orange-500/15 text-orange-400 border-orange-500/20',
+  patient: 'bg-blue-50 text-blue-700 border-blue-200',
+  doctor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  radiologist: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  hospital_admin: 'bg-teal-50 text-teal-700 border-teal-200',
+  super_admin: 'bg-indigo-100 text-indigo-800 border-indigo-300',
 };
 
 // ============================================================================
@@ -57,22 +46,22 @@ function ActionCard({
 }) {
   return (
     <Link href={href} className="block group">
-      <SpotlightCard className="p-6 h-full">
+      <div className="p-6 h-full rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-300 transition-all">
         <div className="flex items-start gap-4">
-          <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-            <Icon className="w-6 h-6 text-primary" />
+          <div className="p-3 rounded-xl bg-emerald-50 group-hover:bg-emerald-100 transition-colors">
+            <Icon className="w-6 h-6 text-emerald-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
+            <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-emerald-700 transition-colors">
               {title}
             </h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-sm text-slate-500 leading-relaxed">
               {description}
             </p>
           </div>
-          <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all mt-1 flex-shrink-0" />
+          <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all mt-1 flex-shrink-0" />
         </div>
-      </SpotlightCard>
+      </div>
     </Link>
   );
 }
@@ -150,26 +139,49 @@ const roleConfigs = {
       },
     ],
   },
-  admin: {
-    tagline: 'Oversee the platform, manage users, and monitor system health.',
+  hospital_admin: {
+    tagline: 'Oversee your hospital, manage users, and monitor system health.',
     actions: [
       {
         icon: Users,
         title: 'User Management',
-        description: 'Manage doctors, radiologists, and patients',
-        href: '/admin/dashboard',
+        description: 'Manage doctors, radiologists, and patients in your hospital',
+        href: '/hospital-admin/dashboard',
       },
       {
         icon: Settings,
-        title: 'System Settings',
-        description: 'Configure platform and access controls',
-        href: '/admin/dashboard',
+        title: 'Hospital Settings',
+        description: 'Configure hospital profile and access controls',
+        href: '/hospital-admin/dashboard',
       },
       {
         icon: BarChart3,
-        title: 'System Analytics',
-        description: 'Platform metrics and usage reports',
-        href: '/admin/dashboard',
+        title: 'Hospital Analytics',
+        description: 'Hospital metrics and usage reports',
+        href: '/hospital-admin/dashboard',
+      },
+    ],
+  },
+  super_admin: {
+    tagline: 'Oversee the entire platform: hospitals, admins, and global analytics.',
+    actions: [
+      {
+        icon: Users,
+        title: 'Hospital Management',
+        description: 'Create and manage hospitals across the platform',
+        href: '/super-admin/dashboard',
+      },
+      {
+        icon: Settings,
+        title: 'Platform Settings',
+        description: 'Configure platform-wide settings',
+        href: '/super-admin/dashboard',
+      },
+      {
+        icon: BarChart3,
+        title: 'Platform Analytics',
+        description: 'Cross-hospital metrics and usage reports',
+        href: '/super-admin/dashboard',
       },
     ],
   },
@@ -212,31 +224,7 @@ function HomePage() {
   const badgeStyle = roleBadgeStyles[role] || roleBadgeStyles.patient;
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* PixelSnow Background */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <PixelSnow
-          color="#8b5cf6"
-          flakeSize={0.01}
-          minFlakeSize={1.25}
-          pixelResolution={200}
-          speed={0.6}
-          density={0.15}
-          direction={125}
-          brightness={0.8}
-          depthFade={8}
-          farPlane={20}
-          gamma={0.4545}
-          variant="square"
-        />
-      </div>
-
-      {/* Faint gradient orbs */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[150px]" />
-        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-teal-500/8 rounded-full blur-[120px]" />
-      </div>
-
+    <div className="min-h-screen bg-[#f7fafc] relative overflow-hidden">
       {/* Content */}
       <div className="relative z-10">
         <Navbar />
@@ -255,15 +243,15 @@ function HomePage() {
                 </span>
 
                 {/* Greeting */}
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-3 leading-tight">
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-3 leading-tight">
                   {greeting},{' '}
-                  <span className="bg-gradient-to-r from-purple-400 via-violet-400 to-teal-400 bg-clip-text text-transparent">
+                  <span className="text-emerald-600">
                     {firstName}
                   </span>
                 </h1>
 
                 {/* Date / Time */}
-                <p className="text-sm text-muted-foreground mb-5">
+                <p className="text-sm text-slate-500 mb-5">
                   {new Date().toLocaleDateString('en-US', {
                     weekday: 'long',
                     month: 'long',
@@ -273,19 +261,12 @@ function HomePage() {
                 </p>
 
                 {/* Tagline */}
-                <p className="text-lg mb-8 max-w-lg mx-auto lg:mx-0">
-                  <ShinyText
-                    text={config.tagline}
-                    speed={3}
-                    color="#94a3b8"
-                    shineColor="#a78bfa"
-                    spread={120}
-                    className="text-lg"
-                  />
+                <p className="text-lg text-slate-600 mb-8 max-w-lg mx-auto lg:mx-0">
+                  {config.tagline}
                 </p>
 
                 {/* CTA */}
-                <Button asChild size="lg" className="shadow-lg shadow-primary/20">
+                <Button asChild size="lg" className="bg-emerald-600 hover:bg-emerald-700">
                   <Link href={`/${role}/dashboard`}>
                     Open Dashboard
                     <ChevronRight className="w-4 h-4 ml-2" />
@@ -297,13 +278,13 @@ function HomePage() {
               <div className="flex-shrink-0 w-full max-w-xs lg:max-w-sm">
                 <div className="relative aspect-square flex items-center justify-center">
                   {/* Glow rings */}
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-500/10 to-teal-500/10 blur-3xl" />
-                  <div className="absolute inset-8 rounded-full border border-purple-500/10 animate-pulse" />
-                  <div className="absolute inset-16 rounded-full border border-teal-500/10 animate-pulse" style={{ animationDelay: '1s' }} />
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 blur-3xl" />
+                  <div className="absolute inset-8 rounded-full border border-emerald-200 animate-pulse" />
+                  <div className="absolute inset-16 rounded-full border border-teal-200 animate-pulse" style={{ animationDelay: '1s' }} />
 
                   {/* Brain icon */}
-                  <div className="relative w-32 h-32 lg:w-40 lg:h-40 bg-gradient-to-br from-purple-500/20 via-violet-500/15 to-teal-400/20 rounded-3xl flex items-center justify-center backdrop-blur-sm border border-white/[0.06] animate-float">
-                    <Brain className="w-16 h-16 lg:w-20 lg:h-20 text-purple-400/80" />
+                  <div className="relative w-32 h-32 lg:w-40 lg:h-40 bg-white rounded-3xl flex items-center justify-center shadow-lg border border-emerald-100 animate-float">
+                    <Brain className="w-16 h-16 lg:w-20 lg:h-20 text-emerald-600/80" />
                   </div>
                 </div>
               </div>
@@ -311,7 +292,7 @@ function HomePage() {
 
             {/* Quick Actions */}
             <div>
-              <h2 className="text-lg font-medium text-foreground mb-4">Quick Actions</h2>
+              <h2 className="text-lg font-medium text-slate-900 mb-4">Quick Actions</h2>
               <div className="grid md:grid-cols-3 gap-4">
                 {config.actions.map((action) => (
                   <ActionCard

@@ -29,8 +29,6 @@ def build_technical_report(
     pdf: TechnicalPDFReport,
     comprehensive_data: Dict[str, Any],
     ml_results: Dict[str, Any],
-    similarity_data: Dict[str, Any],
-    similarity_plot: Optional[str] = None,
     volume_chart: Optional[str] = None,
     confidence_chart: Optional[str] = None
 ) -> None:
@@ -41,8 +39,6 @@ def build_technical_report(
         pdf: TechnicalPDFReport instance
         comprehensive_data: All medical/patient data
         ml_results: ML model prediction results
-        similarity_data: Similarity analysis results
-        similarity_plot: Base64 similarity visualization
         volume_chart: Base64 volume comparison chart
         confidence_chart: Base64 confidence distribution chart
     """
@@ -147,57 +143,6 @@ def build_technical_report(
         pdf.ln(6)
 
         # =====================================================================
-        # Similarity Analysis (DTW/Feature-Based)
-        # =====================================================================
-        if pdf.get_y() > pdf.h - 100:
-            pdf.add_page()
-
-        pdf.section_title("Pattern Similarity Analysis")
-        pdf.ln(2)
-
-        if similarity_data and not similarity_data.get('error'):
-            # Interpretation
-            interpretation = similarity_data.get('interpretation', '')
-            if interpretation:
-                pdf.set_font('Helvetica', '', 9)
-                pdf.set_text_color(*pdf.text_color_dark)
-
-                lines = interpretation.split('\n')
-                for line in lines[:8]:  # Limit lines
-                    if line.strip():
-                        pdf.multi_cell(0, 5, sanitize_for_pdf(line), 0, 'L')
-                        pdf.ln(1)
-
-                pdf.ln(3)
-
-            # Similarity plot
-            if similarity_plot:
-                pdf.add_image_section("Pattern Similarity Comparison", similarity_plot)
-
-            # Similarity scores
-            pdf.ln(3)
-            pdf.set_font('Helvetica', 'B', 9)
-            pdf.cell(0, 6, "Similarity Scores:", 0, 1, 'L')
-            pdf.ln(2)
-
-            pdf.set_font('Helvetica', '', 9)
-            for cls in classes:
-                key = f'{cls.lower()}_similarity'
-                score = similarity_data.get(key)
-                if score is not None:
-                    disease_name = DISEASE_INFO.get(cls, {}).get('full_name', cls)
-                    pdf.key_value_pair(f"Similarity to {cls}", f"{score*100:.2f}%", 60)
-
-        else:
-            pdf.set_font('Helvetica', 'I', 9)
-            pdf.set_text_color(*pdf.text_color_light)
-            err = similarity_data.get('error', 'Not available') if similarity_data else 'Not available'
-            pdf.cell(0, 6, f"Similarity analysis: {err}", 0, 1, 'L')
-            pdf.set_text_color(*pdf.text_color_normal)
-
-        pdf.ln(6)
-
-        # =====================================================================
         # Volumetric Statistics
         # =====================================================================
         if pdf.get_y() > pdf.h - 80:
@@ -258,9 +203,8 @@ def build_technical_report(
 
         methodology = [
             ("bullet", f"AI Model: Deep learning-based MRI classification using 3D CNN architecture (Version: {MODEL_VERSION})."),
-            ("bullet", "Analysis Pipeline: Multi-slice prediction with majority voting, volumetric segmentation, and pattern similarity assessment."),
+            ("bullet", "Analysis Pipeline: Multi-slice prediction with majority voting and volumetric segmentation."),
             ("bullet", "Volumetric Analysis: Automated brain segmentation using validated algorithms for GM/WM/CSF quantification."),
-            ("bullet", "Similarity Matching: Feature-based comparison against reference patterns from validated multi-center datasets."),
             ("bullet", "Quality Control: Automated motion artifact detection and signal quality assessment applied.")
         ]
 

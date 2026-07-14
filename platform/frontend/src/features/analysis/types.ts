@@ -98,8 +98,8 @@ export const ANALYSIS_TYPES: Record<Modality, { value: string; label: string }[]
     { value: 'binary', label: 'Binary (Normal vs Alzheimer’s)' },
     { value: 'multiclass', label: 'Multiclass (CN / MCI / AD)' },
   ],
+  // MRI is multiclass-only: the ConViT checkpoint is trained multiclass-only.
   mri: [
-    { value: 'binary', label: 'Binary (CN / AD)' },
     { value: 'multiclass', label: 'Multiclass (CN / MCI / AD)' },
   ],
 };

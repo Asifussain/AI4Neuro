@@ -1,8 +1,10 @@
 """Unified report generation tests (Phase 4).
 
-MRI reports run off the mock pipeline (no torch needed). EEG reports run off the
-real pipeline and skip when torch/checkpoints are unavailable. All assert that
-real PDFs (``%PDF`` magic) are produced and uploaded to the reports bucket.
+MRI report tests stub out `ml_runner.run_model` with a canned successful result
+(no ConViT checkpoint / torch needed) since the pipeline has no mock fallback —
+these tests exercise report rendering, not model inference. EEG reports run off
+the real pipeline and skip when torch/checkpoints are unavailable. All assert
+that real PDFs (``%PDF`` magic) are produced and uploaded to the reports bucket.
 """
 
 from __future__ import annotations
@@ -38,6 +40,27 @@ def _stored_pdfs(fake: FakeSupabase, sid: str) -> dict[str, bytes]:
     bucket = get_settings().reports_bucket
     files = fake.buckets.get(bucket, {})
     return {k: v for k, v in files.items() if k.startswith(f"{sid}/")}
+
+
+def _fake_ml_result() -> dict:
+    """Canned successful ml_runner.run_model() output for report-generation tests."""
+    return {
+        "prediction": "MCI",
+        "confidence": 0.62,
+        "probabilities": [0.19, 0.62, 0.19],
+        "classes": ["CN", "MCI", "AD"],
+        "brain_volume": 1250.0,
+        "gm_volume": 550.0,
+        "wm_volume": 480.0,
+        "csf_volume": 220.0,
+        "hippocampal_volume": 3.6,
+        "ventricular_volume": 32.0,
+        "processing_time": 1200,
+        "analysis_type": "multiclass",
+        "used_cat12": False,
+        "model_version": "ConViT-v1.0",
+        "status": "success",
+    }
 
 
 @pytest.mark.parametrize(
@@ -147,8 +170,11 @@ def test_report_generation_matrix_for_all_analysis_variants(
     assert all(b.startswith(b"%PDF") for b in stored.values())
 
 
-def test_mri_reports_generate_and_upload(tmp_path):
+def test_mri_reports_generate_and_upload(tmp_path, monkeypatch):
+    from app.pipelines.mri import ml_runner
     from app.pipelines.mri.runner import run_mri_pipeline
+
+    monkeypatch.setattr(ml_runner, "run_model", lambda *a, **k: _fake_ml_result())
 
     work = tmp_path / "mri"
     work.mkdir()
@@ -218,12 +244,14 @@ def test_eeg_reports_generate_and_upload(tmp_path):
     assert reports.technical_pdf_url
 
 
-def test_full_mri_loop_generates_reports(tmp_path):
+def test_full_mri_loop_generates_reports(tmp_path, monkeypatch):
     from app.pipelines.base import register_pipeline
+    from app.pipelines.mri import ml_runner
     from app.pipelines.mri.runner import run_mri_pipeline
     from app.services.database import DatabaseService
     from app.services.orchestrator import run_analysis_job
 
+    monkeypatch.setattr(ml_runner, "run_model", lambda *a, **k: _fake_ml_result())
     register_pipeline("mri", run_mri_pipeline)
     fake = FakeSupabase()
     db = DatabaseService(client=fake)

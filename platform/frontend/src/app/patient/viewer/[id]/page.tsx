@@ -35,7 +35,7 @@ import {
 const predictionConfig = {
   CN: {
     label: 'Healthy Brain',
-    color: 'text-emerald-400',
+    color: 'text-emerald-600',
     bgColor: 'bg-emerald-500/10',
     borderColor: 'border-emerald-500/30',
     ringColor: 'green' as const,
@@ -46,7 +46,7 @@ const predictionConfig = {
   },
   MCI: {
     label: 'Mild Changes Detected',
-    color: 'text-amber-400',
+    color: 'text-amber-600',
     bgColor: 'bg-amber-500/10',
     borderColor: 'border-amber-500/30',
     ringColor: 'yellow' as const,
@@ -57,7 +57,7 @@ const predictionConfig = {
   },
   AD: {
     label: 'Changes Detected',
-    color: 'text-red-400',
+    color: 'text-red-600',
     bgColor: 'bg-red-500/10',
     borderColor: 'border-red-500/30',
     ringColor: 'red' as const,
@@ -148,13 +148,13 @@ export default function PatientViewerPage({
 
   // Status badge styling
   const statusBadge: Record<string, string> = {
-    completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    processing: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-    failed: 'bg-red-500/10 text-red-400 border-red-500/30',
+    completed: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
+    processing: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+    failed: 'bg-red-500/10 text-red-600 border-red-500/30',
   };
   const statusClass =
     statusBadge[session.status] ||
-    'bg-gray-500/10 text-gray-400 border-gray-500/30';
+    'bg-gray-500/10 text-slate-500 border-gray-500/30';
 
   // ============================ RENDER ===================================
   return (
@@ -303,7 +303,7 @@ export default function PatientViewerPage({
                             {confidencePercent}%
                           </span>
                         </div>
-                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${config.barColor} transition-all duration-1000`}
                             style={{ width: `${confidencePercent}%` }}
@@ -318,8 +318,8 @@ export default function PatientViewerPage({
                 {!pred && session.status === 'processing' && (
                   <div className="rounded-xl p-4 border bg-blue-500/10 border-blue-500/30">
                     <div className="flex items-center gap-3 mb-2">
-                      <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
-                      <p className="text-lg font-bold text-blue-400">
+                      <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                      <p className="text-lg font-bold text-blue-600">
                         Analysis in Progress
                       </p>
                     </div>
@@ -427,8 +427,8 @@ export default function PatientViewerPage({
                           : 'bg-teal-500/10 border-teal-500/30'
                       }`}
                     >
-                      <div className="p-2 rounded-lg bg-white/[0.05]">
-                        <FileText className="h-5 w-5 text-teal-400" />
+                      <div className="p-2 rounded-lg bg-slate-100">
+                        <FileText className="h-5 w-5 text-teal-600" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground">
@@ -480,7 +480,7 @@ export default function PatientViewerPage({
                     className={`rounded-xl p-4 border ${
                       config
                         ? `${config.bgColor} ${config.borderColor}`
-                        : 'bg-white/[0.03] border-white/[0.08]'
+                        : 'bg-slate-50 border-slate-200'
                     }`}
                   >
                     <p
@@ -495,8 +495,8 @@ export default function PatientViewerPage({
                     </p>
                   </div>
 
-                  <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-white/[0.03]">
-                    <ClipboardList className="h-3.5 w-3.5 text-teal-400 mt-0.5 shrink-0" />
+                  <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-slate-50">
+                    <ClipboardList className="h-3.5 w-3.5 text-teal-600 mt-0.5 shrink-0" />
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
                       Bring this report to your next doctor&apos;s appointment
                       so they can review the findings with you and answer any
@@ -516,7 +516,7 @@ export default function PatientViewerPage({
                     Important Notice
                   </h3>
                 </div>
-                <div className="rounded-xl p-4 bg-white/[0.03] border border-white/[0.06]">
+                <div className="rounded-xl p-4 bg-slate-50 border border-slate-200">
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     This AI-assisted analysis is designed to support your
                     healthcare provider and should{' '}

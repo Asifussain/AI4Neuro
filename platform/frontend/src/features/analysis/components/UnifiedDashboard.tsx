@@ -21,9 +21,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AnalysisList } from './AnalysisList';
 
 const roleCopy = {
-  admin: {
+  hospital_admin: {
     title: 'Operations command center',
-    description: 'Monitor EEG and MRI analysis activity across your hospital network.',
+    description: 'Monitor EEG and MRI analysis activity across your hospital.',
   },
   doctor: {
     title: 'Clinical review workspace',
@@ -33,13 +33,13 @@ const roleCopy = {
     title: 'Radiology analysis workspace',
     description: 'Start MRI analysis and review imaging outputs from the unified platform.',
   },
-  technician: {
-    title: 'Technician upload workspace',
-    description: 'Start EEG analysis and track processing status for submitted recordings.',
-  },
   patient: {
     title: 'My neuro-analysis records',
     description: 'View completed analysis reports shared by your care team.',
+  },
+  super_admin: {
+    title: 'Platform command center',
+    description: 'Monitor EEG and MRI analysis activity across every hospital.',
   },
 } as const;
 
@@ -91,17 +91,18 @@ function FlowCard({
   );
 }
 
-export function UnifiedDashboard() {
+export function UnifiedDashboard({ embedded = false }: { embedded?: boolean } = {}) {
   const { userProfile } = useAuth();
   const role = userProfile?.role ?? 'doctor';
   const copy = roleCopy[role] ?? roleCopy.doctor;
   const canCreate = role !== 'patient';
-  const isTechnician = role === 'technician';
   const isRadiologist = role === 'radiologist';
 
-  return (
-    <main className="ai4-page min-h-screen px-4 pb-12 pt-24">
-      <div className="mx-auto max-w-7xl space-y-8">
+  // `embedded` is used by the redesigned role dashboards, which already provide
+  // their own full-page shell (sidebar/topbar) — skip the standalone page
+  // background/top spacing that assumes the floating pill Navbar instead.
+  const content = (
+    <div className={embedded ? 'space-y-8' : 'mx-auto max-w-7xl space-y-8'}>
         <section className="rounded-2xl border border-primary/10 bg-white p-6 shadow-sm md:p-8">
           <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="space-y-4">
@@ -156,7 +157,7 @@ export function UnifiedDashboard() {
             ]}
             action={
               canCreate && !isRadiologist ? (
-                <Button asChild variant={isTechnician ? 'default' : 'outline'} className="w-full sm:w-auto">
+                <Button asChild variant="outline" className="w-full sm:w-auto">
                   <Link href="/analysis/new?modality=eeg">Upload EEG</Link>
                 </Button>
               ) : undefined
@@ -173,7 +174,7 @@ export function UnifiedDashboard() {
               'Outputs: viewer slices, volume charts, confidence, reports',
             ]}
             action={
-              canCreate && !isTechnician ? (
+              canCreate ? (
                 <Button asChild variant={isRadiologist ? 'default' : 'outline'} className="w-full sm:w-auto">
                   <Link href="/analysis/new?modality=mri">Upload MRI</Link>
                 </Button>
@@ -214,6 +215,9 @@ export function UnifiedDashboard() {
           </Card>
         </section>
       </div>
-    </main>
   );
+
+  if (embedded) return content;
+
+  return <main className="ai4-page min-h-screen px-4 pb-12 pt-24">{content}</main>;
 }

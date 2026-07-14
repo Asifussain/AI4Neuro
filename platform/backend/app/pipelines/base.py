@@ -32,7 +32,6 @@ class AnalysisContext(BaseModel):
     doctor_id: str | None = None
     hospital_id: str | None = None
     radiologist_id: str | None = None
-    technician_id: str | None = None
     uploaded_by_role: str | None = None
     options: dict = Field(default_factory=dict)
 

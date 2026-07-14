@@ -277,7 +277,6 @@ export function AnalysisUploadForm() {
     if (doctorId.trim() && doctorId !== NO_DOCTOR_VALUE) form.append('doctor_id', doctorId.trim());
     if (userProfile?.id) {
       form.append('uploaded_by_role', userProfile.role);
-      if (userProfile.role === 'technician') form.append('technician_id', userProfile.id);
       if (userProfile.role === 'radiologist') form.append('radiologist_id', userProfile.id);
       if (userProfile.role === 'doctor' && !doctorId.trim()) form.append('doctor_id', userProfile.id);
     }
@@ -384,18 +383,27 @@ export function AnalysisUploadForm() {
 
               <div className="grid gap-2">
                 <Label htmlFor="analysis-type">Analysis type</Label>
-                <Select value={analysisType} onValueChange={setAnalysisType}>
-                  <SelectTrigger id="analysis-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {analysisTypeOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {analysisTypeOptions.length > 1 ? (
+                  <Select value={analysisType} onValueChange={setAnalysisType}>
+                    <SelectTrigger id="analysis-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {analysisTypeOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div
+                    id="analysis-type"
+                    className="flex h-9 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground"
+                  >
+                    {analysisTypeOptions[0]?.label}
+                  </div>
+                )}
               </div>
             </div>
 

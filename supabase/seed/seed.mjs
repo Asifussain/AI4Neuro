@@ -2,8 +2,9 @@
  * Unified Neuro Platform — development seed script.
  *
  * Creates realistic dev data using the Supabase SERVICE ROLE key:
+ *   - 1 platform-wide super_admin (no hospital)
  *   - 2 hospitals
- *   - 1 user per role (admin, doctor, radiologist, technician) + 2 patients
+ *   - 1 user per hospital-scoped role (hospital_admin, doctor, radiologist) + 2 patients
  *   - their role-specific profiles
  *   - doctor<->patient relationships
  *   - one sample COMPLETED analysis session so the dashboard isn't empty
@@ -140,14 +141,15 @@ async function main() {
   });
   console.log(`  hospitals: ${gnh.name}, ${cmc.name}`);
 
-  // 2) Users (email -> role). All in GNH for a coherent single-hospital demo.
+  // 2) Users (email -> role). Hospital-scoped roles all live in GNH for a
+  //    coherent single-hospital demo; super_admin has no hospital.
   const people = [
-    { email: 'admin@demo.dev',      role: 'admin',       full_name: 'Alice Admin' },
-    { email: 'doctor@demo.dev',     role: 'doctor',      full_name: 'Dr. David Doctor' },
-    { email: 'radiologist@demo.dev',role: 'radiologist', full_name: 'Dr. Rita Radiologist' },
-    { email: 'technician@demo.dev', role: 'technician',  full_name: 'Tom Technician' },
-    { email: 'patient1@demo.dev',   role: 'patient',     full_name: 'Pat Patient One' },
-    { email: 'patient2@demo.dev',   role: 'patient',     full_name: 'Paula Patient Two' },
+    { email: 'superadmin@demo.dev', role: 'super_admin',   full_name: 'Sam SuperAdmin', hospital: null },
+    { email: 'admin@demo.dev',      role: 'hospital_admin',full_name: 'Alice Admin',    hospital: gnh },
+    { email: 'doctor@demo.dev',     role: 'doctor',        full_name: 'Dr. David Doctor', hospital: gnh },
+    { email: 'radiologist@demo.dev',role: 'radiologist',   full_name: 'Dr. Rita Radiologist', hospital: gnh },
+    { email: 'patient1@demo.dev',   role: 'patient',       full_name: 'Pat Patient One', hospital: gnh },
+    { email: 'patient2@demo.dev',   role: 'patient',       full_name: 'Paula Patient Two', hospital: gnh },
   ];
 
   const ids = {};
@@ -155,10 +157,11 @@ async function main() {
   for (const p of people) {
     const id = await ensureAuthUser(p.email, p.full_name, p.role);
     ids[p.email] = id;
+    const idPrefix = p.hospital ? p.hospital.hospital_code : 'PLATFORM';
     await upsertUserProfile({
       id,
-      hospital_id: gnh.id,
-      unique_identifier: `GNH-${p.role.toUpperCase()}-${String(seq++).padStart(4, '0')}`,
+      hospital_id: p.hospital ? p.hospital.id : null,
+      unique_identifier: `${idPrefix}-${p.role.toUpperCase()}-${String(seq++).padStart(4, '0')}`,
       full_name: p.full_name,
       email: p.email,
       phone: `+1 (555) 000-${String(1000 + seq)}`,
@@ -184,10 +187,14 @@ async function main() {
     experience_years: 9,
     verification_status: 'verified',
   });
-  await upsertByUserId('admin_profiles', {
+  await upsertByUserId('hospital_admin_profiles', {
     user_id: ids['admin@demo.dev'],
     employee_id: 'EMP-0001',
     department: 'Administration',
+  });
+  await upsertByUserId('super_admin_profiles', {
+    user_id: ids['superadmin@demo.dev'],
+    notes: 'Seeded platform super admin (dev only).',
   });
   for (const email of ['patient1@demo.dev', 'patient2@demo.dev']) {
     await upsertByUserId('patient_profiles', {
@@ -250,7 +257,7 @@ async function main() {
 
   console.log('\n✅ Seed complete.\n');
   console.log('Dev login accounts (password for ALL: ' + DEV_PASSWORD + '):');
-  console.table(people.map((p) => ({ role: p.role, email: p.email, hospital: 'GNH' })));
+  console.table(people.map((p) => ({ role: p.role, email: p.email, hospital: p.hospital ? p.hospital.hospital_code : '(platform)' })));
   console.log('\n⚠️  Development only — never use these in production.');
 }
 

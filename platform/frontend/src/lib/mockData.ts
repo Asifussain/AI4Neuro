@@ -2,7 +2,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'patient' | 'doctor' | 'radiologist' | 'admin';
+  role: 'patient' | 'doctor' | 'radiologist' | 'hospital_admin' | 'super_admin';
   avatar?: string;
 }
 
@@ -80,9 +80,9 @@ export const mockUsers: User[] = [
   },
   {
     id: 'admin-1',
-    name: 'Admin User',
+    name: 'Hospital Admin User',
     email: 'admin@hospital.com',
-    role: 'admin',
+    role: 'hospital_admin',
   },
 ];
 
