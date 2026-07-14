@@ -41,6 +41,10 @@ const roleCopy = {
     title: 'My neuro-analysis records',
     description: 'View completed analysis reports shared by your care team.',
   },
+  super_admin: {
+    title: 'Platform command center',
+    description: 'Monitor EEG and MRI analysis activity across every hospital.',
+  },
 } as const;
 
 function FlowCard({
@@ -91,7 +95,7 @@ function FlowCard({
   );
 }
 
-export function UnifiedDashboard() {
+export function UnifiedDashboard({ embedded = false }: { embedded?: boolean } = {}) {
   const { userProfile } = useAuth();
   const role = userProfile?.role ?? 'doctor';
   const copy = roleCopy[role] ?? roleCopy.doctor;
@@ -99,9 +103,11 @@ export function UnifiedDashboard() {
   const isTechnician = role === 'technician';
   const isRadiologist = role === 'radiologist';
 
-  return (
-    <main className="ai4-page min-h-screen px-4 pb-12 pt-24">
-      <div className="mx-auto max-w-7xl space-y-8">
+  // `embedded` is used by the redesigned role dashboards, which already provide
+  // their own full-page shell (sidebar/topbar) — skip the standalone page
+  // background/top spacing that assumes the floating pill Navbar instead.
+  const content = (
+    <div className={embedded ? 'space-y-8' : 'mx-auto max-w-7xl space-y-8'}>
         <section className="rounded-2xl border border-primary/10 bg-white p-6 shadow-sm md:p-8">
           <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="space-y-4">
@@ -214,6 +220,9 @@ export function UnifiedDashboard() {
           </Card>
         </section>
       </div>
-    </main>
   );
+
+  if (embedded) return content;
+
+  return <main className="ai4-page min-h-screen px-4 pb-12 pt-24">{content}</main>;
 }

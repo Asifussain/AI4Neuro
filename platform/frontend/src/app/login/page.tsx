@@ -2,16 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Eye, EyeOff, Loader2, Brain, Waves, ScanLine } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-import { Navbar } from '@/components/shared/Navbar';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const router = useRouter();
   const supabase = createClient();
@@ -94,52 +95,58 @@ export default function LoginPage() {
   // Show loading while checking auth
   if (checkingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-[#f7fafc]">
         <div className="flex flex-col items-center gap-4">
           <div className="flex gap-2">
-            <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="w-3 h-3 bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-3 h-3 bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-3 h-3 bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
-          <p className="text-muted-foreground text-sm">Checking session...</p>
+          <p className="text-slate-500 text-sm">Checking session...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="ai4-page min-h-screen bg-background flex flex-col overflow-hidden">
-      <Navbar />
-      <div className="flex-1 flex overflow-hidden">
-      {/* Left Panel - Login Form */}
-      <div className="w-full lg:w-1/2 flex flex-col relative z-10 pt-8">
+    <div className="min-h-screen bg-[#f7fafc] flex flex-col">
+      {/* Minimal header */}
+      <header className="px-6 py-5">
+        <Link href="/landing" className="inline-flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center">
+            <Brain className="h-5 w-5 text-white" />
+          </div>
+          <span className="font-bold text-slate-900 text-lg">AI4Neuro</span>
+        </Link>
+      </header>
 
-        {/* Form */}
-        <div className="flex-1 flex items-center justify-center px-8 lg:px-16">
-          <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center">
+        <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center px-6 py-8">
+          {/* Left Panel - Login Form */}
+          <div className="w-full max-w-md mx-auto lg:mx-0">
             <div className="mb-8">
-              <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">AI4NEURO</p>
-              <h1 className="text-3xl font-bold text-foreground mb-2">Welcome back</h1>
-              <p className="text-muted-foreground">Sign in to access EEG and MRI analysis workflows.</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-700">AI4Neuro</p>
+              <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Welcome back</h1>
+              <p className="text-slate-500">Sign in to access EEG, MRI, and PET analysis workflows.</p>
             </div>
 
-            <div className="ai4-card bg-card border border-border rounded-2xl p-6">
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
               <form onSubmit={handleLogin} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Email</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={loading}
                     required
-                    className="w-full px-4 py-3 bg-background border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400 disabled:opacity-50"
                     placeholder="name@hospital.com"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Password</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Password</label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -147,24 +154,39 @@ export default function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       disabled={loading}
                       required
-                      className="w-full px-4 py-3 pr-12 bg-background border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+                      className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400 disabled:opacity-50"
                       placeholder="Enter password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
 
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center gap-2 text-slate-600 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/40"
+                    />
+                    Remember Me
+                  </label>
+                  <span className="text-emerald-700 font-medium cursor-not-allowed" title="Contact your administrator to reset your password">
+                    Forgot Password?
+                  </span>
+                </div>
+
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -178,33 +200,52 @@ export default function LoginPage() {
               </form>
             </div>
 
-            <p className="mt-6 text-center text-sm text-muted-foreground">
+            <p className="mt-6 text-center text-sm text-slate-500">
               Need access? Contact your administrator.
             </p>
           </div>
-        </div>
-      </div>
 
-      {/* Right Panel - Visual (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 items-center justify-center p-12">
-        <div className="max-w-md rounded-2xl border bg-white p-8 shadow-sm">
-          <p className="text-sm font-semibold uppercase tracking-wide text-primary">Unified clinical workspace</p>
-          <h2 className="mt-3 text-2xl font-bold text-foreground">One login for two diagnostic lanes</h2>
-          <p className="mt-3 text-muted-foreground">
-            Route EEG recordings and MRI scans through the same secure platform while preserving modality-specific reports.
-          </p>
-          <div className="grid gap-3 mt-8">
-            <div className="rounded-xl bg-secondary p-4">
-              <div className="font-semibold">EEG flow</div>
-              <div className="text-sm text-muted-foreground">ADFormer analysis for .npy brainwave recordings.</div>
-            </div>
-            <div className="rounded-xl bg-secondary p-4">
-              <div className="font-semibold">MRI flow</div>
-              <div className="text-sm text-muted-foreground">NIfTI imaging analysis with viewer-ready outputs.</div>
+          {/* Right Panel - Visual (hidden on mobile) */}
+          <div className="hidden lg:block">
+            <div className="rounded-3xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 p-8">
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Unified clinical workspace</p>
+              <h2 className="mt-3 text-2xl font-extrabold text-slate-900">One login for every diagnostic lane</h2>
+              <p className="mt-3 text-slate-500 leading-relaxed">
+                Route EEG recordings, MRI scans, and PET biomarkers through the same secure platform
+                while preserving modality-specific reports.
+              </p>
+              <div className="grid gap-3 mt-8">
+                <div className="rounded-xl bg-white p-4 flex items-center gap-3 shadow-sm">
+                  <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                    <Waves className="h-4.5 w-4.5 text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900 text-sm">EEG flow</div>
+                    <div className="text-xs text-slate-500">ADFormer analysis for .npy brainwave recordings.</div>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-white p-4 flex items-center gap-3 shadow-sm">
+                  <div className="w-9 h-9 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
+                    <ScanLine className="h-4.5 w-4.5 text-teal-600" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900 text-sm">MRI flow</div>
+                    <div className="text-xs text-slate-500">NIfTI imaging analysis with viewer-ready outputs.</div>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-white p-4 flex items-center gap-3 shadow-sm opacity-60">
+                  <div className="w-9 h-9 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+                    <Brain className="h-4.5 w-4.5 text-violet-600" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900 text-sm">PET flow</div>
+                    <div className="text-xs text-slate-500">Locked / Coming soon.</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
       </div>
     </div>
   );

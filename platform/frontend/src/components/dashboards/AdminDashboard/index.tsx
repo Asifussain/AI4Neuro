@@ -40,7 +40,6 @@ import {
   Brain,
   Crown,
   X,
-  Edit,
   Loader2,
   LayoutGrid,
   List,
@@ -50,73 +49,26 @@ import {
   Database,
   HardDrive,
   Cpu,
+  ScanLine,
+  Settings,
 } from 'lucide-react';
+import { DashboardShell, type NavItem } from '@/components/dashboards/shared/DashboardShell';
 import {
-  SpotlightCard,
-  GradientText,
-  AnimatedCounter,
-  AuroraBackground,
-  GridPattern,
-} from '@/components/ui/animated';
+  SectionCard,
+  StatCard as SharedStatCard,
+  QuickActionsList,
+  DashboardPageHeader,
+} from '@/components/dashboards/shared/primitives';
 
-// ============================================================================
-// STAT CARD
-// ============================================================================
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  description,
-  color = 'purple',
-}: {
-  title: string;
-  value: string | number;
-  icon: React.ElementType;
-  description: string;
-  color?: 'purple' | 'teal' | 'blue' | 'green' | 'orange' | 'red';
-}) {
-  const colorStyles: Record<string, string> = {
-    purple: 'from-purple-500 to-violet-500',
-    teal: 'from-teal-500 to-cyan-500',
-    blue: 'from-blue-500 to-indigo-500',
-    green: 'from-green-500 to-emerald-500',
-    orange: 'from-orange-500 to-amber-500',
-    red: 'from-red-500 to-rose-500',
-  };
-  const bgColorStyles: Record<string, string> = {
-    purple: 'bg-purple-500/10',
-    teal: 'bg-teal-500/10',
-    blue: 'bg-blue-500/10',
-    green: 'bg-green-500/10',
-    orange: 'bg-orange-500/10',
-    red: 'bg-red-500/10',
-  };
-  const iconColors: Record<string, string> = {
-    purple: '#a855f7',
-    teal: '#14b8a6',
-    blue: '#3b82f6',
-    green: '#22c55e',
-    orange: '#f97316',
-    red: '#ef4444',
-  };
-
-  return (
-    <SpotlightCard className="p-5">
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <p className="text-sm text-slate-400">{title}</p>
-          <span className={`text-2xl font-bold bg-gradient-to-r ${colorStyles[color]} bg-clip-text text-transparent`}>
-            {typeof value === 'number' ? <AnimatedCounter value={value} /> : value}
-          </span>
-          <p className="text-xs text-slate-500">{description}</p>
-        </div>
-        <div className={`p-3 rounded-xl ${bgColorStyles[color]}`}>
-          <Icon className="h-5 w-5" style={{ color: iconColors[color] }} />
-        </div>
-      </div>
-    </SpotlightCard>
-  );
-}
+const NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutGrid },
+  { label: 'Doctors', href: '/admin/dashboard', icon: Stethoscope },
+  { label: 'Radiologists', href: '/admin/dashboard', icon: Brain },
+  { label: 'Patients', href: '/admin/dashboard', icon: Users },
+  { label: 'Scan Sessions', href: '/admin/dashboard', icon: ScanLine },
+  { label: 'Reports', href: '/admin/dashboard', icon: FileText },
+  { label: 'Settings', href: '/profile', icon: Settings },
+];
 
 // ============================================================================
 // ROLE CARD
@@ -130,44 +82,33 @@ function RoleCard({
   label: string;
   value: number;
   icon: React.ElementType;
-  color: 'purple' | 'teal' | 'blue' | 'green' | 'orange';
+  color: 'blue' | 'green' | 'cyan' | 'violet';
 }) {
-  const colorStyles: Record<string, string> = {
-    purple: 'from-purple-500 to-violet-500',
-    teal: 'from-teal-500 to-cyan-500',
-    blue: 'from-blue-500 to-indigo-500',
-    green: 'from-green-500 to-emerald-500',
-    orange: 'from-orange-500 to-amber-500',
+  const bg: Record<string, string> = {
+    blue: 'bg-blue-50',
+    green: 'bg-emerald-50',
+    cyan: 'bg-cyan-50',
+    violet: 'bg-violet-50',
   };
-  const bgColorStyles: Record<string, string> = {
-    purple: 'bg-purple-500/10',
-    teal: 'bg-teal-500/10',
-    blue: 'bg-blue-500/10',
-    green: 'bg-green-500/10',
-    orange: 'bg-orange-500/10',
-  };
-  const iconColors: Record<string, string> = {
-    purple: '#a855f7',
-    teal: '#14b8a6',
-    blue: '#3b82f6',
-    green: '#22c55e',
-    orange: '#f97316',
+  const text: Record<string, string> = {
+    blue: 'text-blue-600',
+    green: 'text-emerald-600',
+    cyan: 'text-cyan-600',
+    violet: 'text-violet-600',
   };
 
   return (
-    <SpotlightCard className="p-4">
+    <SectionCard className="p-4">
       <div className="flex items-center gap-3">
-        <div className={`p-2.5 rounded-xl ${bgColorStyles[color]}`}>
-          <Icon className="h-5 w-5" style={{ color: iconColors[color] }} />
+        <div className={`p-2.5 rounded-xl ${bg[color]}`}>
+          <Icon className={`h-5 w-5 ${text[color]}`} />
         </div>
         <div>
-          <p className="text-xs text-slate-400">{label}</p>
-          <p className={`text-xl font-bold bg-gradient-to-r ${colorStyles[color]} bg-clip-text text-transparent`}>
-            <AnimatedCounter value={value} />
-          </p>
+          <p className="text-xs text-slate-500">{label}</p>
+          <p className="text-xl font-bold text-slate-900">{value}</p>
         </div>
       </div>
-    </SpotlightCard>
+    </SectionCard>
   );
 }
 
@@ -190,21 +131,21 @@ function SectionToggle({
   ];
 
   return (
-    <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.02] border border-white/[0.05] w-fit">
+    <div className="flex items-center gap-1 p-1 rounded-xl bg-white border border-slate-200 w-fit">
       {sections.map(({ key, label, icon: Icon, badge }) => (
         <button
           key={key}
           onClick={() => onSectionChange(key)}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
             activeSection === key
-              ? 'bg-orange-500/20 text-orange-400'
-              : 'text-slate-400 hover:text-white hover:bg-white/5'
+              ? 'bg-teal-50 text-teal-700'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
           }`}
         >
           <Icon className="h-4 w-4" />
           {label}
           {badge !== undefined && badge > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold">
+            <span className="px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-bold">
               {badge}
             </span>
           )}
@@ -227,8 +168,8 @@ function UserRow({
   onActivate?: (id: string) => void;
 }) {
   const roleIcons: Record<string, React.ElementType> = { admin: Crown, doctor: Stethoscope, radiologist: Brain, patient: User };
-  const roleColors: Record<string, string> = { admin: 'bg-orange-500/10 text-orange-400', doctor: 'bg-green-500/10 text-green-400', radiologist: 'bg-teal-500/10 text-teal-400', patient: 'bg-blue-500/10 text-blue-400' };
-  const statusColors: Record<string, string> = { active: 'bg-green-500/10 text-green-400', suspended: 'bg-red-500/10 text-red-400', pending: 'bg-yellow-500/10 text-yellow-400' };
+  const roleColors: Record<string, string> = { admin: 'bg-violet-50 text-violet-700', doctor: 'bg-emerald-50 text-emerald-700', radiologist: 'bg-cyan-50 text-cyan-700', patient: 'bg-blue-50 text-blue-700' };
+  const statusColors: Record<string, string> = { active: 'bg-emerald-50 text-emerald-700', suspended: 'bg-red-50 text-red-700', pending: 'bg-amber-50 text-amber-700' };
 
   const role = user.role || 'patient';
   const RoleIcon = roleIcons[role] || User;
@@ -236,15 +177,15 @@ function UserRow({
   const statusColor = statusColors[user.account_status] || statusColors.pending;
 
   return (
-    <div className="group p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-orange-500/30 hover:bg-white/[0.04] transition-all duration-300">
+    <div className="group p-4 rounded-xl bg-white border border-slate-200 hover:border-teal-300 hover:shadow-sm transition-all duration-300">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 min-w-0 flex-1">
           <div className={`p-2 rounded-lg ${roleColor.split(' ')[0]}`}>
             <RoleIcon className={`h-5 w-5 ${roleColor.split(' ')[1]}`} />
           </div>
           <div className="min-w-0">
-            <p className="font-medium text-foreground truncate">{user.full_name}</p>
-            <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+            <p className="font-medium text-slate-900 truncate">{user.full_name}</p>
+            <p className="text-sm text-slate-500 truncate">{user.email}</p>
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -252,12 +193,12 @@ function UserRow({
           <div className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${statusColor}`}>{user.account_status}</div>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             {user.account_status === 'active' ? (
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-red-500/10" onClick={() => onSuspend?.(user.id)}>
-                <XCircle className="h-4 w-4 text-red-400" />
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-red-50" onClick={() => onSuspend?.(user.id)}>
+                <XCircle className="h-4 w-4 text-red-600" />
               </Button>
             ) : (
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-green-500/10" onClick={() => onActivate?.(user.id)}>
-                <CheckCircle2 className="h-4 w-4 text-green-400" />
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-emerald-50" onClick={() => onActivate?.(user.id)}>
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               </Button>
             )}
           </div>
@@ -280,9 +221,9 @@ function UserGridCard({
   onActivate?: (id: string) => void;
 }) {
   const roleIcons: Record<string, React.ElementType> = { admin: Crown, doctor: Stethoscope, radiologist: Brain, patient: User };
-  const roleBorderColors: Record<string, string> = { admin: 'border-orange-500/30', doctor: 'border-green-500/30', radiologist: 'border-teal-500/30', patient: 'border-blue-500/30' };
-  const roleColors: Record<string, string> = { admin: 'bg-orange-500/10 text-orange-400', doctor: 'bg-green-500/10 text-green-400', radiologist: 'bg-teal-500/10 text-teal-400', patient: 'bg-blue-500/10 text-blue-400' };
-  const statusColors: Record<string, string> = { active: 'bg-green-500/10 text-green-400', suspended: 'bg-red-500/10 text-red-400', pending: 'bg-yellow-500/10 text-yellow-400' };
+  const roleBorderColors: Record<string, string> = { admin: 'border-violet-200', doctor: 'border-emerald-200', radiologist: 'border-cyan-200', patient: 'border-blue-200' };
+  const roleColors: Record<string, string> = { admin: 'bg-violet-50 text-violet-700', doctor: 'bg-emerald-50 text-emerald-700', radiologist: 'bg-cyan-50 text-cyan-700', patient: 'bg-blue-50 text-blue-700' };
+  const statusColors: Record<string, string> = { active: 'bg-emerald-50 text-emerald-700', suspended: 'bg-red-50 text-red-700', pending: 'bg-amber-50 text-amber-700' };
 
   const role = user.role || 'patient';
   const RoleIcon = roleIcons[role] || User;
@@ -291,8 +232,7 @@ function UserGridCard({
   const statusColor = statusColors[user.account_status] || statusColors.pending;
 
   return (
-    <SpotlightCard className={`p-4 h-full flex flex-col ${borderColor}`}>
-      {/* Header */}
+    <SectionCard className={`p-4 h-full flex flex-col ${borderColor}`}>
       <div className="flex items-center justify-between mb-3">
         <div className={`p-2 rounded-lg ${roleColor.split(' ')[0]}`}>
           <RoleIcon className={`h-4 w-4 ${roleColor.split(' ')[1]}`} />
@@ -300,31 +240,29 @@ function UserGridCard({
         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${roleColor}`}>{role}</span>
       </div>
 
-      {/* Info */}
       <div className="space-y-1.5 mb-3 flex-1">
-        <p className="text-sm font-semibold text-foreground truncate">{user.full_name}</p>
-        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+        <p className="text-sm font-semibold text-slate-900 truncate">{user.full_name}</p>
+        <p className="text-xs text-slate-500 truncate">{user.email}</p>
         {user.created_at && (
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-[10px] text-slate-400">
             Joined {new Date(user.created_at).toLocaleDateString()}
           </p>
         )}
       </div>
 
-      {/* Status + Actions */}
-      <div className="flex items-center justify-between pt-2 border-t border-white/[0.05]">
+      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
         <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${statusColor}`}>{user.account_status}</span>
         {user.account_status === 'active' ? (
-          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 hover:bg-red-500/10 text-red-400" onClick={() => onSuspend?.(user.id)}>
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 hover:bg-red-50 text-red-600" onClick={() => onSuspend?.(user.id)}>
             <XCircle className="h-3 w-3" />Suspend
           </Button>
         ) : (
-          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 hover:bg-green-500/10 text-green-400" onClick={() => onActivate?.(user.id)}>
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 hover:bg-emerald-50 text-emerald-600" onClick={() => onActivate?.(user.id)}>
             <CheckCircle2 className="h-3 w-3" />Activate
           </Button>
         )}
       </div>
-    </SpotlightCard>
+    </SectionCard>
   );
 }
 
@@ -335,31 +273,31 @@ function VerificationCard({ doctor }: { doctor: Doctor }) {
   const doctorName = doctor.full_name || doctor.user_profile?.full_name || 'Unknown';
 
   return (
-    <SpotlightCard className="p-5" spotlightColor="rgba(249, 115, 22, 0.15)">
-      <div className="flex items-start justify-between">
+    <SectionCard className="p-5">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-start gap-4">
-          <div className="p-3 rounded-xl bg-orange-500/10">
-            <Stethoscope className="h-5 w-5 text-orange-400" />
+          <div className="p-3 rounded-xl bg-teal-50">
+            <Stethoscope className="h-5 w-5 text-teal-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-foreground">{doctorName}</h3>
+            <h3 className="font-semibold text-slate-900">{doctorName}</h3>
             <div className="flex items-center gap-2 mt-1">
-              <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 text-xs">{doctor.specialization}</span>
-              <span className="text-xs text-muted-foreground">License: <span className="font-mono">{doctor.license_number}</span></span>
+              <span className="px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 text-xs">{doctor.specialization}</span>
+              <span className="text-xs text-slate-500">License: <span className="font-mono">{doctor.license_number}</span></span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Experience: {doctor.experience_years || 0} years</p>
+            <p className="text-xs text-slate-500 mt-1">Experience: {doctor.experience_years || 0} years</p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0 gap-1">
+          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1">
             <CheckCircle2 className="h-3.5 w-3.5" />Approve
           </Button>
-          <Button size="sm" className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white border-0 gap-1">
+          <Button size="sm" variant="outline" className="border-red-200 text-red-700 hover:bg-red-50 gap-1">
             <XCircle className="h-3.5 w-3.5" />Reject
           </Button>
         </div>
       </div>
-    </SpotlightCard>
+    </SectionCard>
   );
 }
 
@@ -394,20 +332,20 @@ function Pagination({
 
   return (
     <div className="flex items-center justify-between pt-4">
-      <span className="text-sm text-muted-foreground">Showing {from}-{to} of {totalItems}</span>
+      <span className="text-sm text-slate-500">Showing {from}-{to} of {totalItems}</span>
       <div className="flex items-center gap-1">
         <Button size="sm" variant="ghost" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)} className="h-8 w-8 p-0">
           <ChevronLeft className="h-4 w-4" />
         </Button>
         {pages.map((p, i) =>
           typeof p === 'string' ? (
-            <span key={`dots-${i}`} className="px-1 text-muted-foreground text-sm">...</span>
+            <span key={`dots-${i}`} className="px-1 text-slate-400 text-sm">...</span>
           ) : (
             <Button
               key={p}
               size="sm"
               variant={p === currentPage ? 'default' : 'ghost'}
-              className={`h-8 w-8 p-0 text-xs ${p === currentPage ? 'bg-orange-500 hover:bg-orange-600' : ''}`}
+              className={`h-8 w-8 p-0 text-xs ${p === currentPage ? 'bg-teal-600 hover:bg-teal-700' : ''}`}
               onClick={() => onPageChange(p)}
             >
               {p}
@@ -427,31 +365,26 @@ function Pagination({
 // ============================================================================
 function StatCardSkeleton() {
   return (
-    <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.05] animate-pulse">
-      <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <div className="h-4 w-20 bg-slate-700 rounded" />
-          <div className="h-7 w-14 bg-slate-600 rounded" />
-          <div className="h-3 w-24 bg-slate-700 rounded" />
-        </div>
-        <div className="h-11 w-11 bg-slate-700 rounded-xl" />
-      </div>
+    <div className="p-5 rounded-2xl bg-white border border-slate-200 animate-pulse">
+      <div className="h-11 w-11 bg-slate-100 rounded-xl mb-4" />
+      <div className="h-4 w-20 bg-slate-100 rounded mb-2" />
+      <div className="h-7 w-14 bg-slate-200 rounded" />
     </div>
   );
 }
 
 function RowSkeleton() {
   return (
-    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] animate-pulse">
+    <div className="p-4 rounded-xl bg-white border border-slate-200 animate-pulse">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="h-9 w-9 bg-slate-700 rounded-lg" />
+          <div className="h-9 w-9 bg-slate-100 rounded-lg" />
           <div className="space-y-2">
-            <div className="h-4 w-32 bg-slate-600 rounded" />
-            <div className="h-3 w-24 bg-slate-700 rounded" />
+            <div className="h-4 w-32 bg-slate-200 rounded" />
+            <div className="h-3 w-24 bg-slate-100 rounded" />
           </div>
         </div>
-        <div className="h-6 w-16 bg-slate-700 rounded-full" />
+        <div className="h-6 w-16 bg-slate-100 rounded-full" />
       </div>
     </div>
   );
@@ -459,22 +392,22 @@ function RowSkeleton() {
 
 function GridCardSkeleton() {
   return (
-    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] animate-pulse">
+    <div className="p-4 rounded-xl bg-white border border-slate-200 animate-pulse">
       <div className="flex items-center gap-2 mb-3">
-        <div className="h-8 w-8 bg-slate-700 rounded-lg" />
-        <div className="h-4 w-16 bg-slate-600 rounded-full" />
+        <div className="h-8 w-8 bg-slate-100 rounded-lg" />
+        <div className="h-4 w-16 bg-slate-200 rounded-full" />
       </div>
       <div className="space-y-2 mb-3">
-        <div className="h-4 w-28 bg-slate-700 rounded" />
-        <div className="h-3 w-36 bg-slate-700 rounded" />
+        <div className="h-4 w-28 bg-slate-100 rounded" />
+        <div className="h-3 w-36 bg-slate-100 rounded" />
       </div>
-      <div className="h-7 w-full bg-slate-700 rounded" />
+      <div className="h-7 w-full bg-slate-100 rounded" />
     </div>
   );
 }
 
 // ============================================================================
-// MAIN ADMIN DASHBOARD
+// MAIN HOSPITAL ADMIN DASHBOARD
 // ============================================================================
 export const AdminDashboard: React.FC = () => {
   // Dialog state
@@ -517,8 +450,8 @@ export const AdminDashboard: React.FC = () => {
   const roleStats = useMemo(() => [
     { label: 'Patients', value: stats?.totalPatients || 0, icon: Users, color: 'blue' as const },
     { label: 'Doctors', value: stats?.totalDoctors || 0, icon: Stethoscope, color: 'green' as const },
-    { label: 'Radiologists', value: stats?.totalRadiologists || 0, icon: Brain, color: 'teal' as const },
-    { label: 'Admins', value: stats?.totalAdmins || 0, icon: Crown, color: 'orange' as const },
+    { label: 'Radiologists', value: stats?.totalRadiologists || 0, icon: Brain, color: 'cyan' as const },
+    { label: 'Admins', value: stats?.totalAdmins || 0, icon: Crown, color: 'violet' as const },
   ], [stats]);
 
   // User status handlers
@@ -635,591 +568,585 @@ export const AdminDashboard: React.FC = () => {
   // System health
   const systemHealth = stats?.systemHealth || { database: 'healthy', storage: 'healthy', mlService: 'healthy' };
   const healthDot = (status: string) => {
-    if (status === 'healthy') return 'bg-green-500';
-    if (status === 'degraded') return 'bg-yellow-500';
+    if (status === 'healthy') return 'bg-emerald-500';
+    if (status === 'degraded') return 'bg-amber-500';
     return 'bg-red-500';
   };
 
   return (
-    <div className="relative min-h-screen bg-background">
-      <AuroraBackground />
-      <GridPattern />
+    <DashboardShell roleLabel="Hospital Admin" accent="teal" navItems={NAV_ITEMS}>
+      <DashboardPageHeader
+        eyebrow="Hospital Admin"
+        title="Hospital Admin Dashboard"
+        description="Complete hospital ecosystem management for AI4Neuro services."
+        routeChip="/admin-dashboard"
+        accent="teal"
+      />
 
-      <div className="relative z-10 p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">
-              <GradientText from="from-orange-400" via="via-amber-400" to="to-purple-400">
-                System Administration
-              </GradientText>
-            </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Manage users, permissions, and hospital operations
-            </p>
-          </div>
-          <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600">
-                <UserPlus className="h-4 w-4" />
-                Create User
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] bg-card border-border">
-              <DialogHeader>
-                <DialogTitle className="text-foreground">Create New User</DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                  Add a new user to the system. A temporary password will be generated and emailed to them.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="fullName" className="text-muted-foreground">Full Name <span className="text-red-400">*</span></Label>
-                  <Input
-                    id="fullName"
-                    placeholder="John Doe"
-                    value={createForm.full_name}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, full_name: e.target.value }))}
-                    disabled={createLoading}
-                    className="bg-white/[0.02] border-white/[0.08] text-foreground placeholder:text-muted-foreground"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email" className="text-muted-foreground">Email <span className="text-red-400">*</span></Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="john@example.com"
-                    value={createForm.email}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
-                    disabled={createLoading}
-                    className="bg-white/[0.02] border-white/[0.08] text-foreground placeholder:text-muted-foreground"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="role" className="text-muted-foreground">Role <span className="text-red-400">*</span></Label>
-                  <Select
-                    value={createForm.role}
-                    onValueChange={(val) => setCreateForm(prev => ({ ...prev, role: val }))}
-                    disabled={createLoading}
-                  >
-                    <SelectTrigger className="bg-white/[0.02] border-white/[0.08] text-foreground">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      <SelectItem value="patient">Patient</SelectItem>
-                      <SelectItem value="doctor">Doctor</SelectItem>
-                      <SelectItem value="radiologist">Radiologist</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="phone" className="text-muted-foreground">Phone</Label>
-                  <Input
-                    id="phone"
-                    placeholder="+1 (555) 000-0000"
-                    value={createForm.phone}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, phone: e.target.value }))}
-                    disabled={createLoading}
-                    className="bg-white/[0.02] border-white/[0.08] text-foreground placeholder:text-muted-foreground"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => { setIsCreateUserOpen(false); setCreateForm({ full_name: '', email: '', role: '', phone: '' }); }}
-                  disabled={createLoading}
-                  className="border-border text-muted-foreground hover:bg-white/5"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreateUser}
-                  disabled={createLoading || !createForm.full_name || !createForm.email || !createForm.role}
-                  className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white border-0 gap-2"
-                >
-                  {createLoading ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" />Creating...</>
-                  ) : (
-                    <><UserPlus className="h-4 w-4" />Create User</>
-                  )}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Success Dialog — shows credentials after user creation */}
-        <Dialog open={!!createResult} onOpenChange={(open) => { if (!open) setCreateResult(null); }}>
-          <DialogContent className="sm:max-w-[480px] bg-card border-border">
+      <div className="flex justify-end">
+        <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2 bg-teal-600 hover:bg-teal-700">
+              <UserPlus className="h-4 w-4" />
+              Create User
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle className="text-foreground flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-400" />
-                User Created Successfully
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                {createResult?.emailSent
-                  ? 'Credentials have been sent to the user via email.'
-                  : 'Email delivery failed. Please share these credentials manually.'}
+              <DialogTitle>Create New User</DialogTitle>
+              <DialogDescription>
+                Add a new user to the system. A temporary password will be generated and emailed to them.
               </DialogDescription>
             </DialogHeader>
-            {createResult && (
-              <div className="py-4 space-y-4">
-                <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Email</span>
-                    <span className="text-sm font-mono font-medium text-foreground">{createResult.email}</span>
-                  </div>
-                  <div className="border-t border-white/[0.05]" />
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Temporary Password</span>
-                    <span className="text-sm font-mono font-bold text-teal-400 tracking-wide">{createResult.password}</span>
-                  </div>
-                </div>
-                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <p className="text-xs text-amber-400 leading-relaxed">
-                    <strong>Note:</strong> The user will be required to change their password upon first login.
-                    {!createResult.emailSent && ' Since the email could not be delivered, please share these credentials securely.'}
-                  </p>
-                </div>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="fullName">Full Name <span className="text-red-600">*</span></Label>
+                <Input
+                  id="fullName"
+                  placeholder="John Doe"
+                  value={createForm.full_name}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, full_name: e.target.value }))}
+                  disabled={createLoading}
+                />
               </div>
-            )}
-            <div className="flex justify-end">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email <span className="text-red-600">*</span></Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="john@example.com"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
+                  disabled={createLoading}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="role">Role <span className="text-red-600">*</span></Label>
+                <Select
+                  value={createForm.role}
+                  onValueChange={(val) => setCreateForm(prev => ({ ...prev, role: val }))}
+                  disabled={createLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="patient">Patient</SelectItem>
+                    <SelectItem value="doctor">Doctor</SelectItem>
+                    <SelectItem value="radiologist">Radiologist</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  placeholder="+1 (555) 000-0000"
+                  value={createForm.phone}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, phone: e.target.value }))}
+                  disabled={createLoading}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
               <Button
-                onClick={() => setCreateResult(null)}
-                className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white border-0"
+                variant="outline"
+                onClick={() => { setIsCreateUserOpen(false); setCreateForm({ full_name: '', email: '', role: '', phone: '' }); }}
+                disabled={createLoading}
               >
-                Done
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateUser}
+                disabled={createLoading || !createForm.full_name || !createForm.email || !createForm.role}
+                className="bg-teal-600 hover:bg-teal-700 gap-2"
+              >
+                {createLoading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Creating...</>
+                ) : (
+                  <><UserPlus className="h-4 w-4" />Create User</>
+                )}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
+      </div>
 
-        {/* Error */}
-        {statsError && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-            Failed to load stats: {statsError}
-          </div>
-        )}
-
-        {/* Stats */}
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          {isLoading ? (
-            <>{[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}</>
-          ) : (
-            <>
-              <StatCard title="Total Users" value={stats?.totalUsers || 0} icon={Users} description="All roles combined" color="purple" />
-              <StatCard title="Pending Actions" value={stats?.pendingVerifications || 0} icon={AlertCircle} description="Require attention" color="orange" />
-              <StatCard title="Monthly Scans" value={stats?.scansThisMonth || 0} icon={Activity} description="Hospital-wide" color="teal" />
-              <StatCard title="Active Users" value={stats?.activeUsers || 0} icon={Shield} description="Currently active" color="green" />
-            </>
+      {/* Success Dialog — shows credentials after user creation */}
+      <Dialog open={!!createResult} onOpenChange={(open) => { if (!open) setCreateResult(null); }}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              User Created Successfully
+            </DialogTitle>
+            <DialogDescription>
+              {createResult?.emailSent
+                ? 'Credentials have been sent to the user via email.'
+                : 'Email delivery failed. Please share these credentials manually.'}
+            </DialogDescription>
+          </DialogHeader>
+          {createResult && (
+            <div className="py-4 space-y-4">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-500">Email</span>
+                  <span className="text-sm font-mono font-medium text-slate-900">{createResult.email}</span>
+                </div>
+                <div className="border-t border-slate-200" />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-500">Temporary Password</span>
+                  <span className="text-sm font-mono font-bold text-teal-700 tracking-wide">{createResult.password}</span>
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  <strong>Note:</strong> The user will be required to change their password upon first login.
+                  {!createResult.emailSent && ' Since the email could not be delivered, please share these credentials securely.'}
+                </p>
+              </div>
+            </div>
           )}
+          <div className="flex justify-end">
+            <Button onClick={() => setCreateResult(null)} className="bg-teal-600 hover:bg-teal-700">
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {statsError && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          Failed to load stats: {statsError}
         </div>
+      )}
 
-        {/* Role Distribution */}
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          {roleStats.map((stat, idx) => (
-            <RoleCard key={idx} {...stat} />
-          ))}
-        </div>
+      {/* Stats */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {isLoading ? (
+          <>{[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}</>
+        ) : (
+          <>
+            <SharedStatCard label="Total Users" value={stats?.totalUsers || 0} icon={Users} sublabel="All roles combined" accent="teal" />
+            <SharedStatCard label="Pending Actions" value={stats?.pendingVerifications || 0} icon={AlertCircle} sublabel="Require attention" accent="teal" />
+            <SharedStatCard label="Monthly Scans" value={stats?.scansThisMonth || 0} icon={Activity} sublabel="Hospital-wide" accent="teal" />
+            <SharedStatCard label="Active Users" value={stats?.activeUsers || 0} icon={Shield} sublabel="Currently active" accent="teal" />
+          </>
+        )}
+      </div>
 
-        {/* Main + Sidebar */}
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-          {/* Main */}
-          <div className="xl:col-span-3 space-y-4">
-            {/* Section Toggle */}
-            <SectionToggle
-              activeSection={activeSection}
-              onSectionChange={setActiveSection}
-              pendingCount={stats?.pendingVerifications || 0}
-            />
+      {/* Role Distribution */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {roleStats.map((stat, idx) => (
+          <RoleCard key={idx} {...stat} />
+        ))}
+      </div>
 
-            {/* === USERS SECTION === */}
-            {activeSection === 'users' && (
-              <>
-                {/* Toolbar */}
-                <SpotlightCard className="p-4">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      {/* View toggle */}
-                      <div className="flex rounded-lg border border-white/[0.08] overflow-hidden">
-                        <button
-                          onClick={() => setViewMode('grid')}
-                          className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-orange-500/20 text-orange-400' : 'text-muted-foreground hover:bg-white/5'}`}
-                        >
-                          <LayoutGrid className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => setViewMode('list')}
-                          className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-orange-500/20 text-orange-400' : 'text-muted-foreground hover:bg-white/5'}`}
-                        >
-                          <List className="h-4 w-4" />
-                        </button>
-                      </div>
+      {/* Main + Sidebar */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+        {/* Main */}
+        <div className="xl:col-span-3 space-y-4">
+          {/* Section Toggle */}
+          <SectionToggle
+            activeSection={activeSection}
+            onSectionChange={setActiveSection}
+            pendingCount={stats?.pendingVerifications || 0}
+          />
 
-                      {/* Filters toggle */}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className={`gap-1.5 ${showFilters || activeFilterCount > 0 ? 'border-orange-500/30 text-orange-400' : 'border-white/[0.08]'}`}
-                        onClick={() => setShowFilters(!showFilters)}
+          {/* === USERS SECTION === */}
+          {activeSection === 'users' && (
+            <>
+              {/* Toolbar */}
+              <SectionCard className="p-4">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* View toggle */}
+                    <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                      <button
+                        onClick={() => setViewMode('grid')}
+                        className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-teal-50 text-teal-700' : 'text-slate-400 hover:bg-slate-50'}`}
                       >
-                        <Filter className="h-3.5 w-3.5" />
-                        Filters
-                        {activeFilterCount > 0 && (
-                          <span className="ml-1 px-1.5 py-0.5 rounded-full bg-orange-500 text-white text-[10px] font-bold">{activeFilterCount}</span>
-                        )}
-                      </Button>
+                        <LayoutGrid className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setViewMode('list')}
+                        className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-teal-50 text-teal-700' : 'text-slate-400 hover:bg-slate-50'}`}
+                      >
+                        <List className="h-4 w-4" />
+                      </button>
+                    </div>
 
-                      {/* Search */}
-                      <div className="relative flex-1 min-w-[200px]">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Search users..."
-                          className="pl-9 h-9 bg-white/[0.02] border-white/[0.08] text-foreground placeholder:text-muted-foreground focus:border-orange-500/50"
-                          value={searchTerm}
-                          onChange={(e) => updateFilter(setSearchTerm, e.target.value)}
-                        />
-                        {searchTerm && (
-                          <button onClick={() => updateFilter(setSearchTerm, '')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
+                    {/* Filters toggle */}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={`gap-1.5 ${showFilters || activeFilterCount > 0 ? 'border-teal-200 text-teal-700' : 'border-slate-200'}`}
+                      onClick={() => setShowFilters(!showFilters)}
+                    >
+                      <Filter className="h-3.5 w-3.5" />
+                      Filters
+                      {activeFilterCount > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 rounded-full bg-teal-600 text-white text-[10px] font-bold">{activeFilterCount}</span>
+                      )}
+                    </Button>
 
-                      {/* Sort */}
-                      <div className="flex items-center gap-1.5">
-                        <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    {/* Search */}
+                    <div className="relative flex-1 min-w-[200px]">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="Search users..."
+                        className="pl-9 h-9 bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-teal-400"
+                        value={searchTerm}
+                        onChange={(e) => updateFilter(setSearchTerm, e.target.value)}
+                      />
+                      {searchTerm && (
+                        <button onClick={() => updateFilter(setSearchTerm, '')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Sort */}
+                    <div className="flex items-center gap-1.5">
+                      <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                        className="bg-transparent text-sm text-slate-500 border-none outline-none cursor-pointer"
+                      >
+                        <option value="name">Name</option>
+                        <option value="role">Role</option>
+                        <option value="date-desc">Newest</option>
+                        <option value="status">Status</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Filter dropdowns */}
+                  {showFilters && (
+                    <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500">Role:</span>
                         <select
-                          value={sortBy}
-                          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                          className="bg-transparent text-sm text-muted-foreground border-none outline-none cursor-pointer"
+                          value={roleFilter}
+                          onChange={(e) => updateFilter(setRoleFilter, e.target.value)}
+                          className="bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 px-2 py-1 outline-none focus:border-teal-400"
                         >
-                          <option value="name">Name</option>
-                          <option value="role">Role</option>
-                          <option value="date-desc">Newest</option>
-                          <option value="status">Status</option>
+                          <option value="all">All</option>
+                          <option value="patient">Patient</option>
+                          <option value="doctor">Doctor</option>
+                          <option value="radiologist">Radiologist</option>
+                          <option value="admin">Admin</option>
                         </select>
                       </div>
-                    </div>
-
-                    {/* Filter dropdowns */}
-                    {showFilters && (
-                      <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-white/[0.05]">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Role:</span>
-                          <select
-                            value={roleFilter}
-                            onChange={(e) => updateFilter(setRoleFilter, e.target.value)}
-                            className="bg-white/[0.03] border border-white/[0.08] rounded-md text-sm text-foreground px-2 py-1 outline-none focus:border-orange-500/50"
-                          >
-                            <option value="all">All</option>
-                            <option value="patient">Patient</option>
-                            <option value="doctor">Doctor</option>
-                            <option value="radiologist">Radiologist</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Status:</span>
-                          <select
-                            value={statusFilter}
-                            onChange={(e) => updateFilter(setStatusFilter, e.target.value)}
-                            className="bg-white/[0.03] border border-white/[0.08] rounded-md text-sm text-foreground px-2 py-1 outline-none focus:border-orange-500/50"
-                          >
-                            <option value="all">All</option>
-                            <option value="active">Active</option>
-                            <option value="suspended">Suspended</option>
-                          </select>
-                        </div>
-                        {activeFilterCount > 0 && (
-                          <button
-                            onClick={() => { setRoleFilter('all'); setStatusFilter('all'); setSearchTerm(''); setCurrentPage(1); }}
-                            className="text-xs text-red-400 hover:text-red-300 ml-auto"
-                          >
-                            Clear all filters
-                          </button>
-                        )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500">Status:</span>
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => updateFilter(setStatusFilter, e.target.value)}
+                          className="bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 px-2 py-1 outline-none focus:border-teal-400"
+                        >
+                          <option value="all">All</option>
+                          <option value="active">Active</option>
+                          <option value="suspended">Suspended</option>
+                        </select>
                       </div>
-                    )}
-                  </div>
-                </SpotlightCard>
-
-                {/* Filter chips */}
-                {activeFilterCount > 0 && (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {roleFilter !== 'all' && (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-medium">
-                        Role: {roleFilter}
-                        <button onClick={() => updateFilter(setRoleFilter, 'all')}><X className="h-3 w-3" /></button>
-                      </span>
-                    )}
-                    {statusFilter !== 'all' && (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-medium">
-                        Status: {statusFilter}
-                        <button onClick={() => updateFilter(setStatusFilter, 'all')}><X className="h-3 w-3" /></button>
-                      </span>
-                    )}
-                    {searchTerm && (
-                      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400 text-xs font-medium">
-                        Search: &quot;{searchTerm}&quot;
-                        <button onClick={() => updateFilter(setSearchTerm, '')}><X className="h-3 w-3" /></button>
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Results count */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
-                    {activeFilterCount > 0 && ` (filtered from ${users.length})`}
-                  </span>
+                      {activeFilterCount > 0 && (
+                        <button
+                          onClick={() => { setRoleFilter('all'); setStatusFilter('all'); setSearchTerm(''); setCurrentPage(1); }}
+                          className="text-xs text-red-600 hover:text-red-700 ml-auto"
+                        >
+                          Clear all filters
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
+              </SectionCard>
 
-                {/* Users Display */}
-                {usersLoading && users.length === 0 ? (
-                  viewMode === 'grid' ? (
-                    <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                      {[1, 2, 3, 4, 5, 6].map((i) => <GridCardSkeleton key={i} />)}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {[1, 2, 3].map((i) => <RowSkeleton key={i} />)}
-                    </div>
-                  )
-                ) : paginatedUsers.length === 0 ? (
-                  <SpotlightCard className="p-12">
-                    <div className="text-center">
-                      <div className="p-4 rounded-full bg-orange-500/10 w-fit mx-auto mb-4">
-                        <Users className="h-8 w-8 text-orange-400" />
-                      </div>
-                      <p className="text-foreground font-medium mb-1">No users found</p>
-                      <p className="text-sm text-muted-foreground">
-                        {activeFilterCount > 0 ? 'Try adjusting your filters' : 'Create a new user to get started'}
-                      </p>
-                    </div>
-                  </SpotlightCard>
-                ) : viewMode === 'grid' ? (
+              {/* Filter chips */}
+              {activeFilterCount > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {roleFilter !== 'all' && (
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 text-xs font-medium">
+                      Role: {roleFilter}
+                      <button onClick={() => updateFilter(setRoleFilter, 'all')}><X className="h-3 w-3" /></button>
+                    </span>
+                  )}
+                  {statusFilter !== 'all' && (
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
+                      Status: {statusFilter}
+                      <button onClick={() => updateFilter(setStatusFilter, 'all')}><X className="h-3 w-3" /></button>
+                    </span>
+                  )}
+                  {searchTerm && (
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-medium">
+                      Search: &quot;{searchTerm}&quot;
+                      <button onClick={() => updateFilter(setSearchTerm, '')}><X className="h-3 w-3" /></button>
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Results count */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-500">
+                  {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
+                  {activeFilterCount > 0 && ` (filtered from ${users.length})`}
+                </span>
+              </div>
+
+              {/* Users Display */}
+              {usersLoading && users.length === 0 ? (
+                viewMode === 'grid' ? (
                   <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                    {paginatedUsers.map((user) => (
-                      <UserGridCard key={user.id} user={user} onSuspend={handleSuspendUser} onActivate={handleActivateUser} />
-                    ))}
+                    {[1, 2, 3, 4, 5, 6].map((i) => <GridCardSkeleton key={i} />)}
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {paginatedUsers.map((user) => (
-                      <UserRow key={user.id} user={user} onSuspend={handleSuspendUser} onActivate={handleActivateUser} />
-                    ))}
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => <RowSkeleton key={i} />)}
                   </div>
+                )
+              ) : paginatedUsers.length === 0 ? (
+                <SectionCard className="p-12">
+                  <div className="text-center">
+                    <div className="p-4 rounded-full bg-teal-50 w-fit mx-auto mb-4">
+                      <Users className="h-8 w-8 text-teal-600" />
+                    </div>
+                    <p className="text-slate-900 font-medium mb-1">No users found</p>
+                    <p className="text-sm text-slate-500">
+                      {activeFilterCount > 0 ? 'Try adjusting your filters' : 'Create a new user to get started'}
+                    </p>
+                  </div>
+                </SectionCard>
+              ) : viewMode === 'grid' ? (
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  {paginatedUsers.map((user) => (
+                    <UserGridCard key={user.id} user={user} onSuspend={handleSuspendUser} onActivate={handleActivateUser} />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {paginatedUsers.map((user) => (
+                    <UserRow key={user.id} user={user} onSuspend={handleSuspendUser} onActivate={handleActivateUser} />
+                  ))}
+                </div>
+              )}
+
+              <Pagination currentPage={safePage} totalPages={totalPages} totalItems={filteredUsers.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />
+            </>
+          )}
+
+          {/* === VERIFICATIONS SECTION === */}
+          {activeSection === 'verify' && (
+            <SectionCard className="p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-lg bg-teal-50">
+                  <AlertCircle className="h-5 w-5 text-teal-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900">Pending Verifications</h3>
+                <span className="px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 text-xs font-medium">
+                  {stats?.pendingVerifications || 0} pending
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {doctorsLoading ? (
+                  <>{[1, 2].map((i) => <RowSkeleton key={i} />)}</>
+                ) : doctors.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">No pending verifications</div>
+                ) : (
+                  doctors.slice(0, 10).map((doctor) => (
+                    <VerificationCard key={doctor.id} doctor={doctor} />
+                  ))
                 )}
+              </div>
+            </SectionCard>
+          )}
 
-                <Pagination currentPage={safePage} totalPages={totalPages} totalItems={filteredUsers.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />
-              </>
-            )}
+          {/* === ASSIGNMENTS SECTION === */}
+          {activeSection === 'assign' && (
+            <SectionCard className="p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-lg bg-blue-50">
+                  <UserPlus className="h-5 w-5 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900">Assign Patients to Doctors</h3>
+              </div>
 
-            {/* === VERIFICATIONS SECTION === */}
-            {activeSection === 'verify' && (
-              <SpotlightCard className="p-5" spotlightColor="rgba(249, 115, 22, 0.15)">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 rounded-lg bg-orange-500/10">
-                    <AlertCircle className="h-5 w-5 text-orange-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground">Pending Verifications</h3>
-                  <span className="px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 text-xs font-medium">
-                    {stats?.pendingVerifications || 0} pending
-                  </span>
+              {assignError && (
+                <div className="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{assignError}</div>
+              )}
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Select Doctor</Label>
+                  <Select value={selectedDoctor} onValueChange={setSelectedDoctor}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a doctor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {doctorsLoading ? (
+                        <SelectItem value="" disabled>Loading...</SelectItem>
+                      ) : (
+                        doctors.map((doctor) => (
+                          <SelectItem key={doctor.id} value={doctor.id}>
+                            {doctor.full_name || doctor.user_profile?.full_name} - {doctor.specialization}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Select Patient</Label>
+                  <Select value={selectedPatient} onValueChange={setSelectedPatient}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a patient" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {patientsLoading ? (
+                        <SelectItem value="" disabled>Loading...</SelectItem>
+                      ) : (
+                        patients.map((patient) => (
+                          <SelectItem key={patient.id} value={patient.id}>
+                            {patient.full_name || patient.user_profile?.full_name} - {patient.patient_code}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Button
+                className="mt-4 gap-2 bg-blue-600 hover:bg-blue-700"
+                onClick={handleAssignPatient}
+                disabled={!selectedDoctor || !selectedPatient || assignLoading}
+              >
+                {assignLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                Assign Patient
+              </Button>
+
+              {/* Current Assignments */}
+              <div className="mt-6 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-3 mb-3">
+                  <h4 className="text-sm font-semibold text-slate-900">Current Assignments</h4>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">{assignments.length} active</span>
                 </div>
 
-                <div className="space-y-3">
-                  {doctorsLoading ? (
-                    <>{[1, 2].map((i) => <RowSkeleton key={i} />)}</>
-                  ) : doctors.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">No pending verifications</div>
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {assignmentsLoading ? (
+                    <>{[1, 2, 3].map((i) => <RowSkeleton key={i} />)}</>
+                  ) : assignments.length === 0 ? (
+                    <div className="text-center py-6 text-slate-500 text-sm">No assignments found</div>
                   ) : (
-                    doctors.slice(0, 10).map((doctor) => (
-                      <VerificationCard key={doctor.id} doctor={doctor} />
+                    assignments.map((assignment: any) => (
+                      <div key={assignment.id} className="p-3 rounded-xl bg-white border border-slate-200 hover:border-blue-300 transition-all">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <div className="p-1.5 rounded-lg bg-emerald-50"><Stethoscope className="h-3.5 w-3.5 text-emerald-600" /></div>
+                            <span className="text-sm text-slate-900 truncate">{assignment.doctor_name}</span>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <div className="p-1.5 rounded-lg bg-blue-50"><User className="h-3.5 w-3.5 text-blue-600" /></div>
+                            <span className="text-sm text-slate-900 truncate">{assignment.patient_name}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 shrink-0">
+                            {assignment.assigned_date ? new Date(assignment.assigned_date).toLocaleDateString() : ''}
+                          </span>
+                        </div>
+                      </div>
                     ))
                   )}
                 </div>
-              </SpotlightCard>
-            )}
-
-            {/* === ASSIGNMENTS SECTION === */}
-            {activeSection === 'assign' && (
-              <SpotlightCard className="p-5" spotlightColor="rgba(59, 130, 246, 0.15)">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 rounded-lg bg-blue-500/10">
-                    <UserPlus className="h-5 w-5 text-blue-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground">Assign Patients to Doctors</h3>
-                </div>
-
-                {assignError && (
-                  <div className="p-3 mb-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{assignError}</div>
-                )}
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground">Select Doctor</Label>
-                    <Select value={selectedDoctor} onValueChange={setSelectedDoctor}>
-                      <SelectTrigger className="bg-white/[0.02] border-white/[0.08] text-foreground">
-                        <SelectValue placeholder="Choose a doctor" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card border-border">
-                        {doctorsLoading ? (
-                          <SelectItem value="" disabled>Loading...</SelectItem>
-                        ) : (
-                          doctors.map((doctor) => (
-                            <SelectItem key={doctor.id} value={doctor.id}>
-                              {doctor.full_name || doctor.user_profile?.full_name} - {doctor.specialization}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground">Select Patient</Label>
-                    <Select value={selectedPatient} onValueChange={setSelectedPatient}>
-                      <SelectTrigger className="bg-white/[0.02] border-white/[0.08] text-foreground">
-                        <SelectValue placeholder="Choose a patient" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card border-border">
-                        {patientsLoading ? (
-                          <SelectItem value="" disabled>Loading...</SelectItem>
-                        ) : (
-                          patients.map((patient) => (
-                            <SelectItem key={patient.id} value={patient.id}>
-                              {patient.full_name || patient.user_profile?.full_name} - {patient.patient_code}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <Button
-                  className="mt-4 gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white border-0"
-                  onClick={handleAssignPatient}
-                  disabled={!selectedDoctor || !selectedPatient || assignLoading}
-                >
-                  {assignLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-                  Assign Patient
-                </Button>
-
-                {/* Current Assignments */}
-                <div className="mt-6 pt-4 border-t border-white/[0.08]">
-                  <div className="flex items-center gap-3 mb-3">
-                    <h4 className="text-sm font-semibold text-foreground">Current Assignments</h4>
-                    <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-xs font-medium">{assignments.length} active</span>
-                  </div>
-
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {assignmentsLoading ? (
-                      <>{[1, 2, 3].map((i) => <RowSkeleton key={i} />)}</>
-                    ) : assignments.length === 0 ? (
-                      <div className="text-center py-6 text-muted-foreground text-sm">No assignments found</div>
-                    ) : (
-                      assignments.map((assignment: any) => (
-                        <div key={assignment.id} className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-blue-500/30 transition-all">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <div className="p-1.5 rounded-lg bg-green-500/10"><Stethoscope className="h-3.5 w-3.5 text-green-400" /></div>
-                              <span className="text-sm text-foreground truncate">{assignment.doctor_name}</span>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <div className="p-1.5 rounded-lg bg-blue-500/10"><User className="h-3.5 w-3.5 text-blue-400" /></div>
-                              <span className="text-sm text-foreground truncate">{assignment.patient_name}</span>
-                            </div>
-                            <span className="text-[10px] text-muted-foreground shrink-0">
-                              {assignment.assigned_date ? new Date(assignment.assigned_date).toLocaleDateString() : ''}
-                            </span>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </SpotlightCard>
-            )}
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="space-y-4">
-            {/* System Health */}
-            <SpotlightCard className="p-4">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
-                <Server className="h-4 w-4 text-orange-400" />
-                System Health
-              </h3>
-              <div className="space-y-2.5">
-                {[
-                  { label: 'Database', status: systemHealth.database, icon: Database },
-                  { label: 'Storage', status: systemHealth.storage, icon: HardDrive },
-                  { label: 'ML Service', status: systemHealth.mlService, icon: Cpu },
-                ].map(({ label, status, icon: SIcon }) => (
-                  <div key={label} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03]">
-                    <div className="flex items-center gap-2">
-                      <SIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">{label}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${healthDot(status)}`} />
-                      <span className="text-xs text-foreground capitalize">{status}</span>
-                    </div>
-                  </div>
-                ))}
               </div>
-            </SpotlightCard>
+            </SectionCard>
+          )}
+        </div>
 
-            {/* Quick Stats */}
-            <SpotlightCard className="p-4">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
-                <Activity className="h-4 w-4 text-teal-400" />
-                Quick Stats
-              </h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03]">
-                  <span className="text-xs text-muted-foreground">Total Scans</span>
-                  <span className="text-sm font-bold text-foreground">{stats?.totalScans || 0}</span>
+        {/* Right Sidebar */}
+        <div className="space-y-4">
+          {/* System Health */}
+          <SectionCard className="p-4">
+            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3">
+              <Server className="h-4 w-4 text-teal-600" />
+              System Health
+            </h3>
+            <div className="space-y-2.5">
+              {[
+                { label: 'Database', status: systemHealth.database, icon: Database },
+                { label: 'Storage', status: systemHealth.storage, icon: HardDrive },
+                { label: 'ML Service', status: systemHealth.mlService, icon: Cpu },
+              ].map(({ label, status, icon: SIcon }) => (
+                <div key={label} className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50">
+                  <div className="flex items-center gap-2">
+                    <SIcon className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="text-xs text-slate-500">{label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${healthDot(status)}`} />
+                    <span className="text-xs text-slate-800 capitalize">{status}</span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03]">
-                  <span className="text-xs text-muted-foreground">This Month</span>
-                  <span className="text-sm font-bold text-teal-400">{stats?.scansThisMonth || 0}</span>
-                </div>
-                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03]">
-                  <span className="text-xs text-muted-foreground">Suspended</span>
-                  <span className="text-sm font-bold text-red-400">{stats?.suspendedUsers || 0}</span>
-                </div>
-              </div>
-            </SpotlightCard>
+              ))}
+            </div>
+          </SectionCard>
 
-            {/* Generate Reports */}
-            <SpotlightCard className="p-4">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
-                <FileText className="h-4 w-4 text-purple-400" />
-                Reports
-              </h3>
-              <div className="space-y-2">
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2 border-white/[0.08] text-muted-foreground hover:bg-orange-500/10 hover:text-orange-400 hover:border-orange-500/30">
-                  <Activity className="h-3.5 w-3.5" />Usage Report
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2 border-white/[0.08] text-muted-foreground hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/30">
-                  <Users className="h-3.5 w-3.5" />User Statistics
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2 border-white/[0.08] text-muted-foreground hover:bg-purple-500/10 hover:text-purple-400 hover:border-purple-500/30">
-                  <Shield className="h-3.5 w-3.5" />Audit Log
-                </Button>
+          {/* Quick Stats */}
+          <SectionCard className="p-4">
+            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3">
+              <Activity className="h-4 w-4 text-teal-600" />
+              Quick Stats
+            </h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50">
+                <span className="text-xs text-slate-500">Total Scans</span>
+                <span className="text-sm font-bold text-slate-900">{stats?.totalScans || 0}</span>
               </div>
-            </SpotlightCard>
-          </div>
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50">
+                <span className="text-xs text-slate-500">This Month</span>
+                <span className="text-sm font-bold text-teal-700">{stats?.scansThisMonth || 0}</span>
+              </div>
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50">
+                <span className="text-xs text-slate-500">Suspended</span>
+                <span className="text-sm font-bold text-red-600">{stats?.suspendedUsers || 0}</span>
+              </div>
+            </div>
+          </SectionCard>
+
+          {/* Quick actions */}
+          <QuickActionsList
+            accent="teal"
+            actions={[
+              { label: 'Add Doctor', onClick: () => setIsCreateUserOpen(true) },
+              { label: 'Add Radiologist', onClick: () => setIsCreateUserOpen(true) },
+              { label: 'Add Patient', onClick: () => setIsCreateUserOpen(true) },
+            ]}
+          />
+
+          {/* Reports */}
+          <SectionCard className="p-4">
+            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3">
+              <FileText className="h-4 w-4 text-violet-600" />
+              Reports
+            </h3>
+            <div className="space-y-2">
+              <Button variant="outline" size="sm" className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200">
+                <Activity className="h-3.5 w-3.5" />Usage Report
+              </Button>
+              <Button variant="outline" size="sm" className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-200">
+                <Users className="h-3.5 w-3.5" />User Statistics
+              </Button>
+              <Button variant="outline" size="sm" className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200">
+                <Shield className="h-3.5 w-3.5" />Audit Log
+              </Button>
+            </div>
+          </SectionCard>
         </div>
       </div>
-    </div>
+    </DashboardShell>
   );
 };

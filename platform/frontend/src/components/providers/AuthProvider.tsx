@@ -21,7 +21,7 @@ interface UserProfile {
   id: string;
   full_name: string;
   email: string;
-  role: 'patient' | 'doctor' | 'radiologist' | 'technician' | 'admin';
+  role: 'patient' | 'doctor' | 'radiologist' | 'technician' | 'admin' | 'super_admin';
   phone?: string;
   account_status: 'active' | 'inactive' | 'suspended';
   roleProfile?: RoleProfile | null;
