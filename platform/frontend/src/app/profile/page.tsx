@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { withAuth } from '@/lib/withAuth';
-import { Navbar } from '@/components/shared/Navbar';
+import { RoleShell } from '@/components/dashboards/shared/RoleShell';
 import { toast } from 'sonner';
 
 // Info card component
@@ -52,16 +52,6 @@ function SettingsLink({ icon, title, description, href, badge }: {
   );
 }
 
-// Activity badge component
-function ActivityBadge({ count, label, color }: { count: number; label: string; color: string }) {
-  return (
-    <div className="text-center p-4">
-      <div className={`text-2xl font-bold ${color}`}>{count}</div>
-      <div className="text-xs text-slate-500">{label}</div>
-    </div>
-  );
-}
-
 function ProfilePage() {
   const { user, userProfile, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -70,7 +60,7 @@ function ProfilePage() {
     setIsLoggingOut(true);
     try {
       await signOut();
-    } catch (error) {
+    } catch {
       toast.error('Failed to log out');
       setIsLoggingOut(false);
     }
@@ -134,9 +124,8 @@ function ProfilePage() {
   const roleSpecificInfo = getRoleSpecificInfo();
 
   return (
-    <>
-      <Navbar />
-      <div className="min-h-screen bg-[#f7fafc] pt-24 pb-12 px-4 sm:px-6 lg:px-8">
+    <RoleShell>
+      <div className="pb-12">
         <div className="relative z-10 max-w-4xl mx-auto">
           {/* Profile Header */}
           <div className="relative mb-8">
@@ -199,12 +188,6 @@ function ProfilePage() {
                 </div>
               </div>
 
-              {/* Activity Stats */}
-              <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-3 divide-x divide-slate-100">
-                <ActivityBadge count={12} label="Total Scans" color="text-emerald-600" />
-                <ActivityBadge count={8} label="Reports" color="text-teal-600" />
-                <ActivityBadge count={30} label="Days Active" color="text-blue-600" />
-              </div>
             </div>
           </div>
 
@@ -324,7 +307,7 @@ function ProfilePage() {
           </div>
         </div>
       </div>
-    </>
+    </RoleShell>
   );
 }
 
