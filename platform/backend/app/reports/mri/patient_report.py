@@ -29,8 +29,6 @@ def build_patient_report(
     pdf: PatientPDFReport,
     comprehensive_data: Dict[str, Any],
     ml_results: Dict[str, Any],
-    similarity_data: Dict[str, Any],
-    similarity_plot: Optional[str] = None,
     volume_chart: Optional[str] = None
 ) -> None:
     """
@@ -40,8 +38,6 @@ def build_patient_report(
         pdf: PatientPDFReport instance
         comprehensive_data: All medical/patient data
         ml_results: ML model prediction results
-        similarity_data: Similarity analysis results
-        similarity_plot: Base64 similarity visualization
         volume_chart: Base64 volume comparison chart
     """
     try:
@@ -157,37 +153,6 @@ def build_patient_report(
             conf_text = f"The AI model is {float(confidence)*100:.1f}% confident in this finding based on the patterns detected in your brain scan."
             pdf.multi_cell(0, 5.5, sanitize_for_pdf(conf_text), 0, 'L')
             pdf.ln(6)
-
-        # =====================================================================
-        # Brain Pattern Comparison
-        # =====================================================================
-        if pdf.get_y() > pdf.h - 120:
-            pdf.add_page()
-
-        if similarity_plot:
-            pdf.section_title("How Your Brain Patterns Compare")
-            pdf.ln(2)
-
-            pdf.set_font('Helvetica', '', 9)
-            pdf.set_text_color(*pdf.text_color_normal)
-            comparison_text = (
-                "The AI compared your brain scan patterns with reference patterns from medical databases. "
-                "The chart below shows how similar your patterns are to different reference groups."
-            )
-            pdf.multi_cell(0, 5.5, sanitize_for_pdf(comparison_text), 0, 'L')
-            pdf.ln(4)
-
-            pdf.add_image_section("Brain Pattern Similarity Comparison", similarity_plot)
-
-            # Similarity interpretation
-            overall_sim = similarity_data.get('overall_similarity', '')
-            if overall_sim:
-                pdf.ln(2)
-                pdf.set_font('Helvetica', '', 9)
-                pdf.set_text_color(*pdf.text_color_dark)
-                pdf.multi_cell(0, 5.5, sanitize_for_pdf(f"Result: {overall_sim}"), 0, 'L')
-
-        pdf.ln(8)
 
         # =====================================================================
         # What This Means Section

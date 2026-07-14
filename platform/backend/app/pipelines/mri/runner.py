@@ -22,7 +22,6 @@ from app.pipelines.mri import ml_runner
 from app.pipelines.mri.similarity_analyzer import (
     generate_confidence_chart,
     generate_volume_comparison_chart,
-    run_similarity_analysis,
 )
 
 logger = get_logger(__name__)
@@ -82,16 +81,12 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
         if opt in ml:
             metrics[opt] = ml[opt]
 
-    # --- 3) Similarity (mock) + charts (serialized: pyplot global state) ---
+    # --- 3) Charts (serialized: pyplot global state) ---
     with _PLOT_LOCK:
-        sim = run_similarity_analysis(scan_path, "multiclass", ml)
-        sim = sim if isinstance(sim, dict) else {}
-        sim_b64 = sim.get("plot_base64")
         volume_chart_b64 = generate_volume_comparison_chart(ml)
         confidence_chart_b64 = (
             generate_confidence_chart(probs_list, classes) if probs_list else None
         )
-    similarity = {k: v for k, v in sim.items() if k != "plot_base64"}
 
     # --- 4) Consistency (only present from the real slice-voting predictor) ---
     consistency: dict = {}
@@ -107,7 +102,6 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
     # --- 5) Chart artifacts (orchestrator uploads them into visualizations) ---
     artifacts: dict[str, str] = {}
     for key, b64, name in [
-        ("similarity_plot_url", sim_b64, "mri_similarity.png"),
         ("volume_chart_url", volume_chart_b64, "volume_chart.png"),
         ("confidence_chart_url", confidence_chart_b64, "confidence_chart.png"),
     ]:
@@ -123,7 +117,6 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
         confidence=confidence,
         probabilities=probabilities,
         metrics=metrics,
-        similarity=similarity,
         consistency=consistency,
         visualizations={},
         model_version=ml.get("model_version", get_settings().mri_model_version),
