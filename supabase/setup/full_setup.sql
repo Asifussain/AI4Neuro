@@ -71,7 +71,7 @@ create table if not exists public.hospitals (
 
 create table if not exists public.user_profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  hospital_id uuid not null references public.hospitals(id),
+  hospital_id uuid references public.hospitals(id),
   unique_identifier varchar not null unique,
   full_name varchar not null,
   email varchar not null unique,
@@ -88,12 +88,26 @@ create table if not exists public.user_profiles (
   updated_at timestamptz not null default now()
 );
 
--- Widen the role CHECK to the full consolidated set of 5 roles (also fixes an
--- existing project whose user_profiles still uses the 4-role legacy CHECK).
+-- Multi-tenant role set: super_admin (platform-wide, no hospital) and
+-- hospital_admin (single-hospital admin, was "admin"). technician is removed.
 alter table public.user_profiles drop constraint if exists user_profiles_role_check;
 alter table public.user_profiles
   add constraint user_profiles_role_check
-  check (role in ('admin','doctor','radiologist','technician','patient'));
+  check (role in ('super_admin','hospital_admin','doctor','radiologist','patient'));
+
+-- Tenancy invariant: only super_admin may have a NULL hospital_id; every other
+-- role must belong to exactly one hospital.
+alter table public.user_profiles drop constraint if exists user_profiles_hospital_scope_check;
+alter table public.user_profiles
+  add constraint user_profiles_hospital_scope_check
+  check (
+    (role = 'super_admin' and hospital_id is null)
+    or (role <> 'super_admin' and hospital_id is not null)
+  );
+
+-- Hospital lifecycle audit field (added here, once user_profiles exists, to
+-- avoid a circular FK at table-creation time).
+alter table public.hospitals add column if not exists created_by uuid references public.user_profiles(id);
 
 create table if not exists public.patient_profiles (
   user_id uuid primary key references public.user_profiles(id) on delete cascade,
@@ -137,12 +151,21 @@ create table if not exists public.radiologist_profiles (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.admin_profiles (
+create table if not exists public.hospital_admin_profiles (
   user_id uuid primary key references public.user_profiles(id) on delete cascade,
   employee_id varchar,
   department varchar,
   permissions jsonb default
     '{"manage_doctors": true, "manage_patients": true, "view_all_reports": true}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+-- super_admin has no clinical/employee fields of its own, but keeps the "every
+-- role has a profile table" convention and gives a home for future settings
+-- (e.g. 2FA flags) scoped to the platform-wide role.
+create table if not exists public.super_admin_profiles (
+  user_id uuid primary key references public.user_profiles(id) on delete cascade,
+  notes text,
   created_at timestamptz not null default now()
 );
 
@@ -206,20 +229,17 @@ alter table public.user_profiles          enable row level security;
 alter table public.patient_profiles       enable row level security;
 alter table public.doctor_profiles        enable row level security;
 alter table public.radiologist_profiles   enable row level security;
-alter table public.admin_profiles         enable row level security;
+alter table public.hospital_admin_profiles enable row level security;
+alter table public.super_admin_profiles   enable row level security;
 alter table public.doctor_patient_relationships enable row level security;
 alter table public.blood_groups           enable row level security;
 alter table public.qualifications         enable row level security;
 
--- A tiny helper macro isn't possible in SQL; repeat the two policies per table.
+-- Pure lookup tables (no tenant data) stay fully permissive-read.
 do $$
 declare t text;
 begin
-  foreach t in array array[
-    'hospitals','user_profiles','patient_profiles','doctor_profiles',
-    'radiologist_profiles','admin_profiles','doctor_patient_relationships',
-    'blood_groups','qualifications'
-  ]
+  foreach t in array array['blood_groups', 'qualifications']
   loop
     execute format('drop policy if exists "authenticated_can_read" on public.%I', t);
     execute format(
@@ -233,6 +253,82 @@ create policy "users_update_own_profile" on public.user_profiles
   for update using (auth.uid() = id);
 
 -- ---------------------------------------------------------------------
+-- Tenant-isolation RLS: every other identity table gets a hospital-scoped
+-- read policy INSTEAD OF a blanket "any authenticated user" policy (RLS
+-- policies within the same command are OR'd, so a permissive policy left in
+-- place alongside a strict one would defeat the strict one — the strict
+-- policy must be the ONLY select policy on the table).
+-- ---------------------------------------------------------------------
+create or replace function public.is_super_admin()
+returns boolean language sql stable as $$
+  select exists (
+    select 1 from public.user_profiles
+    where id = auth.uid() and role = 'super_admin'
+  );
+$$;
+
+create or replace function public.my_hospital_id()
+returns uuid language sql stable as $$
+  select hospital_id from public.user_profiles where id = auth.uid();
+$$;
+
+-- hospitals: super_admin sees all; everyone else sees only their own hospital.
+drop policy if exists "authenticated_can_read" on public.hospitals;
+drop policy if exists "hospital_scoped_read" on public.hospitals;
+create policy "hospital_scoped_read" on public.hospitals
+  for select using (
+    public.is_super_admin() or id = public.my_hospital_id()
+  );
+
+-- user_profiles: self, super_admin, or same-hospital.
+drop policy if exists "authenticated_can_read" on public.user_profiles;
+drop policy if exists "hospital_scoped_read" on public.user_profiles;
+create policy "hospital_scoped_read" on public.user_profiles
+  for select using (
+    auth.uid() = id
+    or public.is_super_admin()
+    or hospital_id = public.my_hospital_id()
+  );
+
+-- Role-detail tables keyed by user_id: scope via the owning user_profiles row.
+do $$
+declare t text;
+begin
+  foreach t in array array[
+    'patient_profiles','doctor_profiles','radiologist_profiles','hospital_admin_profiles'
+  ]
+  loop
+    execute format('drop policy if exists "authenticated_can_read" on public.%I', t);
+    execute format('drop policy if exists "hospital_scoped_read" on public.%I', t);
+    execute format(
+      'create policy "hospital_scoped_read" on public.%I for select using ('
+      || 'auth.uid() = user_id'
+      || ' or public.is_super_admin()'
+      || ' or exists ('
+      || '   select 1 from public.user_profiles up'
+      || '   where up.id = %I.user_id and up.hospital_id = public.my_hospital_id()'
+      || ' )'
+      || ')', t, t
+    );
+  end loop;
+end $$;
+
+-- super_admin_profiles: self or super_admin only (not tenant data, but also
+-- not readable by hospital-scoped roles).
+drop policy if exists "authenticated_can_read" on public.super_admin_profiles;
+drop policy if exists "hospital_scoped_read" on public.super_admin_profiles;
+create policy "hospital_scoped_read" on public.super_admin_profiles
+  for select using (auth.uid() = user_id or public.is_super_admin());
+
+-- doctor_patient_relationships: carries hospital_id directly.
+drop policy if exists "authenticated_can_read" on public.doctor_patient_relationships;
+drop policy if exists "hospital_scoped_read" on public.doctor_patient_relationships;
+create policy "hospital_scoped_read" on public.doctor_patient_relationships
+  for select using (
+    public.is_super_admin() or hospital_id = public.my_hospital_id()
+  );
+
+-- ---------------------------------------------------------------------
 -- 5. Unified analysis tables (from migrations 0001 + 0002)
 -- ---------------------------------------------------------------------
 create table if not exists public.analysis_sessions (
@@ -242,8 +338,7 @@ create table if not exists public.analysis_sessions (
   patient_id uuid not null references public.patient_profiles(user_id),
   doctor_id uuid references public.user_profiles(id),
   radiologist_id uuid references public.user_profiles(id),
-  technician_id uuid references public.user_profiles(id),
-  hospital_id uuid references public.hospitals(id),
+  hospital_id uuid not null references public.hospitals(id),
   uploaded_by uuid references public.user_profiles(id),
   uploaded_by_role text,
   original_filename text not null,
@@ -318,6 +413,35 @@ alter table public.analysis_reports  enable row level security;
 alter table public.job_events         enable row level security;
 
 -- ---------------------------------------------------------------------
+-- 5b. Platform settings + audit log (Super Admin only)
+-- ---------------------------------------------------------------------
+create table if not exists public.platform_settings (
+  id boolean primary key default true check (id),
+  settings jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.user_profiles(id)
+);
+insert into public.platform_settings (id) values (true) on conflict do nothing;
+
+create table if not exists public.audit_log (
+  id uuid primary key default gen_random_uuid(),
+  actor_id uuid references public.user_profiles(id),
+  actor_role text,
+  hospital_id uuid references public.hospitals(id),
+  action text not null,
+  target_table text,
+  target_id uuid,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_audit_log_hospital on public.audit_log(hospital_id);
+create index if not exists idx_audit_log_actor on public.audit_log(actor_id);
+
+alter table public.platform_settings enable row level security;
+alter table public.audit_log enable row level security;
+-- Fail-closed by default (no permissive policy) — backend service role only.
+
+-- ---------------------------------------------------------------------
 -- 6. Private storage buckets
 -- ---------------------------------------------------------------------
 insert into storage.buckets (id, name, public) values
@@ -330,9 +454,16 @@ on conflict (id) do nothing;
 -- =====================================================================
 -- DONE. Verify in the Table Editor that these tables exist:
 --   hospitals, user_profiles, patient_profiles, doctor_profiles,
---   radiologist_profiles, admin_profiles, doctor_patient_relationships,
---   blood_groups, qualifications, analysis_sessions, analysis_results,
---   analysis_reports, job_events
+--   radiologist_profiles, hospital_admin_profiles, super_admin_profiles,
+--   doctor_patient_relationships, blood_groups, qualifications,
+--   analysis_sessions, analysis_results, analysis_reports, job_events,
+--   platform_settings, audit_log
 -- and in Storage that these 4 private buckets exist:
 --   raw-files, report-assets, reports, viewer-slices
+--
+-- Roles: super_admin (platform-wide, hospital_id NULL), hospital_admin (was
+-- "admin", scoped to one hospital), doctor, radiologist, patient. The
+-- technician role has been removed entirely — see
+-- supabase/migrations/0003_multi_tenant_roles.sql and 0004_drop_technician.sql
+-- for the migration path on an already-deployed database.
 -- =====================================================================

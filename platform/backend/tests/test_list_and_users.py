@@ -18,7 +18,7 @@ def _seed(db_service, **overrides):
     return db_service.create_session(**base)
 
 
-def test_list_returns_all_for_admin(client, db_service):
+def test_list_returns_all_for_super_admin(client, db_service):
     _seed(db_service, modality="eeg")
     _seed(db_service, modality="eeg")
     _seed(db_service, modality="mri", analysis_type="multiclass")
@@ -51,4 +51,4 @@ def test_users_me_dev_principal(client):
     assert res.status_code == 200
     body = res.json()
     assert body["is_dev"] is True
-    assert body["role"] == "admin"
+    assert body["role"] == "super_admin"

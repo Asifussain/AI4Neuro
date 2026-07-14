@@ -21,9 +21,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AnalysisList } from './AnalysisList';
 
 const roleCopy = {
-  admin: {
+  hospital_admin: {
     title: 'Operations command center',
-    description: 'Monitor EEG and MRI analysis activity across your hospital network.',
+    description: 'Monitor EEG and MRI analysis activity across your hospital.',
   },
   doctor: {
     title: 'Clinical review workspace',
@@ -32,10 +32,6 @@ const roleCopy = {
   radiologist: {
     title: 'Radiology analysis workspace',
     description: 'Start MRI analysis and review imaging outputs from the unified platform.',
-  },
-  technician: {
-    title: 'Technician upload workspace',
-    description: 'Start EEG analysis and track processing status for submitted recordings.',
   },
   patient: {
     title: 'My neuro-analysis records',
@@ -100,7 +96,6 @@ export function UnifiedDashboard({ embedded = false }: { embedded?: boolean } = 
   const role = userProfile?.role ?? 'doctor';
   const copy = roleCopy[role] ?? roleCopy.doctor;
   const canCreate = role !== 'patient';
-  const isTechnician = role === 'technician';
   const isRadiologist = role === 'radiologist';
 
   // `embedded` is used by the redesigned role dashboards, which already provide
@@ -162,7 +157,7 @@ export function UnifiedDashboard({ embedded = false }: { embedded?: boolean } = 
             ]}
             action={
               canCreate && !isRadiologist ? (
-                <Button asChild variant={isTechnician ? 'default' : 'outline'} className="w-full sm:w-auto">
+                <Button asChild variant="outline" className="w-full sm:w-auto">
                   <Link href="/analysis/new?modality=eeg">Upload EEG</Link>
                 </Button>
               ) : undefined
@@ -179,7 +174,7 @@ export function UnifiedDashboard({ embedded = false }: { embedded?: boolean } = 
               'Outputs: viewer slices, volume charts, confidence, reports',
             ]}
             action={
-              canCreate && !isTechnician ? (
+              canCreate ? (
                 <Button asChild variant={isRadiologist ? 'default' : 'outline'} className="w-full sm:w-auto">
                   <Link href="/analysis/new?modality=mri">Upload MRI</Link>
                 </Button>

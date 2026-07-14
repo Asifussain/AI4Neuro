@@ -34,15 +34,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify user is admin
+    // Verify caller is a Hospital Admin or Super Admin.
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('role')
+      .select('role, hospital_id')
       .eq('id', user.id)
       .single();
 
-    if (profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    if (profile?.role !== 'hospital_admin' && profile?.role !== 'super_admin') {
+      return NextResponse.json(
+        { error: 'Forbidden - Hospital Admin or Super Admin access required' },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -57,8 +60,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate role
-    if (!['patient', 'doctor', 'radiologist', 'admin'].includes(role)) {
+    if (!['patient', 'doctor', 'radiologist', 'hospital_admin', 'super_admin'].includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+    }
+
+    // Multi-tenant scoping: a Hospital Admin may only create hospital-scoped
+    // roles within their own hospital, and may never create another admin.
+    let targetHospitalId: string | null = roleData?.hospital_id ?? null;
+    if (profile.role === 'hospital_admin') {
+      if (!['doctor', 'radiologist', 'patient'].includes(role)) {
+        return NextResponse.json(
+          { error: 'Hospital Admins may only create doctors, radiologists, and patients.' },
+          { status: 403 }
+        );
+      }
+      targetHospitalId = profile.hospital_id;
+    } else if (role !== 'super_admin' && !targetHospitalId) {
+      return NextResponse.json(
+        { error: 'hospital_id is required for this role.' },
+        { status: 400 }
+      );
+    }
+    if (role === 'super_admin') {
+      targetHospitalId = null;
     }
 
     // Generate temporary password
@@ -87,14 +111,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create user profile
+    // Create user profile. unique_identifier is required + unique by schema.
+    const uniqueIdentifier = generateCode(role.slice(0, 2).toUpperCase());
     const { error: profileError } = await supabaseAdmin.from('user_profiles').insert({
       id: newUser.user.id,
+      hospital_id: targetHospitalId,
+      unique_identifier: uniqueIdentifier,
       full_name,
       email,
       role,
       phone: phone || null,
+      date_of_birth: roleData?.date_of_birth || null,
+      address: roleData?.address || null,
       account_status: 'active',
+      created_by_admin: user.id,
     });
 
     if (profileError) {
@@ -111,54 +141,43 @@ export async function POST(request: NextRequest) {
     let roleProfileError = null;
 
     if (role === 'patient') {
-      const patientCode = generateCode('PT');
       const { error } = await supabaseAdmin.from('patient_profiles').insert({
         user_id: newUser.user.id,
-        patient_code: patientCode,
-        date_of_birth: roleData?.date_of_birth,
-        age: roleData?.age,
-        gender: roleData?.gender,
+        patient_id: uniqueIdentifier,
         blood_group_id: roleData?.blood_group_id,
-        address: roleData?.address,
-        city: roleData?.city,
-        state: roleData?.state,
-        pincode: roleData?.pincode,
         emergency_contact_name: roleData?.emergency_contact_name,
         emergency_contact_phone: roleData?.emergency_contact_phone,
         medical_history: roleData?.medical_history,
       });
       roleProfileError = error;
     } else if (role === 'doctor') {
-      const doctorCode = generateCode('DR');
       const { error } = await supabaseAdmin.from('doctor_profiles').insert({
         user_id: newUser.user.id,
-        doctor_code: doctorCode,
+        medical_license: roleData?.license_number || uniqueIdentifier,
         specialization: roleData?.specialization,
         qualification_id: roleData?.qualification_id,
-        license_number: roleData?.license_number,
-        hospital_id: roleData?.hospital_id,
         experience_years: roleData?.experience_years,
       });
       roleProfileError = error;
     } else if (role === 'radiologist') {
-      const radiologistCode = generateCode('RD');
       const { error } = await supabaseAdmin.from('radiologist_profiles').insert({
         user_id: newUser.user.id,
-        radiologist_code: radiologistCode,
-        specialization: roleData?.specialization,
+        radiologist_license: roleData?.license_number || uniqueIdentifier,
         qualification_id: roleData?.qualification_id,
-        license_number: roleData?.license_number,
-        hospital_id: roleData?.hospital_id,
-        certification: roleData?.certification,
+        imaging_expertise: roleData?.specialization || 'General',
+        certifications: roleData?.certification,
+        experience_years: roleData?.experience_years || 0,
       });
       roleProfileError = error;
-    } else if (role === 'admin') {
-      const adminCode = generateCode('AD');
-      const { error } = await supabaseAdmin.from('admin_profiles').insert({
+    } else if (role === 'hospital_admin') {
+      const { error } = await supabaseAdmin.from('hospital_admin_profiles').insert({
         user_id: newUser.user.id,
-        admin_code: adminCode,
-        hospital_id: roleData?.hospital_id,
         permissions: roleData?.permissions || {},
+      });
+      roleProfileError = error;
+    } else if (role === 'super_admin') {
+      const { error } = await supabaseAdmin.from('super_admin_profiles').insert({
+        user_id: newUser.user.id,
       });
       roleProfileError = error;
     }

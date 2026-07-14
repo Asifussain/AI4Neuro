@@ -61,12 +61,12 @@ import {
 } from '@/components/dashboards/shared/primitives';
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutGrid },
-  { label: 'Doctors', href: '/admin/dashboard', icon: Stethoscope },
-  { label: 'Radiologists', href: '/admin/dashboard', icon: Brain },
-  { label: 'Patients', href: '/admin/dashboard', icon: Users },
-  { label: 'Scan Sessions', href: '/admin/dashboard', icon: ScanLine },
-  { label: 'Reports', href: '/admin/dashboard', icon: FileText },
+  { label: 'Dashboard', href: '/hospital-admin/dashboard', icon: LayoutGrid },
+  { label: 'Doctors', href: '/hospital-admin/dashboard', icon: Stethoscope },
+  { label: 'Radiologists', href: '/hospital-admin/dashboard', icon: Brain },
+  { label: 'Patients', href: '/hospital-admin/dashboard', icon: Users },
+  { label: 'Scan Sessions', href: '/hospital-admin/dashboard', icon: ScanLine },
+  { label: 'Reports', href: '/hospital-admin/dashboard', icon: FileText },
   { label: 'Settings', href: '/profile', icon: Settings },
 ];
 
@@ -167,8 +167,8 @@ function UserRow({
   onSuspend?: (id: string) => void;
   onActivate?: (id: string) => void;
 }) {
-  const roleIcons: Record<string, React.ElementType> = { admin: Crown, doctor: Stethoscope, radiologist: Brain, patient: User };
-  const roleColors: Record<string, string> = { admin: 'bg-violet-50 text-violet-700', doctor: 'bg-emerald-50 text-emerald-700', radiologist: 'bg-cyan-50 text-cyan-700', patient: 'bg-blue-50 text-blue-700' };
+  const roleIcons: Record<string, React.ElementType> = { hospital_admin: Crown, doctor: Stethoscope, radiologist: Brain, patient: User };
+  const roleColors: Record<string, string> = { hospital_admin: 'bg-violet-50 text-violet-700', doctor: 'bg-emerald-50 text-emerald-700', radiologist: 'bg-cyan-50 text-cyan-700', patient: 'bg-blue-50 text-blue-700' };
   const statusColors: Record<string, string> = { active: 'bg-emerald-50 text-emerald-700', suspended: 'bg-red-50 text-red-700', pending: 'bg-amber-50 text-amber-700' };
 
   const role = user.role || 'patient';
@@ -220,9 +220,9 @@ function UserGridCard({
   onSuspend?: (id: string) => void;
   onActivate?: (id: string) => void;
 }) {
-  const roleIcons: Record<string, React.ElementType> = { admin: Crown, doctor: Stethoscope, radiologist: Brain, patient: User };
-  const roleBorderColors: Record<string, string> = { admin: 'border-violet-200', doctor: 'border-emerald-200', radiologist: 'border-cyan-200', patient: 'border-blue-200' };
-  const roleColors: Record<string, string> = { admin: 'bg-violet-50 text-violet-700', doctor: 'bg-emerald-50 text-emerald-700', radiologist: 'bg-cyan-50 text-cyan-700', patient: 'bg-blue-50 text-blue-700' };
+  const roleIcons: Record<string, React.ElementType> = { hospital_admin: Crown, doctor: Stethoscope, radiologist: Brain, patient: User };
+  const roleBorderColors: Record<string, string> = { hospital_admin: 'border-violet-200', doctor: 'border-emerald-200', radiologist: 'border-cyan-200', patient: 'border-blue-200' };
+  const roleColors: Record<string, string> = { hospital_admin: 'bg-violet-50 text-violet-700', doctor: 'bg-emerald-50 text-emerald-700', radiologist: 'bg-cyan-50 text-cyan-700', patient: 'bg-blue-50 text-blue-700' };
   const statusColors: Record<string, string> = { active: 'bg-emerald-50 text-emerald-700', suspended: 'bg-red-50 text-red-700', pending: 'bg-amber-50 text-amber-700' };
 
   const role = user.role || 'patient';
@@ -409,7 +409,7 @@ function GridCardSkeleton() {
 // ============================================================================
 // MAIN HOSPITAL ADMIN DASHBOARD
 // ============================================================================
-export const AdminDashboard: React.FC = () => {
+export const HospitalAdminDashboard: React.FC = () => {
   // Dialog state
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [createForm, setCreateForm] = useState({ full_name: '', email: '', role: '', phone: '' });
@@ -451,7 +451,7 @@ export const AdminDashboard: React.FC = () => {
     { label: 'Patients', value: stats?.totalPatients || 0, icon: Users, color: 'blue' as const },
     { label: 'Doctors', value: stats?.totalDoctors || 0, icon: Stethoscope, color: 'green' as const },
     { label: 'Radiologists', value: stats?.totalRadiologists || 0, icon: Brain, color: 'cyan' as const },
-    { label: 'Admins', value: stats?.totalAdmins || 0, icon: Crown, color: 'violet' as const },
+    { label: 'Hospital Admins', value: stats?.totalAdmins || 0, icon: Crown, color: 'violet' as const },
   ], [stats]);
 
   // User status handlers
@@ -579,7 +579,7 @@ export const AdminDashboard: React.FC = () => {
         eyebrow="Hospital Admin"
         title="Hospital Admin Dashboard"
         description="Complete hospital ecosystem management for AI4Neuro services."
-        routeChip="/admin-dashboard"
+        routeChip="/hospital-admin-dashboard"
         accent="teal"
       />
 
@@ -634,7 +634,6 @@ export const AdminDashboard: React.FC = () => {
                     <SelectItem value="patient">Patient</SelectItem>
                     <SelectItem value="doctor">Doctor</SelectItem>
                     <SelectItem value="radiologist">Radiologist</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -837,7 +836,7 @@ export const AdminDashboard: React.FC = () => {
                           <option value="patient">Patient</option>
                           <option value="doctor">Doctor</option>
                           <option value="radiologist">Radiologist</option>
-                          <option value="admin">Admin</option>
+                          <option value="hospital_admin">Hospital Admin</option>
                         </select>
                       </div>
                       <div className="flex items-center gap-2">

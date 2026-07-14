@@ -105,7 +105,7 @@ def get_current_principal(
 
     # No/failed token below this point.
     if settings.auth_dev_bypass and not settings.is_production:
-        return Principal(user_id=DEV_PRINCIPAL_ID, role="admin", is_dev=True)
+        return Principal(user_id=DEV_PRINCIPAL_ID, role="super_admin", is_dev=True)
 
     raise _unauthorized("Authentication required.")
 

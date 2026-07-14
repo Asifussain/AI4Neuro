@@ -10,7 +10,7 @@ export interface User {
   id: string;
   full_name: string;
   email: string;
-  role: 'patient' | 'doctor' | 'radiologist' | 'admin';
+  role: 'patient' | 'doctor' | 'radiologist' | 'hospital_admin' | 'super_admin';
   phone: string | null;
   account_status: 'active' | 'suspended' | 'pending';
   created_at: string;
@@ -51,7 +51,7 @@ export interface CreateUserInput {
     hospital_id?: string;
     certification?: string;
   };
-  admin?: {
+  hospital_admin?: {
     hospital_id?: string;
     permissions?: Record<string, boolean>;
   };
@@ -173,10 +173,19 @@ class UsersApi {
           roleProfile = data;
           break;
         }
-        case 'admin': {
+        case 'hospital_admin': {
           const { data } = await this.supabase
-            .from('admin_profiles')
+            .from('hospital_admin_profiles')
             .select('*, hospital:hospitals(name, city)')
+            .eq('user_id', id)
+            .single();
+          roleProfile = data;
+          break;
+        }
+        case 'super_admin': {
+          const { data } = await this.supabase
+            .from('super_admin_profiles')
+            .select('*')
             .eq('user_id', id)
             .single();
           roleProfile = data;

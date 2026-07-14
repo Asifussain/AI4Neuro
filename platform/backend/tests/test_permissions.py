@@ -25,12 +25,11 @@ def _npy() -> bytes:
 # ------------------------------ unit: matrix ------------------------------ #
 
 def test_create_matrix():
-    assert permissions.can_create_analysis("admin", "eeg")
-    assert permissions.can_create_analysis("technician", "eeg")
+    assert permissions.can_create_analysis("super_admin", "eeg")
+    assert permissions.can_create_analysis("hospital_admin", "eeg")
     assert permissions.can_create_analysis("radiologist", "mri")
     assert permissions.can_create_analysis("doctor", "mri")
-    # technicians don't create MRI; patients create nothing; unknown role → no.
-    assert not permissions.can_create_analysis("technician", "mri")
+    # patients create nothing; unknown role → no.
     assert not permissions.can_create_analysis("patient", "eeg")
     assert not permissions.can_create_analysis(None, "eeg")
 
@@ -41,11 +40,12 @@ def test_read_session_care_team_and_admin():
         "uploaded_by": "u1",
         "doctor_id": "d1",
         "radiologist_id": None,
-        "technician_id": None,
         "patient_id": "p1",
     }
-    assert permissions.can_read_session("anyone", "admin", "hX", session)  # admin
-    assert permissions.can_read_session("u1", "technician", "h1", session)  # uploader
+    assert permissions.can_read_session("anyone", "super_admin", "hX", session)  # cross-hospital
+    assert permissions.can_read_session("anyone", "hospital_admin", "h1", session)  # same hospital
+    assert not permissions.can_read_session("anyone", "hospital_admin", "h2", session)  # other hospital
+    assert permissions.can_read_session("u1", "doctor", "h1", session)  # uploader
     assert permissions.can_read_session("d1", "doctor", "h1", session)      # doctor
     assert permissions.can_read_session("p1", "patient", "h1", session)     # own patient
     assert not permissions.can_read_session("stranger", "doctor", "h1", session)
@@ -55,6 +55,34 @@ def test_read_session_hospital_scope():
     session = {"hospital_id": "h1", "uploaded_by": "u1"}
     assert permissions.can_read_session("u1", "doctor", "h1", session)
     assert not permissions.can_read_session("u1", "doctor", "h2", session)  # cross-hospital
+
+
+def test_hospital_admin_user_management():
+    assert permissions.can_create_user_with_role(
+        "hospital_admin", "doctor", actor_hospital_id="h1", target_hospital_id="h1"
+    )
+    assert not permissions.can_create_user_with_role(
+        "hospital_admin", "doctor", actor_hospital_id="h1", target_hospital_id="h2"
+    )
+    assert not permissions.can_create_user_with_role(
+        "hospital_admin", "hospital_admin", actor_hospital_id="h1", target_hospital_id="h1"
+    )
+    assert not permissions.can_create_user_with_role(
+        "hospital_admin", "super_admin", actor_hospital_id="h1", target_hospital_id=None
+    )
+    assert permissions.can_create_user_with_role(
+        "super_admin", "hospital_admin", actor_hospital_id=None, target_hospital_id="h1"
+    )
+    assert permissions.can_create_user_with_role(
+        "super_admin", "super_admin", actor_hospital_id=None, target_hospital_id=None
+    )
+
+
+def test_super_admin_platform_scope():
+    assert permissions.can_manage_hospitals("super_admin")
+    assert not permissions.can_manage_hospitals("hospital_admin")
+    assert permissions.can_view_platform_analytics("super_admin")
+    assert not permissions.can_view_platform_analytics("hospital_admin")
 
 
 def test_retry_excludes_patient():

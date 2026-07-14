@@ -26,7 +26,8 @@ const roleBadgeStyles: Record<string, string> = {
   patient: 'bg-blue-50 text-blue-700 border-blue-200',
   doctor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   radiologist: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  admin: 'bg-teal-50 text-teal-700 border-teal-200',
+  hospital_admin: 'bg-teal-50 text-teal-700 border-teal-200',
+  super_admin: 'bg-indigo-100 text-indigo-800 border-indigo-300',
 };
 
 // ============================================================================
@@ -138,26 +139,49 @@ const roleConfigs = {
       },
     ],
   },
-  admin: {
-    tagline: 'Oversee the platform, manage users, and monitor system health.',
+  hospital_admin: {
+    tagline: 'Oversee your hospital, manage users, and monitor system health.',
     actions: [
       {
         icon: Users,
         title: 'User Management',
-        description: 'Manage doctors, radiologists, and patients',
-        href: '/admin/dashboard',
+        description: 'Manage doctors, radiologists, and patients in your hospital',
+        href: '/hospital-admin/dashboard',
       },
       {
         icon: Settings,
-        title: 'System Settings',
-        description: 'Configure platform and access controls',
-        href: '/admin/dashboard',
+        title: 'Hospital Settings',
+        description: 'Configure hospital profile and access controls',
+        href: '/hospital-admin/dashboard',
       },
       {
         icon: BarChart3,
-        title: 'System Analytics',
-        description: 'Platform metrics and usage reports',
-        href: '/admin/dashboard',
+        title: 'Hospital Analytics',
+        description: 'Hospital metrics and usage reports',
+        href: '/hospital-admin/dashboard',
+      },
+    ],
+  },
+  super_admin: {
+    tagline: 'Oversee the entire platform: hospitals, admins, and global analytics.',
+    actions: [
+      {
+        icon: Users,
+        title: 'Hospital Management',
+        description: 'Create and manage hospitals across the platform',
+        href: '/super-admin/dashboard',
+      },
+      {
+        icon: Settings,
+        title: 'Platform Settings',
+        description: 'Configure platform-wide settings',
+        href: '/super-admin/dashboard',
+      },
+      {
+        icon: BarChart3,
+        title: 'Platform Analytics',
+        description: 'Cross-hospital metrics and usage reports',
+        href: '/super-admin/dashboard',
       },
     ],
   },
