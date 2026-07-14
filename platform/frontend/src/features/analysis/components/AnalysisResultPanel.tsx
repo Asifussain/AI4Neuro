@@ -91,7 +91,6 @@ export function AnalysisResultPanel({ result }: { result: AnalysisResultResponse
   const mriCharts = [
     ['Brain volume comparison', urlOf(viz, 'volume_chart_url')],
     ['Confidence distribution', urlOf(viz, 'confidence_chart_url')],
-    ['Pattern similarity', urlOf(viz, 'similarity_plot_url')],
   ] as const;
 
   const reports = [

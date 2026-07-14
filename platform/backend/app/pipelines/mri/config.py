@@ -6,11 +6,14 @@ modules port with only their import lines rewired:
 
   * **static clinical constants** (analysis types, normative volumes, disease
     info) are copied verbatim from the legacy config;
-  * **env-driven values** (mock toggle, CAT12/MATLAB paths, ConViT checkpoint)
-    are sourced from the unified settings.
+  * **env-driven values** (ConViT checkpoint, CAT12/MATLAB paths) are sourced
+    from the unified settings.
 
-Empty CAT12/checkpoint paths make the pipeline degrade to mock mode on hosts
-without CAT12 + MATLAB Runtime (e.g. Linux).
+The runtime pipeline (``ml_runner.py``) treats the uploaded scan as already
+preprocessed and does not run CAT12, and is multiclass-only (CN/MCI/AD) since
+the ConViT checkpoint is trained multiclass-only. CAT12_ROOT/CAT12_EXE/
+MCR_ROOT/CAT12_OUTPUT_DIR are kept here only for the standalone
+``cat12_manager.py`` / ``scripts/check_cat12_setup.py`` tooling.
 """
 
 from __future__ import annotations
@@ -22,8 +25,6 @@ from app.core.config import get_settings
 _settings = get_settings()
 
 # ---- Env-driven ----
-USE_MOCK_MODEL: bool = _settings.use_mock_model
-USE_CAT12_PREPROCESSING: bool = _settings.use_cat12_preprocessing
 CONVIT_CHECKPOINT_PATH: str = _settings.convit_checkpoint_path
 CAT12_ROOT: str = _settings.cat12_root
 CAT12_EXE: str = _settings.cat12_exe
@@ -38,10 +39,6 @@ os.makedirs(CAT12_OUTPUT_DIR, exist_ok=True)
 PREDICTION_CLASSES = ["CN", "MCI", "AD"]
 ANALYSIS_TYPES = {
     "multiclass": ["CN", "MCI", "AD"],
-    "binary": ["CN", "AD"],
-    # Legacy aliases kept so old sessions/retry links still run.
-    "multi-disease": ["CN", "MCI", "AD"],
-    "ad-only": ["CN", "AD"],
 }
 
 NORMATIVE_VOLUMES = {

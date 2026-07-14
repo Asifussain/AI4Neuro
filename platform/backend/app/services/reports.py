@@ -155,24 +155,22 @@ class PdfReportService:
         )
 
         ml_results = _mri_ml_results(result, session)
-        similarity = result.similarity
-        sim = _artifact_data_uri(result, "similarity_plot_url")
         vol = _artifact_data_uri(result, "volume_chart_url")
         conf = _artifact_data_uri(result, "confidence_chart_url")
 
         return {
             "technical": _render(
                 TechnicalPDFReport, build_technical_report,
-                context, ml_results, similarity, sim, vol, conf,
+                context, ml_results, vol, conf,
             ),
             "clinician": _render(
                 ClinicianPDFReport, build_clinician_report,
-                context, ml_results, similarity, sim, vol, conf,
+                context, ml_results, vol, conf,
             ),
             # Patient report omits the volume chart (matches legacy behaviour).
             "patient": _render(
                 PatientPDFReport, build_patient_report,
-                context, ml_results, similarity, sim, None,
+                context, ml_results, None,
             ),
         }
 

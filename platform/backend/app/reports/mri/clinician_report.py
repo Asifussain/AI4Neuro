@@ -29,8 +29,6 @@ def build_clinician_report(
     pdf: ClinicianPDFReport,
     comprehensive_data: Dict[str, Any],
     ml_results: Dict[str, Any],
-    similarity_data: Dict[str, Any],
-    similarity_plot: Optional[str] = None,
     volume_chart: Optional[str] = None,
     confidence_chart: Optional[str] = None
 ) -> None:
@@ -41,8 +39,6 @@ def build_clinician_report(
         pdf: ClinicianPDFReport instance
         comprehensive_data: All medical/patient data
         ml_results: ML model prediction results
-        similarity_data: Similarity analysis results
-        similarity_plot: Base64 similarity visualization
         volume_chart: Base64 volume comparison chart
         confidence_chart: Base64 confidence distribution chart
     """
@@ -232,32 +228,6 @@ def build_clinician_report(
                 pdf.set_text_color(*pdf.text_color_normal)
 
             pdf.ln(6)
-
-        # =====================================================================
-        # Pattern Similarity Analysis
-        # =====================================================================
-        if similarity_plot:
-            if pdf.get_y() > pdf.h - 100:
-                pdf.add_page()
-
-            pdf.section_title("Pattern Similarity Analysis")
-            pdf.ln(2)
-
-            pdf.add_image_section("Brain Pattern Comparison with Reference Groups", similarity_plot)
-
-            # Add interpretation
-            interpretation = similarity_data.get('interpretation', '')
-            if interpretation:
-                pdf.ln(2)
-                pdf.set_font('Helvetica', '', 9)
-                pdf.set_text_color(*pdf.text_color_dark)
-                # Take first few lines of interpretation
-                lines = interpretation.split('\n')[:5]
-                for line in lines:
-                    if line.strip():
-                        pdf.multi_cell(0, 5, sanitize_for_pdf(line), 0, 'L')
-
-        pdf.ln(6)
 
         # =====================================================================
         # Clinical Recommendations

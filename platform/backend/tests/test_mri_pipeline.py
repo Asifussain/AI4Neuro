@@ -1,9 +1,11 @@
-"""MRI pipeline tests (mock-first + real viewer-slice extraction).
+"""MRI pipeline tests (multiclass-only, no mock fallback).
 
-The prediction path runs in mock mode (no ConViT checkpoint / CAT12 on Linux),
-so the unified-shape assertions always run once matplotlib is installed. The
-viewer-slice test builds a small synthetic NIfTI with nibabel to exercise the
-real (Supabase-decoupled) slice extraction + upload path.
+The pipeline is multiclass-only (CN/MCI/AD; no CAT12, no binary path) and has
+no mock fallback: without a real, loadable ConViT checkpoint, it must fail
+loudly (raise) instead of returning a fabricated prediction. The viewer-slice
+test builds a small synthetic NIfTI with nibabel to exercise the real
+(Supabase-decoupled) slice extraction + upload path, which is independent of
+the model.
 """
 
 from __future__ import annotations
@@ -20,12 +22,14 @@ from app.pipelines.base import AnalysisContext  # noqa: E402
 
 
 def _make_context(base_dir, filename: str, analysis_type: str, sid: str) -> AnalysisContext:
+    """Build a context around a small but valid synthetic NIfTI (so slice extraction succeeds
+    and the model-availability check is what's actually under test)."""
+    nib = pytest.importorskip("nibabel")
     work_dir = os.path.join(str(base_dir), sid)
     os.makedirs(work_dir, exist_ok=True)
     path = os.path.join(work_dir, filename)
-    # Mock mode ignores content; bytes are enough to stand in for a scan.
-    with open(path, "wb") as fh:
-        fh.write(b"\x1f\x8b\x08\x00fake-nifti-gzip")
+    vol = (np.random.rand(24, 24, 24) * 255).astype(np.float32)
+    nib.save(nib.Nifti1Image(vol, affine=np.eye(4)), path)
     return AnalysisContext(
         session_id=sid,
         modality="mri",
@@ -36,35 +40,29 @@ def _make_context(base_dir, filename: str, analysis_type: str, sid: str) -> Anal
     )
 
 
-def test_mock_unified_shape(tmp_path):
+def test_no_checkpoint_fails_loudly(tmp_path, monkeypatch):
+    """Without a configured/loadable checkpoint, the pipeline must error, not fabricate a result."""
+    from app.pipelines.mri import ml_runner
     from app.pipelines.mri.runner import run_mri_pipeline
 
-    ctx = _make_context(tmp_path, "scan.nii.gz", "multiclass", "mri-mock")
-    res = run_mri_pipeline(ctx)
+    monkeypatch.setattr(ml_runner, "CONVIT_CHECKPOINT_PATH", "")
 
-    assert res.prediction in {"CN", "MCI", "AD"}
-    assert 0.0 <= res.confidence <= 1.0
-    assert set(res.probabilities.keys()) == {"CN", "MCI", "AD"}
-    assert abs(sum(res.probabilities.values()) - 1.0) < 1e-4
-    # Volume metrics + normative comparison present.
-    assert res.metrics["brain_volume"] is not None
-    assert "volume_comparison" in res.metrics
-    # Charts written as artifacts (uploaded into visualizations by the orchestrator).
-    assert "volume_chart_url" in res.artifacts
-    assert "confidence_chart_url" in res.artifacts
-    for path in res.artifacts.values():
-        assert os.path.exists(path)
-    # Mock input isn't a real NIfTI → no viewer slices.
-    assert res.viewer_slices == {}
-    assert res.model_version  # e.g. 'mock-v1.0' or 'ConViT-v1.0'
+    ctx = _make_context(tmp_path, "scan.nii.gz", "multiclass", "mri-no-checkpoint")
+    with pytest.raises(RuntimeError, match="checkpoint"):
+        run_mri_pipeline(ctx)
 
 
-def test_binary_two_classes(tmp_path):
-    from app.pipelines.mri.runner import run_mri_pipeline
+def test_analysis_type_is_always_multiclass(tmp_path, monkeypatch):
+    """MRI has no binary path: any requested analysis_type is treated as multiclass."""
+    from app.pipelines.mri import ml_runner
 
-    ctx = _make_context(tmp_path, "scan.nii.gz", "binary", "mri-binary")
-    res = run_mri_pipeline(ctx)
-    assert set(res.probabilities.keys()) == {"CN", "AD"}
+    monkeypatch.setattr(ml_runner, "CONVIT_CHECKPOINT_PATH", "")
+
+    ctx = _make_context(tmp_path, "scan.nii.gz", "binary", "mri-binary-request")
+    # Even a "binary" request hits the same (checkpoint-required) multiclass-only path.
+    with pytest.raises(RuntimeError, match="checkpoint"):
+        from app.pipelines.mri.runner import run_mri_pipeline
+        run_mri_pipeline(ctx)
 
 
 def test_viewer_slice_extraction_and_upload(tmp_path):
@@ -93,14 +91,18 @@ def test_viewer_slice_extraction_and_upload(tmp_path):
     assert all(u.startswith("https://fake.storage/viewer-slices/") for v in urls.values() for u in v)
 
 
-def test_full_loop_via_orchestrator(tmp_path):
+def test_full_loop_via_orchestrator_fails_without_checkpoint(tmp_path, monkeypatch):
+    """End to end via the orchestrator: no checkpoint configured -> session marked failed,
+    not completed with a fabricated prediction."""
     from app.pipelines.base import register_pipeline
+    from app.pipelines.mri import ml_runner
     from app.pipelines.mri.runner import run_mri_pipeline
     from app.services.database import DatabaseService
     from app.services.orchestrator import run_analysis_job
     from app.services.storage import StorageService
     from tests.fake_supabase import FakeSupabase
 
+    monkeypatch.setattr(ml_runner, "CONVIT_CHECKPOINT_PATH", "")
     register_pipeline("mri", run_mri_pipeline)
 
     fake = FakeSupabase()
@@ -122,8 +124,5 @@ def test_full_loop_via_orchestrator(tmp_path):
     run_analysis_job(sid, db=db, storage=storage)
 
     session = db.get_session(sid)
-    assert session["status"] == "completed"
-    result = db.get_result(sid)
-    assert result["prediction"] in {"CN", "MCI", "AD"}
-    assert "volume_chart_url" in result["visualizations"]
-    assert "confidence_chart_url" in result["visualizations"]
+    assert session["status"] == "failed"
+    assert db.get_result(sid) is None
