@@ -1,17 +1,16 @@
 'use client';
 
-import { Navbar } from '@/components/shared/Navbar';
 import { AnalysisUploadForm } from '@/features/analysis/components/AnalysisUploadForm';
+import { RoleShell } from '@/components/dashboards/shared/RoleShell';
 import { withAuth } from '@/lib/withAuth';
 
 function NewAnalysisPage() {
   return (
-    <>
-      <Navbar />
-      <div className="ai4-page min-h-screen px-4 pb-12 pt-24">
+    <RoleShell>
+      <div className="py-2">
         <AnalysisUploadForm />
       </div>
-    </>
+    </RoleShell>
   );
 }
 

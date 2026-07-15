@@ -2,10 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Search,
-  Bell,
   LogOut,
   Menu,
   X,
@@ -18,6 +17,15 @@ import {
 import { useAuth } from '@/components/providers/AuthProvider';
 import { cn } from '@/lib/utils';
 import { ACCENT_STYLES, type Accent } from './primitives';
+import { NotificationBell, ProfileMenu } from './TopbarWidgets';
+
+/** Matches a nav href (which may carry a query string) against the active path. */
+function isNavActive(href: string, pathname: string): boolean {
+  const base = href.split('?')[0];
+  if (base === pathname) return true;
+  // Highlight parent section for its sub-routes, but never let '/' match everything.
+  return base !== '/' && pathname.startsWith(`${base}/`);
+}
 
 export interface NavItem {
   label: string;
@@ -32,25 +40,22 @@ interface DashboardShellProps {
   children: React.ReactNode;
 }
 
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
-
 export function DashboardShell({ roleLabel, accent, navItems, children }: DashboardShellProps) {
-  const { user, userProfile, signOut } = useAuth();
+  const { userProfile, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const pathname = usePathname();
+  const router = useRouter();
   const styles = ACCENT_STYLES[accent];
 
-  const displayName = userProfile?.full_name || user?.email || 'User';
-  const initials = getInitials(displayName);
   const hospitalName = userProfile?.roleProfile?.hospitals?.name || 'AI4Neuro Platform';
+
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchTerm.trim();
+    if (q) router.push(`/search?q=${encodeURIComponent(q)}`);
+  };
 
   const sidebarContent = (
     <>
@@ -65,7 +70,7 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
       {/* Nav */}
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
-          const active = pathname === item.href;
+          const active = isNavActive(item.href, pathname);
           const Icon = item.icon;
           return (
             <Link
@@ -172,33 +177,24 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
             <Menu className="h-5 w-5" />
           </button>
 
-          <div className="relative flex-1 max-w-xl">
+          <form onSubmit={submitSearch} className="relative flex-1 max-w-xl">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search Patient / Patient ID / Scan ID"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search analyses by session ID, modality or status"
               className="w-full pl-11 pr-4 py-2.5 rounded-full bg-white border border-slate-200 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
             />
-          </div>
+          </form>
 
           <div className="ml-auto flex items-center gap-3">
             <span className={cn('hidden lg:inline text-xs font-semibold px-3 py-1.5 rounded-full', styles.soft, styles.text)}>
               {roleLabel}
             </span>
             <span className="hidden lg:inline text-sm text-slate-500">{hospitalName}</span>
-            <button className="relative w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700">
-              <Bell className="h-4.5 w-4.5" />
-              <span className="absolute top-2 right-2.5 w-1.5 h-1.5 rounded-full bg-red-500" />
-            </button>
-            <div
-              className={cn(
-                'w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0',
-                styles.solid
-              )}
-              title={displayName}
-            >
-              {initials}
-            </div>
+            <NotificationBell accent={accent} />
+            <ProfileMenu accent={accent} />
           </div>
         </header>
 

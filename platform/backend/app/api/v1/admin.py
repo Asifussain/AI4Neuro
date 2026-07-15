@@ -20,12 +20,16 @@ from app.api.deps import get_current_user, get_database
 from app.core.security import Principal
 from app.schemas.users import (
     AssignDoctorRequest,
+    AssignmentResponse,
+    DoctorDirectoryEntry,
+    PatientDirectoryEntry,
     PlatformSettingsResponse,
     PlatformSettingsUpdate,
     Role,
     UserCreate,
     UserResponse,
     UserUpdate,
+    VerificationResponse,
 )
 from app.services import permissions
 from app.services.database import DatabaseService
@@ -39,6 +43,22 @@ _ROLE_PROFILE_TABLE = {
     Role.patient.value: "patient_profiles",
     Role.super_admin.value: "super_admin_profiles",
 }
+
+# Only these role-detail tables carry a verification_status column.
+_VERIFIABLE_ROLES = {Role.doctor.value, Role.radiologist.value, Role.patient.value}
+
+
+def _scope_hospital(principal: Principal, hospital_id: str | None) -> str | None:
+    """Resolve the effective hospital filter for a directory listing.
+
+    super_admin may pass an optional cross-hospital filter; every other
+    manager role is pinned to their own hospital.
+    """
+    if principal.role == "super_admin":
+        return hospital_id
+    if principal.role == "hospital_admin":
+        return principal.hospital_id
+    raise _forbid("You do not have access to this directory.")
 
 
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -105,14 +125,92 @@ def list_users(
     principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
 ) -> list[UserResponse]:
-    if principal.role == "super_admin":
-        scope_hospital = hospital_id  # optional cross-hospital filter
-    elif principal.role == "hospital_admin":
-        scope_hospital = principal.hospital_id
-    else:
-        raise _forbid("You do not have access to the user directory.")
+    scope_hospital = _scope_hospital(principal, hospital_id)
     rows = db.list_user_profiles(hospital_id=scope_hospital, role=role)
     return [UserResponse(**r) for r in rows]
+
+
+@router.get("/doctors", response_model=list[DoctorDirectoryEntry])
+def list_doctors(
+    hospital_id: str | None = Query(default=None),
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> list[DoctorDirectoryEntry]:
+    """Doctor accounts merged with their doctor_profiles detail (doc 8.x)."""
+    scope_hospital = _scope_hospital(principal, hospital_id)
+    users = db.list_user_profiles(hospital_id=scope_hospital, role=Role.doctor.value)
+    profiles = {p["user_id"]: p for p in db.list_role_profiles("doctor_profiles")}
+    return [
+        DoctorDirectoryEntry(
+            id=u["id"],
+            hospital_id=u.get("hospital_id"),
+            full_name=u["full_name"],
+            email=u["email"],
+            phone=u["phone"],
+            account_status=u["account_status"],
+            specialization=profiles.get(u["id"], {}).get("specialization"),
+            medical_license=profiles.get(u["id"], {}).get("medical_license"),
+            experience_years=profiles.get(u["id"], {}).get("experience_years"),
+            verification_status=profiles.get(u["id"], {}).get("verification_status"),
+            created_at=u.get("created_at"),
+        )
+        for u in users
+    ]
+
+
+@router.get("/patients", response_model=list[PatientDirectoryEntry])
+def list_patients(
+    hospital_id: str | None = Query(default=None),
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> list[PatientDirectoryEntry]:
+    """Patient accounts merged with their patient_profiles detail (doc 8.x)."""
+    scope_hospital = _scope_hospital(principal, hospital_id)
+    users = db.list_user_profiles(hospital_id=scope_hospital, role=Role.patient.value)
+    profiles = {p["user_id"]: p for p in db.list_role_profiles("patient_profiles")}
+    return [
+        PatientDirectoryEntry(
+            id=u["id"],
+            hospital_id=u.get("hospital_id"),
+            full_name=u["full_name"],
+            email=u["email"],
+            phone=u["phone"],
+            account_status=u["account_status"],
+            patient_code=profiles.get(u["id"], {}).get("patient_id"),
+            verification_status=profiles.get(u["id"], {}).get("verification_status"),
+            created_at=u.get("created_at"),
+        )
+        for u in users
+    ]
+
+
+@router.get("/assignments", response_model=list[AssignmentResponse])
+def list_assignments(
+    hospital_id: str | None = Query(default=None),
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> list[AssignmentResponse]:
+    """Doctor-patient relationships, with names joined in for display."""
+    scope_hospital = _scope_hospital(principal, hospital_id)
+    rows = db.list_doctor_patient_relationships(hospital_id=scope_hospital)
+    users_by_id = {u["id"]: u for u in db.list_user_profiles(hospital_id=scope_hospital)}
+    out: list[AssignmentResponse] = []
+    for r in rows:
+        doctor = users_by_id.get(str(r.get("doctor_id")), {})
+        patient = users_by_id.get(str(r.get("patient_id")), {})
+        out.append(
+            AssignmentResponse(
+                id=r["id"],
+                doctor_id=r["doctor_id"],
+                doctor_name=doctor.get("full_name", "Unknown"),
+                patient_id=r["patient_id"],
+                patient_name=patient.get("full_name", "Unknown"),
+                hospital_id=r.get("hospital_id"),
+                notes=r.get("notes"),
+                created_at=r.get("created_at"),
+            )
+        )
+    return out
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
@@ -162,6 +260,24 @@ def reactivate_user(
     db: DatabaseService = Depends(get_database),
 ) -> UserResponse:
     return _set_account_status(user_id, "active", principal, db)
+
+
+@router.post("/users/{user_id}/verify", response_model=VerificationResponse)
+def verify_user(
+    user_id: str,
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> VerificationResponse:
+    return _set_verification_status(user_id, "verified", principal, db)
+
+
+@router.post("/users/{user_id}/reject", response_model=VerificationResponse)
+def reject_user(
+    user_id: str,
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> VerificationResponse:
+    return _set_verification_status(user_id, "rejected", principal, db)
 
 
 @router.post("/patients/assign-doctor", status_code=status.HTTP_201_CREATED)
@@ -286,6 +402,36 @@ def _set_account_status(
         target_id=user_id,
     )
     return UserResponse(**updated)
+
+
+def _set_verification_status(
+    user_id: str, verification_status: str, principal: Principal, db: DatabaseService
+) -> VerificationResponse:
+    user = _require_user(db, user_id)
+    role = user.get("role")
+    if role not in _VERIFIABLE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "not_verifiable",
+                "message": f"{role} accounts have no verification status.",
+            },
+        )
+    if not permissions.can_manage_user(
+        principal.role, principal.hospital_id, user.get("hospital_id"), role
+    ):
+        raise _forbid("You may not verify this user.")
+    table = _ROLE_PROFILE_TABLE[role]
+    db.update_role_profile(table, user_id, {"verification_status": verification_status})
+    db.insert_audit_log(
+        actor_id=principal.user_id,
+        actor_role=principal.role,
+        hospital_id=user.get("hospital_id"),
+        action=f"user.{verification_status}",
+        target_table=table,
+        target_id=user_id,
+    )
+    return VerificationResponse(user_id=user_id, role=role, verification_status=verification_status)
 
 
 def _require_user(db: DatabaseService, user_id: str) -> dict:

@@ -1,26 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Building2,
   Users,
-  Database,
-  Brain,
-  Waves,
-  IndianRupee,
-  CheckCircle2,
-  LayoutGrid,
   Landmark,
   ShieldCheck,
-  Boxes,
-  CreditCard,
+  Stethoscope,
+  Brain,
+  UserRound,
   BarChart3,
-  FileText,
-  ClipboardList,
-  Settings,
+  CheckCircle2,
   AlertTriangle,
-  Lock,
-  Bell,
 } from 'lucide-react';
 import { DashboardShell, type NavItem } from '@/components/dashboards/shared/DashboardShell';
 import {
@@ -32,148 +24,171 @@ import {
   MiniBarChart,
   DonutStat,
   DonutLegend,
+  StatusBadge,
 } from '@/components/dashboards/shared/primitives';
+import { getNavItems } from '@/lib/navigation';
+import { adminApi, type PlatformAnalytics, type Hospital } from '@/features/admin/api';
 
-// This dashboard is UI-only for now (mock data), per product decision: real
-// hospital/billing/audit data wiring is a follow-up once the Super Admin role
-// and its backend endpoints exist.
-
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/super-admin/dashboard', icon: LayoutGrid },
-  { label: 'Hospitals', href: '/super-admin/dashboard', icon: Building2 },
-  { label: 'Hospital Admins', href: '/super-admin/dashboard', icon: Landmark },
-  { label: 'Services', href: '/super-admin/dashboard', icon: Boxes },
-  { label: 'Subscriptions', href: '/super-admin/dashboard', icon: CreditCard },
-  { label: 'Analytics', href: '/super-admin/dashboard', icon: BarChart3 },
-  { label: 'Reports', href: '/super-admin/dashboard', icon: FileText },
-  { label: 'Audit Logs', href: '/super-admin/dashboard', icon: ClipboardList },
-  { label: 'Settings', href: '/profile', icon: Settings },
-];
-
-const SALES_USAGE = [
-  { name: 'Jan', value: 18 },
-  { name: 'Feb', value: 22 },
-  { name: 'Mar', value: 27 },
-  { name: 'Apr', value: 24 },
-  { name: 'May', value: 31 },
-  { name: 'Jun', value: 36 },
-];
-
-const DIAGNOSIS_SEGMENTS = [
-  { name: 'MRI', value: 52, color: '#0d9488' },
-  { name: 'EEG', value: 36, color: '#2563eb' },
-  { name: 'PET', value: 12, color: '#7c3aed' },
-];
+const NAV_ITEMS: NavItem[] = getNavItems('super_admin');
 
 export const SuperAdminDashboard: React.FC = () => {
+  const [analytics, setAnalytics] = useState<PlatformAnalytics | null>(null);
+  const [hospitals, setHospitals] = useState<Hospital[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([adminApi.platformAnalytics(), adminApi.hospitals()])
+      .then(([a, h]) => {
+        if (cancelled) return;
+        setAnalytics(a);
+        setHospitals(h);
+      })
+      .catch((e) => !cancelled && setError((e as Error).message));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const loading = analytics === null && !error;
+  const roles = analytics?.users_by_role ?? {};
+  const totalHospitals = analytics?.total_hospitals ?? 0;
+  const activeHospitals = analytics?.active_hospitals ?? 0;
+  const inactiveHospitals = Math.max(0, totalHospitals - activeHospitals);
+
+  const roleBars = [
+    { name: 'Doctors', value: roles.doctor ?? 0 },
+    { name: 'Radiologists', value: roles.radiologist ?? 0 },
+    { name: 'Patients', value: roles.patient ?? 0 },
+    { name: 'Admins', value: roles.hospital_admin ?? 0 },
+  ];
+
+  const hospitalSegments = [
+    { name: 'Active', value: activeHospitals, color: '#0d9488' },
+    { name: 'Inactive', value: inactiveHospitals, color: '#94a3b8' },
+  ].filter((s) => s.value > 0);
+
+  const recentHospitals = [...(hospitals ?? [])]
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+    .slice(0, 4);
+
   return (
     <DashboardShell roleLabel="Super Admin" accent="indigo" navItems={NAV_ITEMS}>
       <DashboardPageHeader
         eyebrow="Super Admin"
         title="Super Admin Dashboard"
-        description="Platform-wide control for hospitals, hospital admins, scan usage, disk storage, and sales."
-        routeChip="/super-admin-dashboard"
+        description="Platform-wide control for hospitals, hospital admins, and user directories across every tenant."
+        routeChip="/super-admin/dashboard"
         accent="indigo"
       />
 
-      {/* Stats */}
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          Failed to load platform analytics: {error}
+        </div>
+      )}
+
+      {/* Stats — real counts from the backend analytics endpoint */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Admin Hospitals" value={28} icon={Building2} sublabel="+4 this quarter" accent="indigo" />
-        <StatCard label="Hospital Admins" value={96} icon={Landmark} sublabel="+12 new admins" accent="indigo" />
-        <StatCard label="Disk Storage Used" value="14.8 TB" icon={Database} sublabel="68% of capacity" accent="indigo" />
-        <StatCard label="MRI Taken" value={8420} icon={Brain} sublabel="+11.4%" accent="indigo" />
-        <StatCard label="EEG Taken" value={5870} icon={Waves} sublabel="+8.2%" accent="indigo" />
-        <StatCard label="PET Taken" value={1940} icon={ShieldCheck} sublabel="+5.9%" accent="indigo" />
+        <StatCard label="Hospitals" value={totalHospitals} icon={Building2} accent="indigo" isLoading={loading} />
+        <StatCard label="Active Hospitals" value={activeHospitals} icon={CheckCircle2} accent="indigo" isLoading={loading} />
+        <StatCard label="Total Users" value={analytics?.total_users ?? 0} icon={Users} accent="indigo" isLoading={loading} />
+        <StatCard label="Doctors" value={roles.doctor ?? 0} icon={Stethoscope} accent="indigo" isLoading={loading} />
+        <StatCard label="Radiologists" value={roles.radiologist ?? 0} icon={Brain} accent="indigo" isLoading={loading} />
+        <StatCard label="Patients" value={roles.patient ?? 0} icon={UserRound} accent="indigo" isLoading={loading} />
       </div>
 
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        <StatCard label="Monthly Sales" value="₹42.8L" icon={IndianRupee} sublabel="+18.6%" accent="indigo" />
-        <StatCard label="Active Plans" value={24} icon={CheckCircle2} sublabel="4 upgrades pending" accent="indigo" />
+        <StatCard label="Hospital Admins" value={roles.hospital_admin ?? 0} icon={Landmark} accent="indigo" isLoading={loading} />
+        <StatCard label="Super Admins" value={roles.super_admin ?? 0} icon={ShieldCheck} accent="indigo" isLoading={loading} />
       </div>
 
       {/* Analytics row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <SectionCard className="p-5 lg:col-span-1">
-          <h3 className="text-sm font-semibold text-slate-900 mb-1">Sales &amp; Usage Graph</h3>
-          <p className="text-xs text-slate-500 mb-3">Weekly scan activity</p>
-          <MiniBarChart data={SALES_USAGE} color="#4f46e5" />
+          <h3 className="text-sm font-semibold text-slate-900 mb-1">Users by Role</h3>
+          <p className="text-xs text-slate-500 mb-3">Platform-wide directory</p>
+          <MiniBarChart data={roleBars} color="#4f46e5" />
         </SectionCard>
 
         <SectionCard className="p-5">
-          <h3 className="text-sm font-semibold text-slate-900 mb-1">Diagnosis Distribution</h3>
-          <p className="text-xs text-slate-500 mb-3">CN / MCI / AD</p>
-          <DonutStat centerLabel="AI" segments={DIAGNOSIS_SEGMENTS} />
-          <DonutLegend segments={DIAGNOSIS_SEGMENTS.map((s) => ({ ...s, value: `${s.value}%` }))} />
+          <h3 className="text-sm font-semibold text-slate-900 mb-1">Hospital Status</h3>
+          <p className="text-xs text-slate-500 mb-3">Active vs inactive tenants</p>
+          {hospitalSegments.length > 0 ? (
+            <>
+              <DonutStat centerLabel="HQ" segments={hospitalSegments} />
+              <DonutLegend segments={hospitalSegments.map((s) => ({ ...s, value: s.value }))} />
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-[180px] text-sm text-slate-400">
+              No hospitals yet
+            </div>
+          )}
         </SectionCard>
 
         <QuickActionsList
           accent="indigo"
           actions={[
-            { label: 'Add Hospital' },
-            { label: 'Manage Hospital Admins' },
-            { label: 'Upgrade Plan' },
-            { label: 'Audit Storage' },
-            { label: 'View Sales Report' },
+            { label: 'Manage Hospitals', href: '/super-admin/hospitals' },
+            { label: 'Manage Hospital Admins', href: '/super-admin/users?role=hospital_admin' },
+            { label: 'View Doctors', href: '/super-admin/users?role=doctor' },
+            { label: 'View Radiologists', href: '/super-admin/users?role=radiologist' },
+            { label: 'View Patients', href: '/super-admin/users?role=patient' },
           ]}
         />
       </div>
 
-      {/* Subscription + Alerts + Activity */}
+      {/* Hospitals + Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <SectionCard className="p-5">
-          <h3 className="text-sm font-semibold text-slate-900 mb-3">Subscription</h3>
-          <p className="text-lg font-bold text-slate-900">Platform Master Console</p>
-          <p className="text-sm text-slate-500 mt-1">16,230 scans processed</p>
-          <p className="text-sm text-slate-500">7.2 TB remaining</p>
-          <p className="text-xs text-indigo-700 font-medium mt-2">Renewal: Global billing cycle</p>
+        <SectionCard className="p-5 lg:col-span-2">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-slate-900">Recent Hospitals</h3>
+            <Link href="/super-admin/hospitals" className="text-xs font-medium text-indigo-700">
+              View All
+            </Link>
+          </div>
+          {loading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <div key={i} className="h-12 rounded-xl bg-slate-100 animate-pulse" />)}
+            </div>
+          ) : recentHospitals.length === 0 ? (
+            <p className="text-sm text-slate-500 py-6 text-center">No hospitals onboarded yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {recentHospitals.map((h) => (
+                <div key={h.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-1.5 rounded-lg bg-indigo-50 shrink-0">
+                      <Building2 className="h-4 w-4 text-indigo-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{h.name}</p>
+                      <p className="text-xs text-slate-500 truncate">{h.hospital_code} · {h.address}</p>
+                    </div>
+                  </div>
+                  <StatusBadge status={h.status} />
+                </div>
+              ))}
+            </div>
+          )}
         </SectionCard>
 
         <AlertList
           alerts={[
             {
-              icon: AlertTriangle,
-              tone: 'warning',
-              heading: 'Storage Watch',
-              body: '3 hospitals are above 75% disk usage.',
-            },
-            {
               icon: BarChart3,
               tone: 'info',
-              heading: 'Sales Target',
-              body: 'Monthly sales graph is tracking 18.6% above last month.',
+              heading: 'Platform Directory',
+              body: `${analytics?.total_users ?? 0} users across ${totalHospitals} hospitals.`,
             },
             {
-              icon: Lock,
-              tone: 'purple',
-              heading: 'PET Enablement',
-              body: 'PET service is gated per-hospital via entitlements.',
+              icon: activeHospitals < totalHospitals ? AlertTriangle : CheckCircle2,
+              tone: activeHospitals < totalHospitals ? 'warning' : 'info',
+              heading: 'Hospital Status',
+              body: `${activeHospitals} active, ${inactiveHospitals} inactive.`,
             },
           ]}
         />
-
-        <SectionCard className="p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-900">Platform Activity</h3>
-            <button className="text-xs font-medium text-indigo-700">View All</button>
-          </div>
-          <div className="space-y-2.5">
-            {[
-              { icon: Building2, text: 'New hospital "Sunrise Care" onboarded', time: '2h ago' },
-              { icon: Users, text: 'Hospital Admin created for Metro Neuro', time: '5h ago' },
-              { icon: Bell, text: 'Storage alert triggered for 2 hospitals', time: '1d ago' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <div className="p-1.5 rounded-lg bg-indigo-50 shrink-0">
-                  <item.icon className="h-3.5 w-3.5 text-indigo-600" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-slate-800 truncate">{item.text}</p>
-                  <p className="text-[10px] text-slate-400">{item.time}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
       </div>
     </DashboardShell>
   );

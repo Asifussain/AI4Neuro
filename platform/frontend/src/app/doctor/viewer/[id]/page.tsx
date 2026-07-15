@@ -1,6 +1,6 @@
 'use client';
 
-import { Navbar } from '@/components/shared/Navbar';
+import { RoleShell } from '@/components/dashboards/shared/RoleShell';
 import { MockMRIViewer } from '@/components/viewers/MockMRIViewer';
 import { RealMRIViewer } from '@/components/viewers/RealMRIViewer';
 import { Button } from '@/components/ui/button';
@@ -30,8 +30,6 @@ import { use } from 'react';
 import {
   SpotlightCard,
   GradientText,
-  AuroraBackground,
-  GridPattern,
   PulseRing,
 } from '@/components/ui/animated';
 
@@ -75,23 +73,21 @@ export default function DoctorViewerPage({ params }: { params: Promise<{ id: str
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="flex items-center justify-center h-[80vh]">
+      <RoleShell>
+        <div className="flex items-center justify-center h-[70vh]">
           <div className="text-center">
             <Loader2 className="h-12 w-12 animate-spin text-purple-500 mx-auto mb-4" />
             <p className="text-muted-foreground">Loading session data...</p>
           </div>
         </div>
-      </div>
+      </RoleShell>
     );
   }
 
   if (error || !session) {
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="flex items-center justify-center h-[80vh]">
+      <RoleShell>
+        <div className="flex items-center justify-center h-[70vh]">
           <div className="text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <p className="text-foreground text-lg mb-2">Session not found</p>
@@ -104,7 +100,7 @@ export default function DoctorViewerPage({ params }: { params: Promise<{ id: str
             </Button>
           </div>
         </div>
-      </div>
+      </RoleShell>
     );
   }
 
@@ -123,14 +119,8 @@ export default function DoctorViewerPage({ params }: { params: Promise<{ id: str
   };
 
   return (
-    <div className="min-h-screen bg-background relative">
-      {/* Background effects */}
-      <AuroraBackground />
-      <GridPattern />
-
-      <Navbar />
-
-      <div className="relative z-10 p-4 pt-20 lg:p-6 lg:pt-22 max-w-[1920px] mx-auto space-y-4">
+    <RoleShell>
+      <div className="relative z-10 max-w-[1920px] mx-auto space-y-4 py-2">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -526,7 +516,7 @@ export default function DoctorViewerPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </div>
-    </div>
+    </RoleShell>
   );
 }
 

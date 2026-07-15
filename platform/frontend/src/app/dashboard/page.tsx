@@ -1,15 +1,14 @@
 'use client';
 
-import { Navbar } from '@/components/shared/Navbar';
 import { UnifiedDashboard } from '@/features/analysis/components/UnifiedDashboard';
+import { RoleShell } from '@/components/dashboards/shared/RoleShell';
 import { withAuth } from '@/lib/withAuth';
 
 function DashboardPage() {
   return (
-    <>
-      <Navbar />
-      <UnifiedDashboard />
-    </>
+    <RoleShell>
+      <UnifiedDashboard embedded />
+    </RoleShell>
   );
 }
 

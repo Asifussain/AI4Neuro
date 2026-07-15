@@ -63,13 +63,13 @@ export default function ChangePasswordPage() {
 
       toast.success('Password changed successfully!');
 
-      // Use window.location for reliable redirect
+      // Client-side navigation keeps the SPA/auth state intact (no full reload).
       if (profile?.role) {
-        window.location.href = `/${profile.role}/dashboard`;
+        router.replace(`/${profile.role.replace(/_/g, '-')}/dashboard`);
       } else {
-        window.location.href = '/login';
+        router.replace('/login');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Change password error:', error);
       toast.error('An error occurred');
       setLoading(false);

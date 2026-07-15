@@ -109,6 +109,53 @@ class AssignDoctorRequest(BaseModel):
     notes: str | None = None
 
 
+class DoctorDirectoryEntry(BaseModel):
+    """A doctor account merged with its doctor_profiles detail row."""
+
+    id: str
+    hospital_id: str | None = None
+    full_name: str
+    email: str
+    phone: str
+    account_status: str
+    specialization: str | None = None
+    medical_license: str | None = None
+    experience_years: int | None = None
+    verification_status: str | None = None
+    created_at: datetime | None = None
+
+
+class PatientDirectoryEntry(BaseModel):
+    """A patient account merged with its patient_profiles detail row."""
+
+    id: str
+    hospital_id: str | None = None
+    full_name: str
+    email: str
+    phone: str
+    account_status: str
+    patient_code: str | None = None
+    verification_status: str | None = None
+    created_at: datetime | None = None
+
+
+class AssignmentResponse(BaseModel):
+    id: str
+    doctor_id: str
+    doctor_name: str
+    patient_id: str
+    patient_name: str
+    hospital_id: str | None = None
+    notes: str | None = None
+    created_at: datetime | None = None
+
+
+class VerificationResponse(BaseModel):
+    user_id: str
+    role: str
+    verification_status: str
+
+
 class PlatformSettingsUpdate(BaseModel):
     settings: dict = Field(default_factory=dict)
 

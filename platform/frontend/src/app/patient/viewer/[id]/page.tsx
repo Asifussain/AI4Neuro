@@ -1,6 +1,6 @@
 'use client';
 
-import { Navbar } from '@/components/shared/Navbar';
+import { RoleShell } from '@/components/dashboards/shared/RoleShell';
 import { MockMRIViewer } from '@/components/viewers/MockMRIViewer';
 import { RealMRIViewer } from '@/components/viewers/RealMRIViewer';
 import { Button } from '@/components/ui/button';
@@ -24,8 +24,6 @@ import { use } from 'react';
 import {
   SpotlightCard,
   GradientText,
-  AuroraBackground,
-  GridPattern,
   PulseRing,
 } from '@/components/ui/animated';
 
@@ -97,28 +95,22 @@ export default function PatientViewerPage({
   // ============================ LOADING STATE ============================
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background relative">
-        <AuroraBackground />
-        <GridPattern />
-        <Navbar />
-        <div className="relative z-10 flex items-center justify-center h-[80vh]">
+      <RoleShell>
+        <div className="relative z-10 flex items-center justify-center h-[70vh]">
           <div className="text-center">
             <Loader2 className="h-12 w-12 animate-spin text-teal-500 mx-auto mb-4" />
             <p className="text-muted-foreground">Loading your scan...</p>
           </div>
         </div>
-      </div>
+      </RoleShell>
     );
   }
 
   // ============================ ERROR STATE ==============================
   if (error || !session) {
     return (
-      <div className="min-h-screen bg-background relative">
-        <AuroraBackground />
-        <GridPattern />
-        <Navbar />
-        <div className="relative z-10 flex items-center justify-center h-[80vh]">
+      <RoleShell>
+        <div className="relative z-10 flex items-center justify-center h-[70vh]">
           <div className="text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <p className="text-foreground text-lg mb-2">Scan not found</p>
@@ -126,14 +118,14 @@ export default function PatientViewerPage({
               {error || 'Unable to load scan data'}
             </p>
             <Button variant="outline" asChild>
-              <Link href="/home">
+              <Link href="/patient/dashboard">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Dashboard
               </Link>
             </Button>
           </div>
         </div>
-      </div>
+      </RoleShell>
     );
   }
 
@@ -158,12 +150,8 @@ export default function PatientViewerPage({
 
   // ============================ RENDER ===================================
   return (
-    <div className="min-h-screen bg-background relative">
-      <AuroraBackground />
-      <GridPattern />
-      <Navbar />
-
-      <div className="relative z-10 p-4 pt-20 lg:p-6 lg:pt-22 max-w-6xl mx-auto space-y-6">
+    <RoleShell>
+      <div className="relative z-10 max-w-6xl mx-auto space-y-6 py-2">
         {/* ================================================================
             HEADER
         ================================================================ */}
@@ -549,6 +537,6 @@ export default function PatientViewerPage({
           </SpotlightCard>
         )}
       </div>
-    </div>
+    </RoleShell>
   );
 }
