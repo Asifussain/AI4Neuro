@@ -135,6 +135,8 @@ def build_unified_pdf_report_content(pdf: UnifiedPDFReport, comprehensive_data, 
         theme.finding_banner(pdf, finding_text, clinical_significance, tone=finding_tone)
         pdf.ln(2)
 
+        pdf.key_value_pair("Classification Result", prediction_label, key_width=60)
+        pdf.ln(1)
         pdf.key_value_pair("Analysis Type", analysis_type.upper(), key_width=60)
         pdf.ln(1)
 
