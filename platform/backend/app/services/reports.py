@@ -132,34 +132,20 @@ class PdfReportService:
     def _build_mri(
         self, context: dict, result: PipelineResult, session: dict
     ) -> dict[str, bytes]:
-        from app.reports.mri import (
-            ClinicianPDFReport,
-            PatientPDFReport,
-            TechnicalPDFReport,
-            build_clinician_report,
-            build_patient_report,
-            build_technical_report,
-        )
+        from app.reports.mri import UnifiedPDFReport, build_unified_report
 
         ml_results = _mri_ml_results(result, session)
         vol = _artifact_data_uri(result, "volume_chart_url")
         conf = _artifact_data_uri(result, "confidence_chart_url")
 
-        return {
-            "technical": _render(
-                TechnicalPDFReport, build_technical_report,
-                context, ml_results, vol, conf,
-            ),
-            "clinician": _render(
-                ClinicianPDFReport, build_clinician_report,
-                context, ml_results, vol, conf,
-            ),
-            # Patient report omits the volume chart (matches legacy behaviour).
-            "patient": _render(
-                PatientPDFReport, build_patient_report,
-                context, ml_results, None,
-            ),
-        }
+        # A single unified report replaces the separate patient/clinician/
+        # technical MRI copies. All three URLs point at the same PDF so
+        # existing API consumers (which expect all three keys) keep working.
+        unified = _render(
+            UnifiedPDFReport, build_unified_report,
+            context, ml_results, vol, conf,
+        )
+        return {"technical": unified, "clinician": unified, "patient": unified}
 
     # ------------------------------ upload ------------------------------ #
 

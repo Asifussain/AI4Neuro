@@ -12,7 +12,6 @@ import {
   FileText,
   ExternalLink,
   Brain,
-  Download,
   HeartPulse,
   ShieldCheck,
   Lightbulb,
@@ -193,16 +192,16 @@ export default function PatientViewerPage({
             </div>
           </div>
 
-          {/* Header report download button */}
-          {prediction?.patient_pdf_url && (
+          {/* Header report view button */}
+          {(prediction?.patient_pdf_url || prediction?.clinician_pdf_url || prediction?.technical_pdf_url) && (
             <Button variant="outline" size="sm" asChild className="text-xs">
               <a
-                href={prediction.patient_pdf_url}
+                href={(prediction.patient_pdf_url || prediction.clinician_pdf_url || prediction.technical_pdf_url) ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Download className="h-3.5 w-3.5 mr-1.5" />
-                Download My Report
+                <FileText className="h-3.5 w-3.5 mr-1.5" />
+                Click to View the Report
                 <ExternalLink className="h-3 w-3 ml-1 opacity-50" />
               </a>
             </Button>
@@ -397,7 +396,7 @@ export default function PatientViewerPage({
                   </h3>
                 </div>
 
-                {prediction?.patient_pdf_url ? (
+                {(prediction?.patient_pdf_url || prediction?.clinician_pdf_url || prediction?.technical_pdf_url) ? (
                   <div className="space-y-3">
                     <p className="text-xs text-muted-foreground leading-relaxed">
                       A personalized report has been prepared for you. It
@@ -406,7 +405,7 @@ export default function PatientViewerPage({
                       healthcare provider.
                     </p>
                     <a
-                      href={prediction.patient_pdf_url}
+                      href={(prediction.patient_pdf_url || prediction.clinician_pdf_url || prediction.technical_pdf_url) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 hover:scale-[1.01] ${
@@ -420,7 +419,7 @@ export default function PatientViewerPage({
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground">
-                          Patient Report (PDF)
+                          Click to View the Report
                         </p>
                         <p className="text-[10px] text-muted-foreground">
                           A simplified explanation of your scan results

@@ -63,7 +63,6 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({
   status,
   generatedAt,
   reports,
-  userRole,
   prediction,
   confidence
 }) => {
@@ -92,81 +91,10 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({
     }
   };
 
-  // Determine which reports to show based on role
-  const getAvailableReports = () => {
-    const reportTypes = [];
-
-    // Patient only sees patient report
-    if (userRole === 'patient') {
-      if (isValidUrl(reports.patient)) {
-        reportTypes.push({
-          key: 'patient',
-          label: 'Patient Report',
-          description: 'Easy-to-understand summary of your results',
-          url: reports.patient!,
-          icon: FileText
-        });
-      }
-    }
-
-    // Doctor sees clinician report (and optionally patient report)
-    if (userRole === 'doctor') {
-      if (isValidUrl(reports.clinician)) {
-        reportTypes.push({
-          key: 'clinician',
-          label: 'Clinical Report',
-          description: 'Detailed clinical findings and recommendations',
-          url: reports.clinician!,
-          icon: FileText
-        });
-      }
-      if (isValidUrl(reports.patient)) {
-        reportTypes.push({
-          key: 'patient',
-          label: 'Patient Summary',
-          description: 'Patient-friendly version to share',
-          url: reports.patient!,
-          icon: FileText
-        });
-      }
-    }
-
-    // Radiologist and admin see all reports
-    if (userRole === 'radiologist' || userRole === 'admin' || userRole === 'super_admin') {
-      if (isValidUrl(reports.technical)) {
-        reportTypes.push({
-          key: 'technical',
-          label: 'Technical Report',
-          description: 'Full technical analysis with metrics',
-          url: reports.technical!,
-          icon: FileText
-        });
-      }
-      if (isValidUrl(reports.clinician)) {
-        reportTypes.push({
-          key: 'clinician',
-          label: 'Clinical Report',
-          description: 'Clinical findings for physicians',
-          url: reports.clinician!,
-          icon: FileText
-        });
-      }
-      if (isValidUrl(reports.patient)) {
-        reportTypes.push({
-          key: 'patient',
-          label: 'Patient Report',
-          description: 'Patient-friendly summary',
-          url: reports.patient!,
-          icon: FileText
-        });
-      }
-    }
-
-    return reportTypes;
-  };
-
-  const availableReports = getAvailableReports();
-  const hasReports = availableReports.length > 0;
+  // patient/clinician/technical all point at the same unified report PDF -
+  // pick whichever is set (they're equal whenever more than one is present).
+  const reportUrl = [reports.patient, reports.clinician, reports.technical].find(isValidUrl) || null;
+  const hasReports = reportUrl !== null;
 
   return (
     <Card>
@@ -175,7 +103,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({
           <div>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Analysis Reports
+              Analysis Report
             </CardTitle>
             {sessionCode && (
               <CardDescription className="mt-1">
@@ -215,40 +143,37 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({
           </p>
         )}
 
-        {/* Reports List */}
+        {/* Report */}
         {hasReports ? (
-          <div className="space-y-3">
-            {availableReports.map((report) => (
-              <div
-                key={report.key}
-                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <report.icon className="h-8 w-8 text-primary" />
-                  <div>
-                    <p className="font-medium">{report.label}</p>
-                    <p className="text-sm text-muted-foreground">{report.description}</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleViewReport(report.url)}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    View
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => handleDownload(report.url, `${sessionCode || 'report'}_${report.key}.pdf`)}
-                  >
-                    <Download className="h-4 w-4 mr-1" />
-                    Download
-                  </Button>
-                </div>
+          <div
+            className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <FileText className="h-8 w-8 text-primary" />
+              <div>
+                <p className="font-medium">Click to View the Report</p>
+                <p className="text-sm text-muted-foreground">
+                  Complete analysis report - clinical, technical and patient-friendly sections
+                </p>
               </div>
-            ))}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleViewReport(reportUrl)}
+              >
+                <ExternalLink className="h-4 w-4 mr-1" />
+                View
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleDownload(reportUrl, `${sessionCode || 'report'}.pdf`)}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Download
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
