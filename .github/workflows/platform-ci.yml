@@ -51,7 +51,7 @@ jobs:
           src/features/analysis
           src/app/analysis
           src/app/dashboard
-          src/app/hospital-admin
+          src/app/admin
           src/app/super-admin
       - name: Build
         env:
