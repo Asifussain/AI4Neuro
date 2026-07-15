@@ -399,20 +399,6 @@ def build_unified_pdf_report_content(pdf: UnifiedPDFReport, comprehensive_data, 
         pdf.add_image_section("Power Spectral Density - Frequency Domain", psd_img_data)
         pdf.ln(6)
 
-        # ---- Technical Methodology ------------------------------------------ #
-        if pdf.get_y() > pdf.h - 65:
-            pdf.add_page()
-        pdf.section_title("Methodology & Technical Specifications")
-        pdf.ln(2)
-        theme.info_panel(pdf, "Technical Specifications", [
-            ("bullet", "**AI Model**: Deep learning-based EEG classification using ADformer (Alzheimer's Detection Transformer) architecture."),
-            ("bullet", "**Analysis Pipeline**: Multi-trial prediction with majority voting, internal consistency validation, and DTW-based similarity assessment."),
-            ("bullet", "**Frequency Analysis**: Band power computation (Delta, Theta, Alpha, Beta, Gamma) using Welch's method with appropriate windowing."),
-            ("bullet", "**Signal Processing**: Standard preprocessing including filtering, artifact detection, and normalization per neurophysiological guidelines."),
-            ("bullet", "**Reference Database**: Model trained on validated EEG datasets with confirmed clinical diagnoses."),
-        ])
-        pdf.ln(6)
-
         # ---- Shared closing sections (each appears once) ------------------- #
         pdf.add_medical_disclaimer(disclaimer_type="comprehensive")
 
@@ -421,7 +407,7 @@ def build_unified_pdf_report_content(pdf: UnifiedPDFReport, comprehensive_data, 
         theme.dual_signature(
             pdf,
             radiologist.get('full_name', 'Authorized Personnel'), "EEG Technician / Radiologist",
-            doctor.get('full_name', 'Referring Physician'), "Referring Physician",
+            doctor.get('full_name', 'Doctor'), "Doctor",
         )
 
         pdf.set_font('Helvetica', 'I', 8)
