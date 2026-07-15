@@ -36,7 +36,7 @@ const ROLE_COPY: Record<Role, { eyebrow: string; title: string; description: str
     title: 'Analysis Overview',
     description: 'EEG and MRI analysis activity across every hospital.',
   },
-  hospital_admin: {
+  admin: {
     eyebrow: 'Hospital Admin',
     title: 'Hospital Analyses',
     description: 'Monitor EEG and MRI analysis activity across your hospital.',

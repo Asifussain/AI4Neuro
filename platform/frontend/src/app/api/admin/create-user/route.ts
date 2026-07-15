@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    if (profile?.role !== 'hospital_admin' && profile?.role !== 'super_admin') {
+    if (profile?.role !== 'admin' && profile?.role !== 'super_admin') {
       return NextResponse.json(
         { error: 'Forbidden - Hospital Admin or Super Admin access required' },
         { status: 403 }
@@ -60,14 +60,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate role
-    if (!['patient', 'doctor', 'radiologist', 'hospital_admin', 'super_admin'].includes(role)) {
+    if (!['patient', 'doctor', 'radiologist', 'admin', 'super_admin'].includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
     // Multi-tenant scoping: a Hospital Admin may only create hospital-scoped
     // roles within their own hospital, and may never create another admin.
     let targetHospitalId: string | null = roleData?.hospital_id ?? null;
-    if (profile.role === 'hospital_admin') {
+    if (profile.role === 'admin') {
       if (!['doctor', 'radiologist', 'patient'].includes(role)) {
         return NextResponse.json(
           { error: 'Hospital Admins may only create doctors, radiologists, and patients.' },
@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
         experience_years: roleData?.experience_years || 0,
       });
       roleProfileError = error;
-    } else if (role === 'hospital_admin') {
+    } else if (role === 'admin') {
       const { error } = await supabaseAdmin.from('hospital_admin_profiles').insert({
         user_id: newUser.user.id,
         permissions: roleData?.permissions || {},

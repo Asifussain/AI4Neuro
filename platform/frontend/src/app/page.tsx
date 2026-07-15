@@ -33,7 +33,7 @@ export default function RootPage() {
 
       // Redirect to role-specific dashboard
       if (userProfile.role) {
-        router.replace(`/${userProfile.role}/dashboard`);
+        router.replace(`/${userProfile.role.replace(/_/g, '-')}/dashboard`);
         return;
       }
     }

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useRadiologistStats, useMySessions, useDeleteSession } from '@/lib/hooks/useApi';
 import { toast } from 'sonner';
-import { ReportViewer } from '@/components/shared/ReportViewer';
+import { ReportModal } from '@/components/shared/ReportModal';
 import type { MRISession } from '@/lib/api/sessions';
 import {
   Upload,
@@ -918,40 +918,7 @@ export const RadiologistDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Report Modal */}
-      {selectedSession && selectedSession.prediction && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-auto">
-            <SectionCard className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-indigo-50">
-                    <FileText className="h-5 w-5 text-indigo-600" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    Reports - {selectedSession.session_code}
-                  </h3>
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedSession(null)} className="hover:bg-slate-100">
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
-              <ReportViewer
-                sessionCode={selectedSession.session_code}
-                status={selectedSession.status}
-                reports={{
-                  patient: selectedSession.prediction.patient_pdf_url || undefined,
-                  clinician: selectedSession.prediction.clinician_pdf_url || undefined,
-                  technical: selectedSession.prediction.technical_pdf_url || undefined,
-                }}
-                userRole="radiologist"
-                prediction={selectedSession.prediction.prediction}
-                confidence={selectedSession.prediction.confidence_score}
-              />
-            </SectionCard>
-          </div>
-        </div>
-      )}
+      <ReportModal session={selectedSession} onClose={() => setSelectedSession(null)} userRole="radiologist" />
     </DashboardShell>
   );
 };

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 class Role(str, Enum):
     super_admin = "super_admin"
-    hospital_admin = "hospital_admin"
+    hospital_admin = "admin"
     doctor = "doctor"
     radiologist = "radiologist"
     patient = "patient"

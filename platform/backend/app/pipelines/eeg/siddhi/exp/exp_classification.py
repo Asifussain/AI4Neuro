@@ -105,7 +105,11 @@ class Exp_Classification(Exp_Basic):
             print("Error: 'setting' argument is missing or invalid.")
             raise ValueError("Missing 'setting' argument required to locate the correct checkpoint directory.")
 
-        if checkpoint_root:
+        if checkpoint_root and os.path.isfile(checkpoint_root):
+            # Direct override: checkpoint_root points straight at a single
+            # unified .pth file, skipping the task/model_id/model/setting tree.
+            model_path = os.path.normpath(checkpoint_root)
+        elif checkpoint_root:
             checkpoint_dir_path = os.path.join(
                 checkpoint_root,
                 self.args.task_name,
@@ -113,6 +117,7 @@ class Exp_Classification(Exp_Basic):
                 self.args.model,
                 setting
             )
+            model_path = os.path.normpath(os.path.join(checkpoint_dir_path, 'checkpoint.pth'))
         else:
             checkpoint_dir_path = os.path.join(
                 script_dir,
@@ -123,8 +128,7 @@ class Exp_Classification(Exp_Basic):
                 self.args.model,
                 setting
             )
-        model_path = os.path.join(checkpoint_dir_path, 'checkpoint.pth')
-        model_path = os.path.normpath(model_path)
+            model_path = os.path.normpath(os.path.join(checkpoint_dir_path, 'checkpoint.pth'))
 
         print(f"Looking for model checkpoint at calculated path: {model_path}")
 

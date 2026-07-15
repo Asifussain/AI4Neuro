@@ -145,7 +145,7 @@ async function main() {
   //    coherent single-hospital demo; super_admin has no hospital.
   const people = [
     { email: 'superadmin@demo.dev', role: 'super_admin',   full_name: 'Sam SuperAdmin', hospital: null },
-    { email: 'admin@demo.dev',      role: 'hospital_admin',full_name: 'Alice Admin',    hospital: gnh },
+    { email: 'admin@demo.dev',      role: 'admin',         full_name: 'Alice Admin',    hospital: gnh },
     { email: 'doctor@demo.dev',     role: 'doctor',        full_name: 'Dr. David Doctor', hospital: gnh },
     { email: 'radiologist@demo.dev',role: 'radiologist',   full_name: 'Dr. Rita Radiologist', hospital: gnh },
     { email: 'patient1@demo.dev',   role: 'patient',       full_name: 'Pat Patient One', hospital: gnh },

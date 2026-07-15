@@ -58,7 +58,7 @@ function PublicNavbar() {
         <div className="flex items-center gap-3">
           {!loading && user && userProfile ? (
             <Link
-              href={`/${userProfile.role}/dashboard`}
+              href={`/${userProfile.role.replace(/_/g, '-')}/dashboard`}
               className="px-5 py-2 rounded-full bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors"
             >
               Dashboard
@@ -354,7 +354,7 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <a href="#" aria-label="LinkedIn" className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+            <a href="https://www.linkedin.com/company/praxiatech-ai/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
               <Linkedin className="h-4 w-4" />
             </a>
             <a href="#" aria-label="GitHub" className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">

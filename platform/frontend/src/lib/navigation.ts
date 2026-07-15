@@ -10,7 +10,6 @@
 import {
   LayoutGrid,
   Upload,
-  User,
   Settings,
   Building2,
   Stethoscope,
@@ -27,7 +26,7 @@ export type Role =
   | 'patient'
   | 'doctor'
   | 'radiologist'
-  | 'hospital_admin'
+  | 'admin'
   | 'super_admin';
 
 interface RoleMeta {
@@ -38,7 +37,7 @@ interface RoleMeta {
 
 const ROLE_META: Record<Role, RoleMeta> = {
   super_admin: { label: 'Super Admin', accent: 'indigo', dashboard: '/super-admin/dashboard' },
-  hospital_admin: { label: 'Hospital Admin', accent: 'teal', dashboard: '/hospital-admin/dashboard' },
+  admin: { label: 'Hospital Admin', accent: 'teal', dashboard: '/admin/dashboard' },
   radiologist: { label: 'Radiologist', accent: 'indigo', dashboard: '/radiologist/dashboard' },
   doctor: { label: 'Doctor', accent: 'blue', dashboard: '/doctor/dashboard' },
   patient: { label: 'Patient', accent: 'green', dashboard: '/patient/dashboard' },
@@ -53,37 +52,34 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   super_admin: [
     { label: 'Dashboard', href: '/super-admin/dashboard', icon: LayoutGrid },
     { label: 'Hospitals', href: '/super-admin/hospitals', icon: Building2 },
-    { label: 'Hospital Admins', href: '/super-admin/users?role=hospital_admin', icon: Landmark },
+    { label: 'Hospital Admins', href: '/super-admin/users?role=admin', icon: Landmark },
     { label: 'Doctors', href: '/super-admin/users?role=doctor', icon: Stethoscope },
     { label: 'Radiologists', href: '/super-admin/users?role=radiologist', icon: Brain },
     { label: 'Patients', href: '/super-admin/users?role=patient', icon: Users },
     { label: 'Settings', href: '/profile', icon: Settings },
   ],
-  hospital_admin: [
-    { label: 'Dashboard', href: '/hospital-admin/dashboard', icon: LayoutGrid },
-    { label: 'Doctors', href: '/hospital-admin/users?role=doctor', icon: Stethoscope },
-    { label: 'Radiologists', href: '/hospital-admin/users?role=radiologist', icon: Brain },
-    { label: 'Patients', href: '/hospital-admin/users?role=patient', icon: Users },
-    { label: 'Scan Sessions', href: '/hospital-admin/sessions', icon: ScanLine },
-    { label: 'Reports', href: '/hospital-admin/sessions?status=completed', icon: FileText },
+  admin: [
+    { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutGrid },
+    { label: 'Doctors', href: '/admin/users?role=doctor', icon: Stethoscope },
+    { label: 'Radiologists', href: '/admin/users?role=radiologist', icon: Brain },
+    { label: 'Patients', href: '/admin/users?role=patient', icon: Users },
+    { label: 'Scan Sessions', href: '/admin/sessions', icon: ScanLine },
+    { label: 'Reports', href: '/admin/sessions?status=completed', icon: FileText },
     { label: 'New Analysis', href: '/analysis/new', icon: Upload },
     { label: 'Settings', href: '/profile', icon: Settings },
   ],
   radiologist: [
     { label: 'Dashboard', href: '/radiologist/dashboard', icon: LayoutGrid },
     { label: 'New Analysis', href: '/analysis/new', icon: Upload },
-    { label: 'Profile', href: '/profile', icon: User },
     { label: 'Settings', href: '/profile', icon: Settings },
   ],
   doctor: [
     { label: 'Dashboard', href: '/doctor/dashboard', icon: LayoutGrid },
     { label: 'New Analysis', href: '/analysis/new', icon: Upload },
-    { label: 'Profile', href: '/profile', icon: User },
     { label: 'Settings', href: '/profile', icon: Settings },
   ],
   patient: [
     { label: 'Dashboard', href: '/patient/dashboard', icon: LayoutGrid },
-    { label: 'Profile', href: '/profile', icon: User },
     { label: 'Settings', href: '/profile', icon: Settings },
   ],
 };

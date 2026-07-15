@@ -26,7 +26,7 @@ const roleBadgeStyles: Record<string, string> = {
   patient: 'bg-blue-50 text-blue-700 border-blue-200',
   doctor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   radiologist: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  hospital_admin: 'bg-teal-50 text-teal-700 border-teal-200',
+  admin: 'bg-teal-50 text-teal-700 border-teal-200',
   super_admin: 'bg-indigo-100 text-indigo-800 border-indigo-300',
 };
 
@@ -139,26 +139,20 @@ const roleConfigs = {
       },
     ],
   },
-  hospital_admin: {
+  admin: {
     tagline: 'Oversee your hospital, manage users, and monitor system health.',
     actions: [
       {
         icon: Users,
         title: 'User Management',
         description: 'Manage doctors, radiologists, and patients in your hospital',
-        href: '/hospital-admin/dashboard',
+        href: '/admin/users',
       },
       {
-        icon: Settings,
-        title: 'Hospital Settings',
-        description: 'Configure hospital profile and access controls',
-        href: '/hospital-admin/dashboard',
-      },
-      {
-        icon: BarChart3,
-        title: 'Hospital Analytics',
-        description: 'Hospital metrics and usage reports',
-        href: '/hospital-admin/dashboard',
+        icon: FileText,
+        title: 'Scan Sessions',
+        description: 'Review scan sessions and reports across your hospital',
+        href: '/admin/sessions',
       },
     ],
   },
@@ -267,7 +261,7 @@ function HomePage() {
 
                 {/* CTA */}
                 <Button asChild size="lg" className="bg-emerald-600 hover:bg-emerald-700">
-                  <Link href={`/${role}/dashboard`}>
+                  <Link href={`/${role.replace(/_/g, '-')}/dashboard`}>
                     Open Dashboard
                     <ChevronRight className="w-4 h-4 ml-2" />
                   </Link>
