@@ -1,15 +1,13 @@
-"""Unified EEG PDF report.
+"""Unified EEG PDF report. EEG only - MRI keeps its separate patient /
+clinician / technical reports (app/reports/mri/).
 
-Merges the content of the three audience-specific reports (patient /
-clinician / technical) into a single document, in the same PraxiaTech
-clinical styling (see ``app/reports/theme.py``). Every section that used to
-be duplicated verbatim across all three copies — letterhead, patient
-demographics, referring physician, session details, analyst, disclaimer,
-signature — now appears exactly once. Content that was genuinely unique to
-one audience (e.g. the technical confusion matrix, or the patient's
-"questions to ask your doctor") is kept, organised so a single reader can
-move from clinical findings through technical detail to a plain-language
-summary without re-reading the same paragraph three times.
+Merges the content of the three audience-specific EEG reports (patient /
+clinician / technical) into a single document. Every section that used to
+be duplicated verbatim across all three copies - patient demographics,
+referring physician, session details, analyst, disclaimer, signature - now
+appears exactly once. Uses its own "AI4NEURO / a product by PraxiaTech"
+letterhead (see ``UnifiedPDFReport.header``); every other report keeps the
+PraxiaTech letterhead defined in ``app/reports/theme.py``.
 """
 
 import traceback
@@ -21,11 +19,25 @@ from .technical_report import format_metric_for_pdf
 
 
 class UnifiedPDFReport(BasePDFReport):
+    """EEG-only unified report. Uses the AI4Neuro / "a product by PraxiaTech"
+    letterhead instead of the PraxiaTech letterhead used by every other
+    report (patient/clinician/technical copies, and all MRI reports)."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.report_title = "EEG Pattern Analysis - Complete Report"
         self.primary_color = theme.BRAND
         self.secondary_color = theme.BRAND
+
+    def header(self):
+        theme.draw_letterhead(
+            self,
+            subtitle=self.report_title,
+            brand_name="AI4NEURO",
+            brand_tagline="a product by PraxiaTech",
+            monogram="A",
+            tagline_spaced=False,
+        )
 
 
 BAND_DESCRIPTIONS = {
@@ -36,53 +48,6 @@ BAND_DESCRIPTIONS = {
     'gamma': 'Higher cognitive function, consciousness',
 }
 
-CLINICAL_RECOMMENDATIONS = {
-    ("Alzheimer's", "AD"): [
-        ("bullet", "**Comprehensive Clinical Evaluation**: Conduct thorough neurological examination and cognitive assessment (e.g., MMSE, MoCA)."),
-        ("bullet", "**Neuroimaging Correlation**: Consider MRI or PET scan to assess structural and functional brain changes."),
-        ("bullet", "**Differential Diagnosis**: Rule out other causes of cognitive decline (depression, vitamin deficiencies, thyroid disorders, etc.)."),
-        ("bullet", "**Neuropsychological Testing**: Detailed cognitive testing to assess specific domains affected."),
-        ("bullet", "**Family History Review**: Evaluate genetic risk factors and family history of dementia."),
-        ("bullet", "**Longitudinal Monitoring**: Consider follow-up EEG and cognitive assessments to track progression."),
-        ("bullet", "**Specialist Referral**: Referral to neurology or memory clinic may be appropriate for specialized evaluation."),
-    ],
-    ("MCI",): [
-        ("bullet", "**Comprehensive Cognitive Assessment**: Conduct detailed neuropsychological testing to characterize specific cognitive domains affected."),
-        ("bullet", "**Neuroimaging Studies**: Consider MRI to assess hippocampal atrophy and PET scan for amyloid/tau pathology if available."),
-        ("bullet", "**Differential Diagnosis**: Rule out reversible causes (medications, sleep disorders, depression, metabolic issues)."),
-        ("bullet", "**Cardiovascular Risk Management**: Address vascular risk factors (hypertension, diabetes, hyperlipidemia)."),
-        ("bullet", "**Lifestyle Interventions**: Recommend cognitive engagement, physical exercise, Mediterranean diet, and social activity."),
-        ("bullet", "**Regular Monitoring**: Schedule follow-up assessments every 6-12 months to monitor for progression to dementia."),
-        ("bullet", "**Patient & Family Education**: Discuss MCI prognosis, progression risk, and importance of early intervention."),
-        ("bullet", "**Clinical Trial Consideration**: Evaluate eligibility for MCI intervention trials if appropriate."),
-    ],
-    ("Normal", "CN"): [
-        ("bullet", "**Clinical Correlation**: Interpret normal EEG findings in context of patient symptoms and clinical presentation."),
-        ("bullet", "**Follow-up if Symptomatic**: If patient has cognitive concerns despite normal EEG, consider additional diagnostic workup."),
-        ("bullet", "**Preventive Care**: Discuss lifestyle factors for brain health (exercise, diet, cognitive engagement, sleep)."),
-        ("bullet", "**Baseline Documentation**: This study may serve as a baseline for future comparison if needed."),
-        ("bullet", "**Address Other Concerns**: Evaluate and address any non-neurological factors affecting cognition or quality of life."),
-    ],
-}
-DEFAULT_RECOMMENDATIONS = [
-    ("bullet", "**Repeat Study**: Consider repeating EEG under optimal conditions if initial results are inconclusive."),
-    ("bullet", "**Clinical Assessment**: Base clinical decisions on comprehensive evaluation rather than AI analysis alone."),
-    ("bullet", "**Additional Testing**: May require additional diagnostic studies based on clinical presentation."),
-]
-
-# Deduplicated union of the clinician-copy "Important Clinical Considerations"
-# and technical-copy "Important Clinical Notes" lists (each point kept once,
-# using whichever original phrasing was more complete).
-CLINICAL_CONSIDERATIONS = [
-    ("bullet", "**AI as Adjunct Tool**: This AI analysis is a decision-support tool and should not replace comprehensive clinical judgment."),
-    ("bullet", "**Context is Critical**: Always interpret results within the full clinical context, including symptoms, examination findings, cognitive assessments, patient history and other imaging studies."),
-    ("bullet", "**Limitations**: AI models recognize statistical patterns learned from training data and may not account for atypical presentations, comorbidities, or artifacts in the recording."),
-    ("bullet", "**Quality Dependent**: Results assume adequate EEG signal quality; artifacts, technical issues, or non-standard montages may affect accuracy."),
-    ("bullet", "**Not Definitive**: A normal EEG does not rule out cognitive disorders; abnormal patterns require clinical correlation."),
-    ("bullet", "**Follow-up Recommendations**: Consider correlation with MRI/CT imaging, neuropsychological testing, and longitudinal monitoring as clinically indicated."),
-]
-
-
 def _finding_for(prediction_label):
     if prediction_label in ("Alzheimer's", "AD"):
         return (
@@ -90,7 +55,6 @@ def _finding_for(prediction_label):
             theme.DANGER,
             "The AI analysis identified EEG patterns consistent with those typically observed in Alzheimer's disease. "
             "These findings may indicate neurodegenerative changes affecting brain electrical activity.",
-            "Patterns Suggestive of Alzheimer's Characteristics",
         )
     if prediction_label == "MCI":
         return (
@@ -98,7 +62,6 @@ def _finding_for(prediction_label):
             theme.WARN,
             "The AI analysis identified EEG patterns consistent with those typically observed in Mild Cognitive Impairment (MCI). "
             "These findings may indicate early changes in brain electrical activity that warrant further clinical evaluation and monitoring.",
-            "Patterns Suggestive of Mild Cognitive Impairment",
         )
     if prediction_label in ("Normal", "CN"):
         return (
@@ -106,9 +69,8 @@ def _finding_for(prediction_label):
             theme.OK,
             "The AI analysis found EEG patterns within normal parameters, showing typical healthy brain electrical activity. "
             "No significant deviations from expected normal patterns were detected.",
-            "Normal Brainwave Patterns Observed",
         )
-    return ("Indeterminate", theme.MUTED, "", "Pattern assessment inconclusive")
+    return ("Indeterminate", theme.MUTED, "")
 
 
 def build_unified_pdf_report_content(pdf: UnifiedPDFReport, comprehensive_data, stats_data,
@@ -168,7 +130,7 @@ def build_unified_pdf_report_content(pdf: UnifiedPDFReport, comprehensive_data, 
 
         prediction_label = prediction_data.get('prediction', 'Not Determined')
         analysis_type = prediction_data.get('analysis_type', 'binary')
-        finding_text, finding_tone, clinical_significance, patient_finding_text = _finding_for(prediction_label)
+        finding_text, finding_tone, clinical_significance = _finding_for(prediction_label)
 
         theme.finding_banner(pdf, finding_text, clinical_significance, tone=finding_tone)
         pdf.ln(2)
@@ -437,27 +399,6 @@ def build_unified_pdf_report_content(pdf: UnifiedPDFReport, comprehensive_data, 
         pdf.add_image_section("Power Spectral Density - Frequency Domain", psd_img_data)
         pdf.ln(6)
 
-        # ---- Clinical Recommendations -------------------------------------- #
-        if pdf.get_y() > pdf.h - 85:
-            pdf.add_page()
-        pdf.section_title("Clinical Recommendations & Next Steps")
-        pdf.ln(2)
-
-        recommendations = DEFAULT_RECOMMENDATIONS
-        for labels, recs in CLINICAL_RECOMMENDATIONS.items():
-            if prediction_label in labels:
-                recommendations = recs
-                break
-
-        theme.info_panel(pdf, "Suggested Clinical Actions", recommendations)
-        pdf.ln(6)
-
-        # ---- Important Clinical Considerations (deduped) ------------------- #
-        if pdf.get_y() > pdf.h - 75:
-            pdf.add_page()
-        theme.info_panel(pdf, "Important Clinical Considerations & Limitations", CLINICAL_CONSIDERATIONS, accent=theme.WARN)
-        pdf.ln(6)
-
         # ---- Technical Methodology ------------------------------------------ #
         if pdf.get_y() > pdf.h - 65:
             pdf.add_page()
@@ -472,40 +413,16 @@ def build_unified_pdf_report_content(pdf: UnifiedPDFReport, comprehensive_data, 
         ])
         pdf.ln(6)
 
-        # ---- Patient & Family Summary (condensed, unique content) --------- #
-        if pdf.get_y() > pdf.h - 90:
-            pdf.add_page()
-        pdf.section_title("Patient & Family Summary")
-        pdf.ln(2)
-
-        pdf.set_font('Helvetica', '', 9)
-        pdf.set_text_color(*pdf.text_color_dark)
-        pdf.multi_cell(0, 5.5, sanitize_for_helvetica(
-            f"In plain terms: {patient_finding_text}."
-            + (f" The AI model is {max_conf:.1f}% confident in this finding." if max_conf is not None else "")
-        ), align='L')
-        pdf.ln(4)
-
-        theme.info_panel(pdf, "What This Means", [
-            ("bullet", "**This is NOT a diagnosis** - only a doctor can diagnose medical conditions, after considering the complete medical history, symptoms and other tests."),
-            ("bullet", "**This is a screening tool** - the AI helps identify brain wave patterns that may need further medical evaluation."),
-            ("bullet", "**Further evaluation may be needed** - the doctor will determine if additional tests or follow-up appointments are necessary."),
-        ])
-        pdf.ln(4)
-
-        theme.info_panel(pdf, "Suggested Questions for the Doctor", [
-            "What do these EEG results mean in the context of the patient's symptoms and medical history?",
-            "Are any additional tests or evaluations needed?",
-            "What are the next steps in the care plan?",
-            "Are there lifestyle changes or treatments to consider?",
-            "How often should follow-up appointments occur?",
-            "Should family members be concerned or get tested?",
-        ])
-        pdf.ln(6)
-
         # ---- Shared closing sections (each appears once) ------------------- #
         pdf.add_medical_disclaimer(disclaimer_type="comprehensive")
-        pdf.add_signature_section()
+
+        radiologist = comprehensive_data.get('radiologist') or {}
+        doctor = comprehensive_data.get('doctor') or {}
+        theme.dual_signature(
+            pdf,
+            radiologist.get('full_name', 'Authorized Personnel'), "EEG Technician / Radiologist",
+            doctor.get('full_name', 'Referring Physician'), "Referring Physician",
+        )
 
         pdf.set_font('Helvetica', 'I', 8)
         pdf.set_text_color(*pdf.text_color_light)

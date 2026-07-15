@@ -61,14 +61,22 @@ def _txt(pdf, s) -> str:
 #  Letterhead (drawn on every page via header())
 # --------------------------------------------------------------------------- #
 
-def draw_letterhead(pdf, subtitle: str = "", brand_tagline: str = "NEURODIAGNOSTIC ASSESSMENT"):
+def draw_letterhead(pdf, subtitle: str = "", brand_tagline: str = "NEURODIAGNOSTIC ASSESSMENT",
+                     brand_name: str = "PRAXIATECH", monogram: str | None = None,
+                     tagline_spaced: bool = True):
     """Draw the branded letterhead: logo + wordmark (left), CONFIDENTIAL REPORT
     block (right), closed by a strong rule. Repeats on each page like a real
-    laboratory report."""
+    laboratory report.
+
+    ``brand_name``/``monogram``/``tagline_spaced`` let a specific report
+    (e.g. the unified EEG report) swap in different letterhead branding
+    without affecting every other report class, which keep the defaults.
+    """
     try:
         left = pdf.l_margin
         right = pdf.w - pdf.r_margin
         top = 11
+        mono_char = (monogram or brand_name[:1] or "P").upper()
 
         # ---- Logo mark: outlined navy roundel with monogram + circuit dots ---
         cx, cy, d = left + 7.5, top + 7, 15.0
@@ -76,11 +84,10 @@ def draw_letterhead(pdf, subtitle: str = "", brand_tagline: str = "NEURODIAGNOST
         pdf.set_line_width(0.7)
         pdf.ellipse(cx - d / 2, cy - d / 2, d, d, style="D")
         pdf.set_line_width(0.2)
-        # monogram "P"
         pdf.set_font("Helvetica", "B", 15)
         pdf.set_text_color(*BRAND)
         pdf.set_xy(cx - d / 2, cy - 3.3)
-        pdf.cell(d, 6, "P", align="C")
+        pdf.cell(d, 6, mono_char, align="C")
         # small circuit nodes
         pdf.set_fill_color(*BRAND)
         for dx, dy in ((4.6, -4.2), (5.4, -1.2), (4.2, 3.9)):
@@ -91,11 +98,11 @@ def draw_letterhead(pdf, subtitle: str = "", brand_tagline: str = "NEURODIAGNOST
         pdf.set_xy(tx, top + 1.2)
         pdf.set_font("Helvetica", "B", 17)
         pdf.set_text_color(*INK)
-        pdf.cell(90, 7, "PRAXIATECH")
+        pdf.cell(90, 7, brand_name)
         pdf.set_xy(tx, top + 9)
         pdf.set_font("Helvetica", "", 7.4)
         pdf.set_text_color(*MUTED)
-        pdf.cell(90, 4, _spaced(brand_tagline))
+        pdf.cell(90, 4, _spaced(brand_tagline) if tagline_spaced else brand_tagline)
 
         # ---- Right block: CONFIDENTIAL REPORT / subtitle / date ----
         pdf.set_xy(right - 90, top)
@@ -608,41 +615,76 @@ def disclaimer(pdf, lines, heading="DISCLAIMER"):
         print(f"disclaimer error: {exc}")
 
 
+def _signature_block(pdf, x, width, y, name, role="", date_str=None):
+    """Draw one electronic-signature block (line, name, role, optional date)
+    at a fixed x/width, without moving the shared cursor."""
+    pdf.set_draw_color(*INK)
+    pdf.set_line_width(0.4)
+    pdf.line(x, y, x + width, y)
+    pdf.set_line_width(0.2)
+    pdf.set_xy(x, y + 1.5)
+    pdf.set_font("Helvetica", "", 7.5)
+    pdf.set_text_color(*MUTED)
+    pdf.cell(width, 4, "Electronically Signed By", align="C")
+    pdf.set_xy(x, y + 6)
+    pdf.set_font("Helvetica", "B", 9.5)
+    pdf.set_text_color(*INK)
+    pdf.cell(width, 5, _txt(pdf, name or "-"), align="C")
+    if role:
+        pdf.set_xy(x, y + 11)
+        pdf.set_font("Helvetica", "", 7.8)
+        pdf.set_text_color(*MUTED)
+        pdf.cell(width, 4, _txt(pdf, role), align="C")
+    if date_str:
+        pdf.set_xy(x, y + 15)
+        pdf.set_font("Helvetica", "", 7.8)
+        pdf.set_text_color(*MUTED)
+        pdf.cell(width, 4, _txt(pdf, "Date: " + date_str), align="C")
+
+
+_SIGNATURE_BLOCK_HEIGHT = 20  # line + caption + name + role/date, see _signature_block
+
+
+def _ensure_room_for_signature(pdf, gap=14):
+    """Force a page break BEFORE drawing a signature block if it wouldn't
+    fully fit, rather than relying on fpdf2's automatic page break (which
+    can fire between the individual cell() calls inside one block and split
+    a single signature across two pages)."""
+    needed = gap + _SIGNATURE_BLOCK_HEIGHT
+    if pdf.get_y() + needed > pdf.h - pdf.b_margin:
+        pdf.add_page()
+    pdf.ln(gap)
+
+
 def signature(pdf, name, role="", date_str=None):
     try:
-        if pdf.get_y() > pdf.h - 40:
-            pdf.add_page()
-        pdf.ln(14)
+        _ensure_room_for_signature(pdf)
         right = pdf.w - pdf.r_margin
         line_w = 74
         lx = right - line_w
         y = pdf.get_y()
-        pdf.set_draw_color(*INK)
-        pdf.set_line_width(0.4)
-        pdf.line(lx, y, right, y)
-        pdf.set_line_width(0.2)
-        pdf.set_xy(lx, y + 1.5)
-        pdf.set_font("Helvetica", "", 7.5)
-        pdf.set_text_color(*MUTED)
-        pdf.cell(line_w, 4, "Electronically Signed By", align="C")
-        pdf.set_xy(lx, y + 6)
-        pdf.set_font("Helvetica", "B", 9.5)
-        pdf.set_text_color(*INK)
-        pdf.cell(line_w, 5, _txt(pdf, name or "-"), align="C")
-        if role:
-            pdf.set_xy(lx, y + 11)
-            pdf.set_font("Helvetica", "", 7.8)
-            pdf.set_text_color(*MUTED)
-            pdf.cell(line_w, 4, _txt(pdf, role), align="C")
-        if date_str:
-            pdf.set_xy(lx, y + 15)
-            pdf.set_font("Helvetica", "", 7.8)
-            pdf.set_text_color(*MUTED)
-            pdf.cell(line_w, 4, _txt(pdf, "Date: " + date_str), align="C")
-        pdf.set_y(y + 20)
+        _signature_block(pdf, lx, line_w, y, name, role, date_str)
+        pdf.set_y(y + _SIGNATURE_BLOCK_HEIGHT)
         pdf.set_text_color(*INK)
     except Exception as exc:
         print(f"signature error: {exc}")
+
+
+def dual_signature(pdf, left_name, left_role, right_name, right_role):
+    """Two electronic-signature blocks on the same line, no dates: the
+    analyst/technician on the left, the referring doctor on the right."""
+    try:
+        _ensure_room_for_signature(pdf)
+        y = pdf.get_y()
+        line_w = 74
+        left_x = pdf.l_margin
+        right_x = pdf.w - pdf.r_margin - line_w
+        _signature_block(pdf, left_x, line_w, y, left_name, left_role)
+        _signature_block(pdf, right_x, line_w, y, right_name, right_role)
+        pdf.set_y(y + _SIGNATURE_BLOCK_HEIGHT)
+        pdf.set_text_color(*INK)
+    except Exception as exc:
+        print(f"dual_signature error: {exc}")
 
 
 def image_caption(pdf, title):
