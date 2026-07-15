@@ -166,7 +166,10 @@ def test_report_generation_matrix_for_all_analysis_variants(
     assert reports.clinician_pdf_url
     assert reports.technical_pdf_url
     stored = _stored_pdfs(fake, sid)
-    assert len(stored) == 3
+    # Both modalities now generate a single unified report; all three URLs
+    # point at the same stored PDF instead of three separate files.
+    assert len(stored) == 1
+    assert reports.patient_pdf_url == reports.clinician_pdf_url == reports.technical_pdf_url
     assert all(b.startswith(b"%PDF") for b in stored.values())
 
 
@@ -199,7 +202,9 @@ def test_mri_reports_generate_and_upload(tmp_path, monkeypatch):
 
     assert reports.patient_pdf_url and reports.clinician_pdf_url and reports.technical_pdf_url
     stored = _stored_pdfs(fake, "sess-mri-report")
-    assert len(stored) == 3
+    # Single unified MRI report - one stored PDF, all three URLs equal.
+    assert len(stored) == 1
+    assert reports.patient_pdf_url == reports.clinician_pdf_url == reports.technical_pdf_url
     assert all(b.startswith(b"%PDF") for b in stored.values())
 
 
@@ -239,9 +244,11 @@ def test_eeg_reports_generate_and_upload(tmp_path):
     )
 
     stored = _stored_pdfs(fake, "sess-eeg-report")
-    assert len(stored) == 3
+    # Single unified EEG report - one stored PDF, all three URLs equal.
+    assert len(stored) == 1
     assert all(b.startswith(b"%PDF") for b in stored.values())
     assert reports.technical_pdf_url
+    assert reports.patient_pdf_url == reports.clinician_pdf_url == reports.technical_pdf_url
 
 
 def test_full_mri_loop_generates_reports(tmp_path, monkeypatch):

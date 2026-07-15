@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useSession } from '@/lib/hooks/useApi';
 import {
-  Download,
   ArrowLeft,
   FileText,
   Loader2,
@@ -156,29 +155,15 @@ export default function RadiologistViewerPage({ params }: { params: Promise<{ id
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {prediction?.technical_pdf_url && (
+            {(prediction?.technical_pdf_url || prediction?.clinician_pdf_url || prediction?.patient_pdf_url) && (
               <Button variant="outline" size="sm" asChild className="text-xs">
-                <a href={prediction.technical_pdf_url} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={(prediction.technical_pdf_url || prediction.clinician_pdf_url || prediction.patient_pdf_url) ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <FileText className="h-3.5 w-3.5 mr-1.5" />
-                  Technical Report
-                  <ExternalLink className="h-3 w-3 ml-1 opacity-50" />
-                </a>
-              </Button>
-            )}
-            {prediction?.clinician_pdf_url && (
-              <Button variant="outline" size="sm" asChild className="text-xs">
-                <a href={prediction.clinician_pdf_url} target="_blank" rel="noopener noreferrer">
-                  <Download className="h-3.5 w-3.5 mr-1.5" />
-                  Clinician Report
-                  <ExternalLink className="h-3 w-3 ml-1 opacity-50" />
-                </a>
-              </Button>
-            )}
-            {prediction?.patient_pdf_url && (
-              <Button variant="outline" size="sm" asChild className="text-xs">
-                <a href={prediction.patient_pdf_url} target="_blank" rel="noopener noreferrer">
-                  <FileText className="h-3.5 w-3.5 mr-1.5" />
-                  Patient Report
+                  Click to View the Report
                   <ExternalLink className="h-3 w-3 ml-1 opacity-50" />
                 </a>
               </Button>
@@ -589,51 +574,25 @@ export default function RadiologistViewerPage({ params }: { params: Promise<{ id
               </SpotlightCard>
             )}
 
-            {/* Reports */}
+            {/* Report */}
             {prediction && (prediction.technical_pdf_url || prediction.clinician_pdf_url || prediction.patient_pdf_url) && (
               <SpotlightCard spotlightColor="rgba(20, 184, 166, 0.06)">
                 <div className="p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <FileText className="h-4 w-4 text-teal-500" />
-                    <h3 className="text-sm font-semibold text-foreground">Reports</h3>
+                    <h3 className="text-sm font-semibold text-foreground">Report</h3>
                   </div>
                   <div className="space-y-1.5">
-                    {prediction.technical_pdf_url && (
-                      <a
-                        href={prediction.technical_pdf_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-teal-600 transition-colors p-1.5 rounded-md hover:bg-slate-100 group"
-                      >
-                        <FileText className="h-3.5 w-3.5 text-teal-500/70" />
-                        <span className="flex-1">Technical Report</span>
-                        <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </a>
-                    )}
-                    {prediction.clinician_pdf_url && (
-                      <a
-                        href={prediction.clinician_pdf_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-teal-600 transition-colors p-1.5 rounded-md hover:bg-slate-100 group"
-                      >
-                        <FileText className="h-3.5 w-3.5 text-blue-500/70" />
-                        <span className="flex-1">Clinician Report</span>
-                        <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </a>
-                    )}
-                    {prediction.patient_pdf_url && (
-                      <a
-                        href={prediction.patient_pdf_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-teal-600 transition-colors p-1.5 rounded-md hover:bg-slate-100 group"
-                      >
-                        <FileText className="h-3.5 w-3.5 text-purple-500/70" />
-                        <span className="flex-1">Patient Report</span>
-                        <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </a>
-                    )}
+                    <a
+                      href={(prediction.technical_pdf_url || prediction.clinician_pdf_url || prediction.patient_pdf_url) ?? undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-teal-600 transition-colors p-1.5 rounded-md hover:bg-slate-100 group"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-teal-500/70" />
+                      <span className="flex-1">Click to View the Report</span>
+                      <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </a>
                   </div>
                   {prediction.report_generated_at && (
                     <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">

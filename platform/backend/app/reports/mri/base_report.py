@@ -429,6 +429,13 @@ class BaseMRIReport(FPDF):
                     "Analysis performed using validated AI algorithms. Results require clinical correlation.",
                     "Quality control measures and artifact rejection protocols were applied per standard guidelines.",
                     "Model validation performed on multi-center datasets with confirmed clinical diagnoses."
+                ],
+                "comprehensive": [
+                    "This report contains AI-assisted analysis of MRI data, including clinical, technical and plain-language summaries, for the referring clinician, care team and patient/family.",
+                    "This report does NOT constitute a medical diagnosis. All findings must be interpreted within the complete clinical context by a licensed medical practitioner.",
+                    "The AI model provides statistical pattern-recognition support and should be used as an adjunct to, not a replacement for, clinical judgment and comprehensive evaluation.",
+                    "Patients: the information in this report is not a diagnosis and should not be used for self-diagnosis or self-treatment. Please discuss these results with your doctor.",
+                    "Results should be correlated with patient history, physical examination, cognitive assessment and other diagnostic procedures as clinically indicated."
                 ]
             }
 
@@ -448,9 +455,5 @@ class BaseMRIReport(FPDF):
             name = (radiologist or {}).get('full_name', 'Authorized Personnel')
             theme.signature(self, name, role="Radiologist",
                             date_str=datetime.now().strftime('%d %b %Y'))
-            return
-
-            self.set_text_color(*self.text_color_normal)
-
         except Exception as e:
             print(f"Signature error: {e}")
