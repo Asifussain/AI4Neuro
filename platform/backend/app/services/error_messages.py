@@ -8,9 +8,14 @@ from __future__ import annotations
 
 import subprocess
 
+from app.pipelines.eeg.preprocessing import EegPreprocessingError
+
 
 def public_analysis_error(exc: Exception) -> str:
     """Return a concise, non-technical message for failed analysis sessions."""
+    if isinstance(exc, EegPreprocessingError):
+        return str(exc)
+
     text = _exception_text(exc).lower()
 
     if isinstance(exc, TimeoutError) or "timed out" in text:

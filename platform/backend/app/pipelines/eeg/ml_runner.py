@@ -22,36 +22,14 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.pipelines.eeg.checkpoint_registry import get_spec
 
 logger = get_logger(__name__)
 
 
-def _cli_params(analysis_type: str) -> dict[str, str]:
-    if analysis_type == "multiclass":
-        return {
-            "model_id": "ADFD-Indep",
-            "data_type": "ADFDIndep",
-            "num_classes": "3",  # CN, MCI, AD
-            "seq_len": "256",
-            "patch_len_list": "2,2,2,4,4,4",
-            "up_dim_list": "19,38,76,152",
-            "swa": True,
-        }
-    # binary (default)
-    return {
-        "model_id": "ADSZ-Indep",
-        "data_type": "ADSZIndep",
-        "num_classes": "2",  # Normal, Alzheimer's
-        "seq_len": "128",
-        "patch_len_list": "4",
-        "up_dim_list": "19",
-        "swa": False,
-    }
-
-
 def run_model(
     input_path: str,
-    analysis_type: str = "binary",
+    analysis_type: str = "multiclass",
     *,
     output_path: str,
     siddhi_dir: str | None = None,
@@ -78,21 +56,21 @@ def run_model(
     if not os.path.isfile(input_abs):
         raise FileNotFoundError(f"Input EEG file not found at: {input_abs}")
 
-    p = _cli_params(analysis_type)
+    spec = get_spec(analysis_type)
     cmd = [
         sys.executable, run_py,
         "--task_name", "classification",
         "--is_training", "0",
-        "--model_id", p["model_id"],
+        "--model_id", spec.model_id,
         "--model", "ADformer",
-        "--data", p["data_type"],
+        "--data", spec.data_type,
         "--e_layers", "6",
         "--batch_size", "1",
         "--d_model", "128",
         "--d_ff", "256",
-        "--enc_in", "19",
-        "--num_class", p["num_classes"],
-        "--seq_len", p["seq_len"],
+        "--enc_in", str(spec.channels),
+        "--num_class", str(spec.num_classes),
+        "--seq_len", str(spec.seq_len),
         "--input_file", input_abs,
         "--output_path", output_abs,
         "--checkpoint_root", checkpoint_root,
@@ -105,10 +83,10 @@ def run_model(
         "--factor", "1",
         "--embed", "timeF",
         "--des", "'Exp'",
-        "--patch_len_list", p["patch_len_list"],
-        "--up_dim_list", p["up_dim_list"],
+        "--patch_len_list", spec.patch_len_list,
+        "--up_dim_list", spec.up_dim_list,
     ]
-    if p["swa"]:
+    if spec.swa:
         cmd.append("--swa")
 
     logger.info("Running EEG model (%s): %s", analysis_type, " ".join(cmd))

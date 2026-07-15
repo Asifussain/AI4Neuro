@@ -69,6 +69,12 @@ def _normalize_analysis_type(modality: str, analysis_type: str) -> str:
         # MRI is multiclass-only: the ConViT checkpoint is trained multiclass-only,
         # so there is no binary MRI path regardless of what the client requests.
         return "multiclass"
+    if modality == Modality.eeg.value:
+        # EEG is ADFD-only: the ADSZ (binary) checkpoint is retired server-side.
+        # Force multiclass regardless of client input so pre-update frontend
+        # clients that still send "binary" keep working, mirroring the MRI
+        # override above.
+        return "multiclass"
     allowed = {"binary", "multiclass"}
     if value not in allowed:
         raise HTTPException(
@@ -106,6 +112,7 @@ async def create_analysis(
     uploaded_by_role: str | None = Form(default=None),
     channel_index: int | None = Form(default=None),        # EEG: similarity-plot channel
     scan_metadata_json: str | None = Form(default=None),   # MRI: scanner/sequence metadata
+    eeg_metadata_json: str | None = Form(default=None),    # EEG: channel names + sampling rate
     principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
     storage: StorageService = Depends(get_storage),
@@ -128,7 +135,9 @@ async def create_analysis(
             },
         )
 
-    pipeline_options = _build_pipeline_options(modality, channel_index, scan_metadata_json)
+    pipeline_options = _build_pipeline_options(
+        modality, channel_index, scan_metadata_json, eeg_metadata_json
+    )
     uploaded_by_role = uploaded_by_role or principal.role
     hospital_id = hospital_id or principal.hospital_id
     if principal.role == "radiologist" and not radiologist_id:
@@ -334,12 +343,26 @@ def retry_analysis(
 
 
 def _build_pipeline_options(
-    modality: str, channel_index: int | None, scan_metadata_json: str | None
+    modality: str,
+    channel_index: int | None,
+    scan_metadata_json: str | None,
+    eeg_metadata_json: str | None,
 ) -> dict:
     """Assemble the modality-specific options bag persisted on the session."""
     options: dict = {}
     if modality == Modality.eeg.value and channel_index is not None:
         options["channel_index"] = channel_index
+    if modality == Modality.eeg.value and eeg_metadata_json:
+        try:
+            options["eeg_metadata"] = json.loads(eeg_metadata_json)
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "invalid_eeg_metadata",
+                    "message": "eeg_metadata_json must be valid JSON.",
+                },
+            )
     if modality == Modality.mri.value and scan_metadata_json:
         try:
             options["scan_metadata"] = json.loads(scan_metadata_json)

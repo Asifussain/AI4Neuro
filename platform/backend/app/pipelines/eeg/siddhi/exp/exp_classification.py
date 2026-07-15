@@ -196,7 +196,7 @@ class Exp_Classification(Exp_Basic):
              print("Warning: Model's expected seq_len or enc_in not found in args. Skipping shape validation.")
         else:
             if seq_len_data != expected_seq_len:
-                print(f"Warning: Input sequence length {seq_len_data} != expected {expected_seq_len}.")
+                raise ValueError(f"Input sequence length {seq_len_data} != expected {expected_seq_len}.")
             if channels_data != expected_channels:
                 raise ValueError(f"Input data has {channels_data} channels, model expects {expected_channels}.")
 

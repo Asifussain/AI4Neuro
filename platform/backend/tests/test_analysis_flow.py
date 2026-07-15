@@ -14,7 +14,7 @@ def _npy_bytes() -> bytes:
     return buf.getvalue()
 
 
-def _upload(client, *, modality="eeg", analysis_type="binary", filename="input.npy", data=None):
+def _upload(client, *, modality="eeg", analysis_type="multiclass", filename="input.npy", data=None):
     return client.post(
         "/api/v1/analysis",
         data={
@@ -43,8 +43,9 @@ def test_eeg_upload_runs_to_completion(client):
 
     result = client.get(f"/api/v1/analysis/{session_id}/result").json()
     assert result["modality"] == "eeg"
-    assert result["prediction"] in {"Normal", "Alzheimer's"}
-    assert abs(sum(result["probabilities"].values()) - 1.0) < 1e-6
+    assert result["prediction"] in {"CN", "MCI", "AD"}
+    # 3-class stub distribution is rounded to 4dp, so the sum isn't exactly 1.0.
+    assert abs(sum(result["probabilities"].values()) - 1.0) < 1e-3
     assert result["model_version"] == "stub-eeg-v0"
 
     reports = client.get(f"/api/v1/analysis/{session_id}/reports").json()
@@ -90,7 +91,7 @@ def test_result_404_before_processing(client, db_service):
     # Create a session directly (no job run) -> result not ready.
     session = db_service.create_session(
         modality="eeg",
-        analysis_type="binary",
+        analysis_type="multiclass",
         original_filename="x.npy",
         patient_id="11111111-1111-1111-1111-111111111111",
     )

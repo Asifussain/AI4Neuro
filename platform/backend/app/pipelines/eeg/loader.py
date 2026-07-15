@@ -12,17 +12,17 @@ from __future__ import annotations
 import numpy as np
 
 
-def load_eeg_2d(npy_path: str) -> np.ndarray:
-    """Load an EEG .npy and normalize to a 2D ``(samples, channels)`` float array.
+def first_trial_2d(arr: np.ndarray) -> np.ndarray:
+    """Normalize an already-loaded EEG array to 2D ``(samples, channels)``.
 
     - 3D ``(trials, seq, ch)`` → first trial (matches legacy behaviour).
     - Transpose if channels-major so rows are samples.
     - Raises if the result is not 2D.
-    """
-    eeg = np.load(npy_path, allow_pickle=True)
 
-    if eeg.ndim == 3:
-        eeg = eeg[0, :, :]
+    Pure array -> array, no I/O: lets callers reuse an already in-memory
+    (e.g. preprocessed) array instead of re-reading it from disk.
+    """
+    eeg = arr[0, :, :] if arr.ndim == 3 else arr
 
     if eeg.ndim != 2:
         raise ValueError(
@@ -35,3 +35,9 @@ def load_eeg_2d(npy_path: str) -> np.ndarray:
         eeg = eeg.T
 
     return eeg.astype(np.double)
+
+
+def load_eeg_2d(npy_path: str) -> np.ndarray:
+    """Load an EEG .npy and normalize to a 2D ``(samples, channels)`` float array."""
+    eeg = np.load(npy_path, allow_pickle=True)
+    return first_trial_2d(eeg)
