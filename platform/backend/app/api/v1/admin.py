@@ -49,16 +49,31 @@ _VERIFIABLE_ROLES = {Role.doctor.value, Role.radiologist.value, Role.patient.val
 
 
 def _scope_hospital(principal: Principal, hospital_id: str | None) -> str | None:
-    """Resolve the effective hospital filter for a directory listing.
+    """Resolve the effective hospital filter for the admin user directory.
 
-    super_admin may pass an optional cross-hospital filter; every other
-    manager role is pinned to their own hospital.
+    super_admin may pass an optional cross-hospital filter; hospital_admin is
+    pinned to their own hospital. Other roles are denied.
     """
     if principal.role == "super_admin":
         return hospital_id
     if principal.role == "hospital_admin":
         return principal.hospital_id
     raise _forbid("You do not have access to this directory.")
+
+
+# Roles allowed to browse the clinical directories (doctors / patients) so they
+# can attach a patient/doctor when starting an analysis. Wider than the admin
+# user directory, but still hospital-scoped for every non-super_admin caller.
+_CLINICAL_DIRECTORY_ROLES = {"super_admin", "hospital_admin", "doctor", "radiologist"}
+
+
+def _scope_hospital_clinical(principal: Principal, hospital_id: str | None) -> str | None:
+    """Hospital filter for the doctor/patient pickers used by the analysis flow."""
+    if principal.role not in _CLINICAL_DIRECTORY_ROLES:
+        raise _forbid("You do not have access to this directory.")
+    if principal.role == "super_admin":
+        return hospital_id
+    return principal.hospital_id
 
 
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -137,7 +152,7 @@ def list_doctors(
     db: DatabaseService = Depends(get_database),
 ) -> list[DoctorDirectoryEntry]:
     """Doctor accounts merged with their doctor_profiles detail (doc 8.x)."""
-    scope_hospital = _scope_hospital(principal, hospital_id)
+    scope_hospital = _scope_hospital_clinical(principal, hospital_id)
     users = db.list_user_profiles(hospital_id=scope_hospital, role=Role.doctor.value)
     profiles = {p["user_id"]: p for p in db.list_role_profiles("doctor_profiles")}
     return [
@@ -165,7 +180,7 @@ def list_patients(
     db: DatabaseService = Depends(get_database),
 ) -> list[PatientDirectoryEntry]:
     """Patient accounts merged with their patient_profiles detail (doc 8.x)."""
-    scope_hospital = _scope_hospital(principal, hospital_id)
+    scope_hospital = _scope_hospital_clinical(principal, hospital_id)
     users = db.list_user_profiles(hospital_id=scope_hospital, role=Role.patient.value)
     profiles = {p["user_id"]: p for p in db.list_role_profiles("patient_profiles")}
     return [

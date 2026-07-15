@@ -31,9 +31,10 @@ export default function RootPage() {
         return;
       }
 
-      // Redirect to role-specific dashboard
+      // Redirect to role-specific dashboard (route segments use hyphens,
+      // e.g. hospital_admin -> /hospital-admin/dashboard).
       if (userProfile.role) {
-        router.replace(`/${userProfile.role}/dashboard`);
+        router.replace(`/${userProfile.role.replace(/_/g, '-')}/dashboard`);
         return;
       }
     }

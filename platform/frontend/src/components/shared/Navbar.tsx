@@ -47,7 +47,7 @@ export const Navbar = () => {
   return (
     <nav className={styles.navbar}>
       <div className={styles.navbarBrand}>
-        <Link href={user && userProfile ? `/${userProfile.role}/dashboard` : '/login'}>AI4NEURO</Link>
+        <Link href={user && userProfile ? `/${userProfile.role.replace(/_/g, '-')}/dashboard` : '/login'}>AI4NEURO</Link>
       </div>
 
       <button
@@ -62,7 +62,7 @@ export const Navbar = () => {
         {user && userProfile ? (
           <>
             <li>
-              <Link href={`/${userProfile.role}/dashboard`} onClick={closeMobileMenu}>
+              <Link href={`/${userProfile.role.replace(/_/g, '-')}/dashboard`} onClick={closeMobileMenu}>
                 Dashboard
               </Link>
             </li>
@@ -73,32 +73,12 @@ export const Navbar = () => {
                 </Link>
               </li>
             )}
-            <li>
-              <Link href="/about" onClick={closeMobileMenu}>
-                About
-              </Link>
-            </li>
-            <li>
-              <Link href="/contact" onClick={closeMobileMenu}>
-                Contact
-              </Link>
-            </li>
           </>
         ) : (
           <>
             <li>
               <Link href="/landing" onClick={closeMobileMenu}>
                 Home
-              </Link>
-            </li>
-            <li>
-              <Link href="/about" onClick={closeMobileMenu}>
-                About
-              </Link>
-            </li>
-            <li>
-              <Link href="/contact" onClick={closeMobileMenu}>
-                Contact
               </Link>
             </li>
           </>

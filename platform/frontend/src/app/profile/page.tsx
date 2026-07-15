@@ -259,16 +259,10 @@ function ProfilePage() {
                 description="Update your account password"
               />
               <SettingsLink
-                href={`/${role}/dashboard`}
+                href={`/${role.replace(/_/g, '-')}/dashboard`}
                 icon={<svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>}
                 title="Go to Dashboard"
                 description="Access your role-specific dashboard"
-              />
-              <SettingsLink
-                href="/home"
-                icon={<svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>}
-                title="Home Overview"
-                description="Quick access to all features"
               />
             </div>
           </div>

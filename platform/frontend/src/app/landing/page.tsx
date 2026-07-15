@@ -58,7 +58,7 @@ function PublicNavbar() {
         <div className="flex items-center gap-3">
           {!loading && user && userProfile ? (
             <Link
-              href={`/${userProfile.role}/dashboard`}
+              href={`/${userProfile.role.replace(/_/g, '-')}/dashboard`}
               className="px-5 py-2 rounded-full bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors"
             >
               Dashboard
