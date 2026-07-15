@@ -54,7 +54,7 @@ function SessionsInner() {
             ? 'Completed EEG and MRI analyses with generated reports.'
             : 'All EEG and MRI analysis sessions for your hospital.'
         }
-        routeChip={`/hospital-admin/sessions${statusParam ? `?status=${statusParam}` : ''}`}
+        routeChip={`/admin/sessions${statusParam ? `?status=${statusParam}` : ''}`}
         accent="teal"
       />
 
@@ -140,4 +140,4 @@ function SessionsPage() {
   );
 }
 
-export default withAuth(SessionsPage, { allowedRoles: ['hospital_admin'] });
+export default withAuth(SessionsPage, { allowedRoles: ['admin'] });

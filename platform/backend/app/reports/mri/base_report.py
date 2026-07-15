@@ -15,6 +15,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.reports.mri.utils import sanitize_for_pdf, calculate_age, format_date
+from app.reports import theme
 
 
 class BaseMRIReport(FPDF):
@@ -30,34 +31,38 @@ class BaseMRIReport(FPDF):
         self.report_title = "MRI Analysis Report"
         self.comprehensive_data = None
 
-        # Color scheme — refined palette
-        self.primary_color = (30, 41, 59)        # Slate 800
-        self.secondary_color = (51, 102, 204)    # Professional blue
-        self.accent_color = (16, 185, 129)       # Emerald 500
-        self.text_color_dark = (30, 41, 59)      # Slate 800
-        self.text_color_light = (100, 116, 139)  # Slate 500
-        self.text_color_normal = (15, 23, 42)    # Slate 900
-        self.line_color = (226, 232, 240)        # Slate 200
-        self.card_bg_color = (248, 250, 252)     # Slate 50
-        self.section_bg_color = (241, 245, 249)  # Slate 100
+        # Subtle clinical palette (shared design system — see reports/theme.py)
+        self.primary_color = theme.BRAND
+        self.secondary_color = theme.BRAND
+        self.accent_color = theme.BRAND_SOFT
+        self.text_color_dark = theme.INK
+        self.text_color_light = theme.MUTED
+        self.text_color_normal = theme.INK
+        self.line_color = theme.HAIRLINE
+        self.card_bg_color = theme.PANEL
+        self.section_bg_color = theme.PANEL
 
-        # Status colors
-        self.color_normal = (16, 185, 129)       # Emerald 500
-        self.color_warning = (245, 158, 11)      # Amber 500
-        self.color_danger = (239, 68, 68)        # Red 500
-        self.color_info = (59, 130, 246)         # Blue 500
+        # Status colors (muted, print-friendly)
+        self.color_normal = theme.OK
+        self.color_warning = theme.WARN
+        self.color_danger = theme.DANGER
+        self.color_info = theme.INFO
 
-        # Disease colors
+        # Disease colors (kept muted for status text)
         self.disease_colors = {
-            'CN': (16, 185, 129),    # Emerald - Cognitively Normal
-            'MCI': (245, 158, 11),   # Amber - Mild Cognitive Impairment
-            'AD': (239, 68, 68)      # Red - Alzheimer's Disease
+            'CN': theme.OK,
+            'MCI': theme.WARN,
+            'AD': theme.DANGER,
         }
 
         # Page settings
         self.page_margin = 15
-        self.set_auto_page_break(auto=True, margin=self.page_margin)
+        self.set_margins(15, 12, 15)
+        self.set_auto_page_break(auto=True, margin=16)
         self.set_line_width(0.2)
+
+    def _theme_sanitize(self, text):
+        return sanitize_for_pdf(text)
 
     # =========================================================================
     # Text rendering with sanitization
@@ -80,41 +85,14 @@ class BaseMRIReport(FPDF):
     # =========================================================================
 
     def header(self):
-        """Add report header to each page."""
-        try:
-            page_width = self.w - self.l_margin - self.r_margin
-
-            # Top accent bar
-            self.set_fill_color(*self.secondary_color)
-            self.rect(0, 0, self.w, 3, 'F')
-
-            self.set_y(8)
-
-            # Title
-            self.set_font('Helvetica', 'B', 13)
-            self.set_text_color(*self.primary_color)
-            self.cell(0, 8, sanitize_for_pdf(self.report_title), border=0, align='L')
-
-            # Right-aligned branding
-            self.set_font('Helvetica', '', 7)
-            self.set_text_color(*self.text_color_light)
-            self.set_x(self.w - self.r_margin - 30)
-            self.cell(30, 8, "NeuroXiva Platform", 0, 0, 'R')
-
-            self.ln(10)
-
-            # Divider line
-            self.set_draw_color(*self.line_color)
-            self.set_line_width(0.4)
-            self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
-            self.set_line_width(0.2)
-            self.ln(6)
-            self.set_text_color(*self.text_color_normal)
-        except Exception as e:
-            print(f"PDF Header Error: {e}")
+        """Branded PraxiaTech letterhead (shared — see reports/theme.py)."""
+        theme.draw_letterhead(self, subtitle=self.report_title)
 
     def footer(self):
-        """Add page number footer."""
+        """Page footer (shared design system)."""
+        theme.draw_footer(self)
+
+    def _legacy_footer(self):
         try:
             self.set_y(-18)
 
@@ -140,233 +118,100 @@ class BaseMRIReport(FPDF):
     # =========================================================================
 
     def add_hospital_header(self, hospital_data: Optional[Dict] = None):
-        """Add professional hospital header."""
-        if not hospital_data:
-            return
-
-        try:
-            page_width = self.w - self.l_margin - self.r_margin
-            start_y = self.get_y()
-
-            # Background card
-            self.set_fill_color(*self.card_bg_color)
-            self.rect(self.l_margin, start_y, page_width, 24, 'F')
-
-            # Hospital name
-            self.set_y(start_y + 3)
-            self.set_font('Helvetica', 'B', 15)
-            self.set_text_color(*self.primary_color)
-            name = hospital_data.get('name', 'Medical Center')
-            self.cell(0, 8, sanitize_for_pdf(name), 0, 1, 'C')
-
-            # Address + Contact on one line
-            self.set_font('Helvetica', '', 8)
-            self.set_text_color(*self.text_color_light)
-
-            info_parts = []
-            if hospital_data.get('address'):
-                info_parts.append(hospital_data['address'])
-            if hospital_data.get('city'):
-                info_parts.append(hospital_data['city'])
-            if hospital_data.get('phone'):
-                info_parts.append(f"Tel: {hospital_data['phone']}")
-            if hospital_data.get('email'):
-                info_parts.append(hospital_data['email'])
-
-            if info_parts:
-                self.cell(0, 5, sanitize_for_pdf('  |  '.join(info_parts)), 0, 1, 'C')
-
-            self.set_y(start_y + 24 + 2)
-
-            # Bottom accent line
-            self.set_draw_color(*self.secondary_color)
-            self.set_line_width(0.8)
-            self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
-            self.set_line_width(0.2)
-            self.ln(5)
-            self.set_text_color(*self.text_color_normal)
-
-        except Exception as e:
-            print(f"Hospital header error: {e}")
+        """Branding is rendered by the shared letterhead; the facility name is
+        surfaced inside the encounter grid. Retained for builder compatibility."""
+        return
 
     # =========================================================================
     # Report Metadata
     # =========================================================================
 
     def add_report_metadata(self, report_type: str = "MRI Analysis"):
-        """Add report metadata section."""
-        try:
-            page_width = self.w - self.l_margin - self.r_margin
-            start_y = self.get_y()
-            box_height = 22
-
-            # Blue accent top border
-            self.set_fill_color(*self.secondary_color)
-            self.rect(self.l_margin, start_y, page_width, 2, 'F')
-
-            # Card background
-            self.set_fill_color(239, 246, 255)  # Blue-50
-            self.rect(self.l_margin, start_y + 2, page_width, box_height - 2, 'F')
-
-            # Light border
-            self.set_draw_color(191, 219, 254)  # Blue-200
-            self.set_line_width(0.3)
-            self.rect(self.l_margin, start_y, page_width, box_height, 'D')
-            self.set_line_width(0.2)
-
-            self.set_y(start_y + 4)
-            self.set_font('Helvetica', 'B', 11)
-            self.set_text_color(*self.secondary_color)
-            self.cell(0, 6, sanitize_for_pdf(report_type), 0, 1, 'C')
-
-            # Report date
-            self.set_font('Helvetica', '', 8)
-            self.set_text_color(*self.text_color_light)
-
-            session = self.comprehensive_data.get('session', {}) if self.comprehensive_data else {}
-            session_code = session.get('session_code', '')
-            report_id = f"Session: {session_code}" if session_code else ""
-            report_date = f"Generated: {datetime.now().strftime('%d %B %Y, %H:%M')}"
-            meta_line = f"{report_id}  |  {report_date}" if report_id else report_date
-            self.cell(0, 5, sanitize_for_pdf(meta_line), 0, 1, 'C')
-
-            self.set_y(start_y + box_height + 4)
-            self.set_text_color(*self.text_color_normal)
-
-        except Exception as e:
-            print(f"Report metadata error: {e}")
+        """No-op: the report subtitle and date are shown in the letterhead.
+        Retained for builder compatibility."""
+        return
 
     # =========================================================================
     # Section Helpers
     # =========================================================================
 
     def section_title(self, title: str):
-        """Add a section title with left accent bar and subtle background."""
-        try:
-            # Check for page break
-            if self.get_y() > self.h - 40:
-                self.add_page()
-
-            page_width = self.w - self.l_margin - self.r_margin
-            y = self.get_y()
-
-            # Subtle background fill
-            self.set_fill_color(*self.section_bg_color)
-            self.rect(self.l_margin, y, page_width, 8, 'F')
-
-            # Left accent bar
-            self.set_fill_color(*self.secondary_color)
-            self.rect(self.l_margin, y, 3, 8, 'F')
-
-            # Title text
-            self.set_font('Helvetica', 'B', 10)
-            self.set_text_color(*self.primary_color)
-            self.set_x(self.l_margin + 6)
-            self.cell(page_width - 6, 8, sanitize_for_pdf(title), 0, 1, 'L')
-
-            self.ln(4)
-            self.set_text_color(*self.text_color_normal)
-        except Exception as e:
-            print(f"Section title error: {e}")
+        """Uppercase heading closed by a hairline rule (shared design)."""
+        theme.section_heading(self, title)
 
     def key_value_pair(self, key: str, value: Any, key_width: int = 50):
-        """Add a key-value pair with subtle separator."""
-        try:
-            if self.get_y() > self.h - 20:
-                self.add_page()
-
-            page_width = self.w - self.l_margin - self.r_margin
-
-            # Key
-            self.set_font('Helvetica', 'B', 9)
-            self.set_text_color(*self.text_color_light)
-            self.cell(key_width, 6, sanitize_for_pdf(str(key)), 0, 0, 'L')
-
-            # Value
-            self.set_font('Helvetica', '', 9)
-            self.set_text_color(*self.text_color_dark)
-
-            value_width = page_width - key_width - 2
-            value_text = sanitize_for_pdf(str(value) if value else 'N/A')
-
-            if self.get_string_width(value_text) <= value_width:
-                self.cell(value_width, 6, value_text, 0, 1, 'L')
-            else:
-                self.multi_cell(value_width, 6, value_text, 0, 'L', max_line_height=6)
-
-            # Subtle dotted separator
-            sep_y = self.get_y() + 0.5
-            self.set_draw_color(*self.line_color)
-            self.set_line_width(0.1)
-            self.set_dash_pattern(dash=1, gap=1.5)
-            self.line(self.l_margin + 2, sep_y, self.l_margin + page_width - 2, sep_y)
-            self.set_dash_pattern()
-            self.set_line_width(0.2)
-
-            self.ln(2)
-        except Exception as e:
-            print(f"Key-value error: {e}")
+        """Two-column key/value row (shared design)."""
+        theme.key_value(self, key, value, key_width=key_width)
 
     # =========================================================================
     # Patient Information
     # =========================================================================
 
+    def _session_date_only(self):
+        session = (self.comprehensive_data or {}).get('session') or {}
+        raw = session.get('scan_date') or session.get('session_date')
+        return format_date(raw, 'date_only') if raw else datetime.now().strftime('%d %B %Y')
+
     def add_patient_section(self):
-        """Add patient demographics section."""
+        """Render patient / encounter demographics as a bordered grid."""
         if not self.comprehensive_data:
             return
 
         patient = self.comprehensive_data.get('patient', {})
-        patient_profile = self.comprehensive_data.get('patient_profile', {})
+        patient_profile = self.comprehensive_data.get('patient_profile', {}) or {}
+        hospital = self.comprehensive_data.get('hospital', {}) or {}
+        doctor = self.comprehensive_data.get('doctor', {}) or {}
+        session = self.comprehensive_data.get('session', {}) or {}
 
         if not patient:
             return
 
         try:
-            if self.get_y() > self.h - 70:
-                self.add_page()
+            self.section_title("Patient Demographics & Encounter")
 
-            self.section_title("Patient Information")
-
-            # Patient ID
-            patient_code = patient_profile.get('patient_code', 'N/A') if patient_profile else 'N/A'
-            self.key_value_pair("Patient ID", patient_code, 45)
-
-            # Full Name
-            self.key_value_pair("Full Name", patient.get('full_name', 'N/A'), 45)
-
-            # DOB and Age
-            dob = patient_profile.get('date_of_birth') if patient_profile else None
+            dob = patient_profile.get('date_of_birth') or patient.get('date_of_birth')
             if dob:
                 age = calculate_age(dob)
-                dob_formatted = format_date(dob, 'date_only')
-                age_str = f"{age} years" if age else "N/A"
-                self.key_value_pair("Date of Birth", f"{dob_formatted} (Age: {age_str})", 45)
+                dob_str = format_date(dob, 'date_only')
+                if age:
+                    dob_str += f"  (Age {age})"
+            else:
+                dob_str = "-"
 
-            # Gender
-            gender = patient_profile.get('gender') if patient_profile else None
-            if gender:
-                self.key_value_pair("Gender", gender, 45)
+            gender = patient_profile.get('gender') or patient.get('gender') or "-"
+            patient_id = patient_profile.get('patient_code') or patient.get('unique_identifier') or "-"
 
-            # Blood Group
+            items = [
+                ("Patient Name", patient.get('full_name')),
+                ("Date of Birth / Age", dob_str),
+                ("Sex", gender),
+                ("MRN / Patient ID", patient_id),
+                ("Date of Assessment", self._session_date_only()),
+                ("Status", "COMPLETED"),
+                ("Referring Facility", hospital.get('name')),
+                ("Ordering Provider", doctor.get('full_name')),
+                ("Accession No.", session.get('session_code')),
+            ]
+            theme.demographics_grid(self, items, ncols=3)
+
+            contact_bits = []
+            if patient.get('phone'):
+                contact_bits.append(str(patient['phone']))
+            if patient.get('email'):
+                contact_bits.append(str(patient['email']))
+            if contact_bits:
+                self.key_value_pair("Contact", "  |  ".join(contact_bits), 46)
+
             blood_group = self.comprehensive_data.get('blood_group')
             if blood_group:
-                self.key_value_pair("Blood Group", blood_group, 45)
+                self.key_value_pair("Blood Group", blood_group, 46)
 
-            # Contact
-            phone = patient.get('phone')
-            if phone:
-                self.key_value_pair("Phone", phone, 45)
+            ec_name = patient_profile.get('emergency_contact_name')
+            ec_phone = patient_profile.get('emergency_contact_phone')
+            if ec_name or ec_phone:
+                self.key_value_pair("Emergency Contact", f"{ec_name or '-'}, {ec_phone or '-'}", 46)
 
-            # Emergency Contact
-            if patient_profile:
-                ec_name = patient_profile.get('emergency_contact_name')
-                ec_phone = patient_profile.get('emergency_contact_phone')
-                if ec_name or ec_phone:
-                    ec_info = f"{ec_name or 'N/A'}, {ec_phone or 'N/A'}"
-                    self.key_value_pair("Emergency Contact", ec_info, 45)
-
-            self.ln(3)
+            self.ln(2)
         except Exception as e:
             print(f"Patient section error: {e}")
 
@@ -553,90 +398,8 @@ class BaseMRIReport(FPDF):
 
     def add_explanation_box(self, title: str, items: List, bg_color: Tuple = None,
                            accent_color: Tuple = None):
-        """Add an explanation box with left accent strip and bullet points."""
-        try:
-            min_height = 15 + len(items) * 8
-            if self.get_y() > self.h - min_height - 10:
-                self.add_page()
-
-            bg = bg_color or self.card_bg_color
-            accent = accent_color or self.secondary_color
-            box_x = self.l_margin
-            box_width = self.w - self.l_margin - self.r_margin
-
-            if title:
-                self.set_font('Helvetica', 'B', 9.5)
-                self.set_text_color(*self.primary_color)
-                self.cell(0, 6, sanitize_for_pdf(title), 0, 1, 'L')
-                self.ln(1)
-
-            box_start_y = self.get_y()
-            self.set_y(box_start_y + 4)
-
-            for item in items:
-                is_bullet = isinstance(item, tuple) and item[0] == "bullet"
-                text = item[1] if is_bullet else item
-
-                self.set_font('Helvetica', '', 8.5)
-                self.set_text_color(*self.text_color_dark)
-
-                if is_bullet:
-                    self.set_x(self.l_margin + 8)
-                    self.set_font('Helvetica', '', 8.5)
-                    self.set_text_color(*self.accent_color)
-                    self.cell(5, 5, ">", 0, 0, 'L')
-                    self.set_text_color(*self.text_color_dark)
-                    self.set_x(self.l_margin + 14)
-                    self.multi_cell(box_width - 19, 5, sanitize_for_pdf(text), 0, 'L')
-                else:
-                    self.set_x(self.l_margin + 8)
-                    self.multi_cell(box_width - 13, 5, sanitize_for_pdf(text), 0, 'L')
-
-                self.ln(1.5)
-
-            end_y = self.get_y()
-            box_height = end_y - box_start_y + 4
-
-            # Background fill
-            self.set_fill_color(*bg)
-            self.rect(box_x, box_start_y, box_width, box_height, 'F')
-
-            # Left accent strip
-            self.set_fill_color(*accent)
-            self.rect(box_x, box_start_y, 2.5, box_height, 'F')
-
-            # Light border (right, top, bottom)
-            self.set_draw_color(*self.line_color)
-            self.set_line_width(0.2)
-            self.rect(box_x, box_start_y, box_width, box_height, 'D')
-
-            # Re-render text on top of fill (fill was drawn after text)
-            self.set_y(box_start_y + 4)
-            for item in items:
-                is_bullet = isinstance(item, tuple) and item[0] == "bullet"
-                text = item[1] if is_bullet else item
-
-                self.set_font('Helvetica', '', 8.5)
-                self.set_text_color(*self.text_color_dark)
-
-                if is_bullet:
-                    self.set_x(self.l_margin + 8)
-                    self.set_text_color(*accent)
-                    self.cell(5, 5, ">", 0, 0, 'L')
-                    self.set_text_color(*self.text_color_dark)
-                    self.set_x(self.l_margin + 14)
-                    self.multi_cell(box_width - 19, 5, sanitize_for_pdf(text), 0, 'L')
-                else:
-                    self.set_x(self.l_margin + 8)
-                    self.multi_cell(box_width - 13, 5, sanitize_for_pdf(text), 0, 'L')
-
-                self.ln(1.5)
-
-            self.set_y(end_y + 5)
-            self.set_text_color(*self.text_color_normal)
-
-        except Exception as e:
-            print(f"Explanation box error: {e}")
+        """Clinical panel with title + bullet points (shared design system)."""
+        theme.info_panel(self, title, items)
 
     # =========================================================================
     # Disclaimer
@@ -670,68 +433,7 @@ class BaseMRIReport(FPDF):
             }
 
             text_list = disclaimers.get(disclaimer_type, disclaimers["standard"])
-            page_width = self.w - self.l_margin - self.r_margin
-
-            self.ln(3)
-            start_y = self.get_y()
-
-            # Background
-            self.set_fill_color(255, 251, 235)  # Amber-50
-            self.rect(self.l_margin, start_y, page_width, 6, 'F')  # placeholder height
-
-            self.set_y(start_y + 4)
-            self.set_font('Helvetica', 'B', 8.5)
-            self.set_text_color(180, 83, 9)  # Amber-700
-            self.set_x(self.l_margin + 8)
-            self.cell(0, 5, "IMPORTANT MEDICAL DISCLAIMER", 0, 1, 'L')
-            self.ln(2)
-
-            self.set_font('Helvetica', '', 7.5)
-            self.set_text_color(120, 53, 15)  # Amber-800
-
-            for point in text_list:
-                self.set_x(self.l_margin + 8)
-                self.multi_cell(page_width - 14, 4.5,
-                               sanitize_for_pdf(point), 0, 'L')
-                self.ln(1)
-
-            end_y = self.get_y()
-            box_height = end_y - start_y + 4
-
-            # Amber background
-            self.set_fill_color(255, 251, 235)
-            self.rect(self.l_margin, start_y, page_width, box_height, 'F')
-
-            # Left amber accent strip
-            self.set_fill_color(*self.color_warning)
-            self.rect(self.l_margin, start_y, 2.5, box_height, 'F')
-
-            # Light border
-            self.set_draw_color(253, 230, 138)  # Amber-200
-            self.set_line_width(0.3)
-            self.rect(self.l_margin, start_y, page_width, box_height, 'D')
-            self.set_line_width(0.2)
-
-            # Re-render text over background
-            self.set_y(start_y + 4)
-            self.set_font('Helvetica', 'B', 8.5)
-            self.set_text_color(180, 83, 9)
-            self.set_x(self.l_margin + 8)
-            self.cell(0, 5, "IMPORTANT MEDICAL DISCLAIMER", 0, 1, 'L')
-            self.ln(2)
-
-            self.set_font('Helvetica', '', 7.5)
-            self.set_text_color(120, 53, 15)
-
-            for point in text_list:
-                self.set_x(self.l_margin + 8)
-                self.multi_cell(page_width - 14, 4.5,
-                               sanitize_for_pdf(point), 0, 'L')
-                self.ln(1)
-
-            self.set_y(end_y + 5)
-            self.set_text_color(*self.text_color_normal)
-
+            theme.disclaimer(self, text_list)
         except Exception as e:
             print(f"Disclaimer error: {e}")
 
@@ -740,35 +442,13 @@ class BaseMRIReport(FPDF):
     # =========================================================================
 
     def add_signature_section(self):
-        """Add signature section."""
+        """Add electronic-signature block for the reporting professional."""
         try:
-            if self.get_y() > self.h - 50:
-                self.add_page()
-
-            self.ln(10)
-
             radiologist = self.comprehensive_data.get('radiologist', {}) if self.comprehensive_data else {}
-
-            if radiologist:
-                self.set_font('Helvetica', '', 9)
-                self.set_text_color(*self.text_color_dark)
-
-                # Signature line
-                sig_y = self.get_y()
-                self.line(self.l_margin + 10, sig_y, self.l_margin + 90, sig_y)
-                self.ln(2)
-
-                self.set_x(self.l_margin + 10)
-                self.set_font('Helvetica', 'B', 9)
-                self.cell(80, 5, sanitize_for_pdf(radiologist.get('full_name', 'Authorized Personnel')), 0, 1, 'L')
-
-                self.set_x(self.l_margin + 10)
-                self.set_font('Helvetica', '', 8)
-                self.set_text_color(*self.text_color_light)
-                self.cell(80, 4, "Radiologist", 0, 1, 'L')
-
-                self.set_x(self.l_margin + 10)
-                self.cell(80, 4, f"Date: {datetime.now().strftime('%d %B %Y')}", 0, 1, 'L')
+            name = (radiologist or {}).get('full_name', 'Authorized Personnel')
+            theme.signature(self, name, role="Radiologist",
+                            date_str=datetime.now().strftime('%d %b %Y'))
+            return
 
             self.set_text_color(*self.text_color_normal)
 

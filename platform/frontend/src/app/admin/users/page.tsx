@@ -9,7 +9,7 @@ function HospitalAdminUsersPage() {
     <RoleShell>
       <UserDirectory
         eyebrow="Hospital Admin"
-        basePath="/hospital-admin/users"
+        basePath="/admin/users"
         accent="teal"
         fallbackDescription="Complete user directory for your hospital."
       />
@@ -17,4 +17,4 @@ function HospitalAdminUsersPage() {
   );
 }
 
-export default withAuth(HospitalAdminUsersPage, { allowedRoles: ['hospital_admin'] });
+export default withAuth(HospitalAdminUsersPage, { allowedRoles: ['admin'] });

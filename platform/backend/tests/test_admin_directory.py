@@ -56,7 +56,7 @@ def _patient(db_service, hospital_id, *, name="Pat A", email="pat@example.com"):
 
 def _as_hospital_admin(client, hospital_id):
     client.app.dependency_overrides[get_current_user] = lambda: Principal(
-        user_id="ha1", role="hospital_admin", hospital_id=hospital_id, is_dev=False
+        user_id="ha1", role="admin", hospital_id=hospital_id, is_dev=False
     )
 
 
@@ -176,7 +176,7 @@ def test_verify_rejects_non_verifiable_role(client, db_service):
             "full_name": "Admin",
             "email": "admin@x.com",
             "phone": "1",
-            "role": "hospital_admin",
+            "role": "admin",
             "account_status": "active",
         }
     )

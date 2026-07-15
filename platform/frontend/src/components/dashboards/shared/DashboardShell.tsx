@@ -184,7 +184,7 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full w-64 bg-white flex flex-col">
+          <aside className="absolute left-0 top-0 h-full w-64 bg-white flex flex-col overflow-y-auto">
             <button
               onClick={() => setMobileOpen(false)}
               className="absolute right-3 top-4 text-slate-400"

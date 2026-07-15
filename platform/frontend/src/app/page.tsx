@@ -32,7 +32,7 @@ export default function RootPage() {
       }
 
       // Redirect to role-specific dashboard (route segments use hyphens,
-      // e.g. hospital_admin -> /hospital-admin/dashboard).
+      // e.g. super_admin -> /super-admin/dashboard).
       if (userProfile.role) {
         router.replace(`/${userProfile.role.replace(/_/g, '-')}/dashboard`);
         return;

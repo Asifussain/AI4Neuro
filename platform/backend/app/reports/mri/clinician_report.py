@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.reports.mri.utils import sanitize_for_pdf, format_percentage, format_volume
 from app.pipelines.mri.config import DISEASE_INFO, NORMATIVE_VOLUMES
+from app.reports import theme
 
 
 class ClinicianPDFReport(BaseMRIReport):
@@ -21,8 +22,8 @@ class ClinicianPDFReport(BaseMRIReport):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.report_title = "MRI Brain Analysis - Clinical Report"
-        self.primary_color = (41, 128, 185)
-        self.secondary_color = (52, 152, 219)
+        self.primary_color = theme.BRAND
+        self.secondary_color = theme.BRAND
 
 
 def build_clinician_report(
@@ -97,50 +98,20 @@ def build_clinician_report(
 
         # Get disease info
         pred_info = DISEASE_INFO.get(prediction, {})
-        pred_color = pred_info.get('color', pdf.text_color_dark)
         pred_name = pred_info.get('full_name', prediction)
+        pred_tone = pdf.disease_colors.get(prediction, theme.MUTED)
 
         # Clinical significance based on prediction
         clinical_significance = _get_clinical_significance(prediction)
 
-        # Primary Classification Box
-        pdf.set_font('Helvetica', 'B', 9)
-        pdf.set_text_color(*pdf.text_color_light)
-        pdf.cell(0, 6, "PRIMARY CLASSIFICATION", 0, 1, 'L')
-        pdf.ln(1)
-
-        box_x = pdf.l_margin
-        box_y = pdf.get_y()
-        box_width = pdf.w - pdf.l_margin - pdf.r_margin
-        box_height = 14
-
-        # Soft tinted background
-        r, g, b = pred_color
-        pdf.set_fill_color(min(255, r + 180), min(255, g + 180), min(255, b + 180))
-        pdf.rect(box_x, box_y, box_width, box_height, 'F')
-
-        # Left accent bar matching prediction color
-        pdf.set_fill_color(*pred_color)
-        pdf.rect(box_x, box_y, 3, box_height, 'F')
-
-        pdf.set_font('Helvetica', 'B', 12)
-        pdf.set_text_color(*pred_color)
-        pdf.set_xy(box_x + 6, box_y + 1)
-        pdf.cell(box_width - 6, 6, sanitize_for_pdf(pred_name), 0, 0, 'L')
-
-        pdf.set_font('Helvetica', '', 9)
-        pdf.set_text_color(*pdf.text_color_light)
-        pdf.set_xy(box_x + 6, box_y + 7)
-        pdf.cell(box_width - 6, 5, sanitize_for_pdf(f"Classification: {prediction}"), 0, 0, 'L')
-
-        pdf.set_y(box_y + box_height + 4)
-        pdf.set_text_color(*pdf.text_color_normal)
-
-        # Clinical Significance
-        pdf.set_font('Helvetica', '', 9)
-        pdf.set_text_color(*pdf.text_color_dark)
-        pdf.multi_cell(0, 5.5, sanitize_for_pdf(clinical_significance), 0, 'L')
-        pdf.ln(6)
+        # Primary Classification — clinical impression banner
+        theme.finding_banner(
+            pdf,
+            f"{pred_name}  ({prediction})",
+            clinical_significance,
+            tone=pred_tone,
+        )
+        pdf.ln(2)
 
         # Confidence Distribution
         if probabilities and classes:
@@ -340,14 +311,15 @@ def _add_volume_table(pdf: ClinicianPDFReport, ml_results: Dict):
         ('Hippocampal Volume', ml_results.get('hippocampal_volume'), 'hippocampus')
     ]
 
-    # Table header
+    # Table header (subtle grey band, matching the report's clinical styling)
     pdf.set_font('Helvetica', 'B', 8.5)
-    pdf.set_fill_color(*pdf.primary_color)
-    pdf.set_text_color(255, 255, 255)
-    pdf.cell(55, 7, "Measurement", 0, 0, 'L', True)
-    pdf.cell(35, 7, "Value", 0, 0, 'C', True)
-    pdf.cell(45, 7, "Normal Range", 0, 0, 'C', True)
-    pdf.cell(35, 7, "Status", 0, 1, 'C', True)
+    pdf.set_fill_color(*theme.PANEL)
+    pdf.set_draw_color(*theme.GRIDLINE)
+    pdf.set_text_color(*theme.INK)
+    pdf.cell(55, 7, "Measurement", 'B', 0, 'L', True)
+    pdf.cell(35, 7, "Value", 'B', 0, 'C', True)
+    pdf.cell(45, 7, "Normal Range", 'B', 0, 'C', True)
+    pdf.cell(35, 7, "Status", 'B', 1, 'C', True)
     pdf.set_text_color(*pdf.text_color_normal)
 
     pdf.set_font('Helvetica', '', 8.5)
@@ -372,9 +344,9 @@ def _add_volume_table(pdf: ClinicianPDFReport, ml_results: Dict):
             status = 'Normal'
             status_color = pdf.color_normal
 
-        # Alternating row background
-        if row_idx % 2 == 0:
-            pdf.set_fill_color(*pdf.card_bg_color)
+        # Alternating row background (subtle zebra)
+        if row_idx % 2 == 1:
+            pdf.set_fill_color(*theme.ZEBRA)
         else:
             pdf.set_fill_color(255, 255, 255)
 

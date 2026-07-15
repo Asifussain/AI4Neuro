@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.reports.mri.utils import sanitize_for_pdf, format_percentage
 from app.pipelines.mri.config import DISEASE_INFO
+from app.reports import theme
 
 
 class PatientPDFReport(BaseMRIReport):
@@ -21,8 +22,8 @@ class PatientPDFReport(BaseMRIReport):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.report_title = "MRI Brain Scan Analysis - Patient Report"
-        self.primary_color = (74, 144, 226)
-        self.secondary_color = (52, 152, 219)
+        self.primary_color = theme.BRAND
+        self.secondary_color = theme.BRAND
 
 
 def build_patient_report(
@@ -68,9 +69,10 @@ def build_patient_report(
         pdf.add_professional_section(role="radiologist")
 
         # =====================================================================
-        # Main Findings Section - New Page
+        # Main Findings Section - keep the impression block together
         # =====================================================================
-        pdf.add_page()
+        if pdf.get_y() > pdf.h - 70:
+            pdf.add_page()
         pdf.section_title("Analysis Results & Findings")
         pdf.ln(2)
 
@@ -79,7 +81,7 @@ def build_patient_report(
 
         # Get display info for prediction
         pred_info = DISEASE_INFO.get(prediction, {})
-        pred_color = pred_info.get('color', pdf.text_color_dark)
+        pred_tone = pdf.disease_colors.get(prediction, theme.MUTED)
         pred_name = pred_info.get('full_name', prediction)
 
         # Determine display text and interpretation
@@ -107,39 +109,9 @@ def build_patient_report(
             display_text = "Analysis Results Require Review"
             interpretation = "The analysis results require further review by your healthcare provider."
 
-        # Primary Finding Box
-        pdf.set_font('Helvetica', 'B', 9)
-        pdf.set_text_color(*pdf.text_color_light)
-        pdf.cell(0, 6, "PRIMARY FINDING", 0, 1, 'L')
-        pdf.ln(1)
-
-        box_x = pdf.l_margin
-        box_y = pdf.get_y()
-        box_width = pdf.w - pdf.l_margin - pdf.r_margin
-        box_height = 14
-
-        # Soft tinted background
-        r, g, b = pred_color
-        pdf.set_fill_color(min(255, r + 180), min(255, g + 180), min(255, b + 180))
-        pdf.rect(box_x, box_y, box_width, box_height, 'F')
-
-        # Left accent bar
-        pdf.set_fill_color(*pred_color)
-        pdf.rect(box_x, box_y, 3, box_height, 'F')
-
-        pdf.set_font('Helvetica', 'B', 11)
-        pdf.set_text_color(*pred_color)
-        pdf.set_xy(box_x + 6, box_y + 2)
-        pdf.cell(box_width - 6, 9, sanitize_for_pdf(display_text), 0, 0, 'L')
-
-        pdf.set_y(box_y + box_height + 4)
-        pdf.set_text_color(*pdf.text_color_normal)
-
-        # Interpretation
-        pdf.set_font('Helvetica', '', 9)
-        pdf.set_text_color(*pdf.text_color_dark)
-        pdf.multi_cell(0, 5.5, sanitize_for_pdf(interpretation), 0, 'L')
-        pdf.ln(8)
+        # Primary Finding — clinical impression banner
+        theme.finding_banner(pdf, display_text, interpretation, tone=pred_tone)
+        pdf.ln(2)
 
         # Confidence Level
         if confidence:

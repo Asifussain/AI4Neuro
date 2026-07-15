@@ -56,7 +56,7 @@ def _scope_hospital(principal: Principal, hospital_id: str | None) -> str | None
     """
     if principal.role == "super_admin":
         return hospital_id
-    if principal.role == "hospital_admin":
+    if principal.role == "admin":
         return principal.hospital_id
     raise _forbid("You do not have access to this directory.")
 
@@ -64,7 +64,7 @@ def _scope_hospital(principal: Principal, hospital_id: str | None) -> str | None
 # Roles allowed to browse the clinical directories (doctors / patients) so they
 # can attach a patient/doctor when starting an analysis. Wider than the admin
 # user directory, but still hospital-scoped for every non-super_admin caller.
-_CLINICAL_DIRECTORY_ROLES = {"super_admin", "hospital_admin", "doctor", "radiologist"}
+_CLINICAL_DIRECTORY_ROLES = {"super_admin", "admin", "doctor", "radiologist"}
 
 
 def _scope_hospital_clinical(principal: Principal, hospital_id: str | None) -> str | None:
@@ -85,7 +85,7 @@ def create_user(
     target_role = payload.role.value
     target_hospital_id = payload.hospital_id if target_role != "super_admin" else None
 
-    if principal.role == "hospital_admin":
+    if principal.role == "admin":
         # A hospital_admin may only create into their own hospital.
         target_hospital_id = principal.hospital_id
 

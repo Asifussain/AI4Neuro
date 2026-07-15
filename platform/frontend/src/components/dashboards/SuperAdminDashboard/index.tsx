@@ -60,7 +60,7 @@ export const SuperAdminDashboard: React.FC = () => {
     { name: 'Doctors', value: roles.doctor ?? 0 },
     { name: 'Radiologists', value: roles.radiologist ?? 0 },
     { name: 'Patients', value: roles.patient ?? 0 },
-    { name: 'Admins', value: roles.hospital_admin ?? 0 },
+    { name: 'Admins', value: roles.admin ?? 0 },
   ];
 
   const hospitalSegments = [
@@ -99,7 +99,7 @@ export const SuperAdminDashboard: React.FC = () => {
       </div>
 
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        <StatCard label="Hospital Admins" value={roles.hospital_admin ?? 0} icon={Landmark} accent="indigo" isLoading={loading} />
+        <StatCard label="Hospital Admins" value={roles.admin ?? 0} icon={Landmark} accent="indigo" isLoading={loading} />
         <StatCard label="Super Admins" value={roles.super_admin ?? 0} icon={ShieldCheck} accent="indigo" isLoading={loading} />
       </div>
 
@@ -130,7 +130,7 @@ export const SuperAdminDashboard: React.FC = () => {
           accent="indigo"
           actions={[
             { label: 'Manage Hospitals', href: '/super-admin/hospitals' },
-            { label: 'Manage Hospital Admins', href: '/super-admin/users?role=hospital_admin' },
+            { label: 'Manage Hospital Admins', href: '/super-admin/users?role=admin' },
             { label: 'View Doctors', href: '/super-admin/users?role=doctor' },
             { label: 'View Radiologists', href: '/super-admin/users?role=radiologist' },
             { label: 'View Patients', href: '/super-admin/users?role=patient' },

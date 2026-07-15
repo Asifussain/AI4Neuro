@@ -27,7 +27,7 @@ def test_super_admin_can_create_and_list_hospitals(client):
 
 def test_hospital_admin_cannot_create_hospital(client):
     client.app.dependency_overrides[get_current_user] = lambda: Principal(
-        user_id="ha1", role="hospital_admin", hospital_id="h1", is_dev=False
+        user_id="ha1", role="admin", hospital_id="h1", is_dev=False
     )
     res = client.post("/api/v1/hospitals", json=_hospital_payload())
     assert res.status_code == 403
@@ -38,7 +38,7 @@ def test_hospital_admin_sees_only_own_hospital(client, db_service):
     db_service.create_hospital(_hospital_payload("H2"))
 
     client.app.dependency_overrides[get_current_user] = lambda: Principal(
-        user_id="ha1", role="hospital_admin", hospital_id=h1["id"], is_dev=False
+        user_id="ha1", role="admin", hospital_id=h1["id"], is_dev=False
     )
     res = client.get("/api/v1/hospitals")
     assert res.status_code == 200
@@ -57,7 +57,7 @@ def test_deactivate_hospital(client, db_service):
 def test_hospital_admin_creates_doctor_in_own_hospital(client, db_service):
     h1 = db_service.create_hospital(_hospital_payload("H1"))
     client.app.dependency_overrides[get_current_user] = lambda: Principal(
-        user_id="ha1", role="hospital_admin", hospital_id=h1["id"], is_dev=False
+        user_id="ha1", role="admin", hospital_id=h1["id"], is_dev=False
     )
     res = client.post(
         "/api/v1/users",
@@ -78,7 +78,7 @@ def test_hospital_admin_creates_doctor_in_own_hospital(client, db_service):
 def test_hospital_admin_cannot_create_super_admin(client, db_service):
     h1 = db_service.create_hospital(_hospital_payload("H1"))
     client.app.dependency_overrides[get_current_user] = lambda: Principal(
-        user_id="ha1", role="hospital_admin", hospital_id=h1["id"], is_dev=False
+        user_id="ha1", role="admin", hospital_id=h1["id"], is_dev=False
     )
     res = client.post(
         "/api/v1/users",
@@ -119,7 +119,7 @@ def test_hospital_admin_cannot_list_other_hospital_users(client, db_service):
         }
     )
     client.app.dependency_overrides[get_current_user] = lambda: Principal(
-        user_id="ha1", role="hospital_admin", hospital_id=h1["id"], is_dev=False
+        user_id="ha1", role="admin", hospital_id=h1["id"], is_dev=False
     )
     res = client.get("/api/v1/users")
     assert res.status_code == 200
@@ -133,7 +133,7 @@ def test_platform_analytics_super_admin_only(client, db_service):
     assert res.status_code == 200
 
     client.app.dependency_overrides[get_current_user] = lambda: Principal(
-        user_id="ha1", role="hospital_admin", hospital_id="h1", is_dev=False
+        user_id="ha1", role="admin", hospital_id="h1", is_dev=False
     )
     res = client.get("/api/v1/analytics/platform")
     assert res.status_code == 403
