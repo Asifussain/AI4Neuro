@@ -10,7 +10,7 @@ const ROLE_TITLES: Record<string, { title: string; description: string }> = {
   doctor: { title: 'Doctors', description: 'All doctors in this directory.' },
   radiologist: { title: 'Radiologists', description: 'All radiologists in this directory.' },
   patient: { title: 'Patients', description: 'All patients in this directory.' },
-  hospital_admin: { title: 'Hospital Admins', description: 'All hospital administrators.' },
+  admin: { title: 'Hospital Admins', description: 'All hospital administrators.' },
   super_admin: { title: 'Super Admins', description: 'Platform-level super administrators.' },
 };
 

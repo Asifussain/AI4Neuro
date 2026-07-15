@@ -8,4 +8,4 @@ function HospitalAdminDashboardPage() {
 }
 
 // Protect route - only the hospital's own admin can access
-export default withAuth(HospitalAdminDashboardPage, { allowedRoles: ['hospital_admin'] });
+export default withAuth(HospitalAdminDashboardPage, { allowedRoles: ['admin'] });

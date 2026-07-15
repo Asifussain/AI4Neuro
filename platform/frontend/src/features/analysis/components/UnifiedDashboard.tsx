@@ -21,7 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AnalysisList } from './AnalysisList';
 
 const roleCopy = {
-  hospital_admin: {
+  admin: {
     title: 'Operations command center',
     description: 'Monitor EEG and MRI analysis activity across your hospital.',
   },

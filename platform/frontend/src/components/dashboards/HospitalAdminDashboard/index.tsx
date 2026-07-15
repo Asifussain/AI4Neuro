@@ -64,7 +64,7 @@ import {
 } from '@/components/dashboards/shared/primitives';
 import { getNavItems } from '@/lib/navigation';
 
-const NAV_ITEMS = getNavItems('hospital_admin');
+const NAV_ITEMS = getNavItems('admin');
 
 // ============================================================================
 // ROLE CARD
@@ -163,8 +163,8 @@ function UserRow({
   onSuspend?: (id: string) => void;
   onActivate?: (id: string) => void;
 }) {
-  const roleIcons: Record<string, React.ElementType> = { hospital_admin: Crown, doctor: Stethoscope, radiologist: Brain, patient: User };
-  const roleColors: Record<string, string> = { hospital_admin: 'bg-violet-50 text-violet-700', doctor: 'bg-emerald-50 text-emerald-700', radiologist: 'bg-cyan-50 text-cyan-700', patient: 'bg-blue-50 text-blue-700' };
+  const roleIcons: Record<string, React.ElementType> = { admin: Crown, doctor: Stethoscope, radiologist: Brain, patient: User };
+  const roleColors: Record<string, string> = { admin: 'bg-violet-50 text-violet-700', doctor: 'bg-emerald-50 text-emerald-700', radiologist: 'bg-cyan-50 text-cyan-700', patient: 'bg-blue-50 text-blue-700' };
   const statusColors: Record<string, string> = { active: 'bg-emerald-50 text-emerald-700', suspended: 'bg-red-50 text-red-700', pending: 'bg-amber-50 text-amber-700' };
 
   const role = user.role || 'patient';
@@ -216,9 +216,9 @@ function UserGridCard({
   onSuspend?: (id: string) => void;
   onActivate?: (id: string) => void;
 }) {
-  const roleIcons: Record<string, React.ElementType> = { hospital_admin: Crown, doctor: Stethoscope, radiologist: Brain, patient: User };
-  const roleBorderColors: Record<string, string> = { hospital_admin: 'border-violet-200', doctor: 'border-emerald-200', radiologist: 'border-cyan-200', patient: 'border-blue-200' };
-  const roleColors: Record<string, string> = { hospital_admin: 'bg-violet-50 text-violet-700', doctor: 'bg-emerald-50 text-emerald-700', radiologist: 'bg-cyan-50 text-cyan-700', patient: 'bg-blue-50 text-blue-700' };
+  const roleIcons: Record<string, React.ElementType> = { admin: Crown, doctor: Stethoscope, radiologist: Brain, patient: User };
+  const roleBorderColors: Record<string, string> = { admin: 'border-violet-200', doctor: 'border-emerald-200', radiologist: 'border-cyan-200', patient: 'border-blue-200' };
+  const roleColors: Record<string, string> = { admin: 'bg-violet-50 text-violet-700', doctor: 'bg-emerald-50 text-emerald-700', radiologist: 'bg-cyan-50 text-cyan-700', patient: 'bg-blue-50 text-blue-700' };
   const statusColors: Record<string, string> = { active: 'bg-emerald-50 text-emerald-700', suspended: 'bg-red-50 text-red-700', pending: 'bg-amber-50 text-amber-700' };
 
   const role = user.role || 'patient';
@@ -532,7 +532,7 @@ export const HospitalAdminDashboard: React.FC = () => {
     { label: 'Patients', value: patientsList.length, icon: Users, color: 'blue' as const },
     { label: 'Doctors', value: doctorsList.length, icon: Stethoscope, color: 'green' as const },
     { label: 'Radiologists', value: usersList.filter((u) => u.role === 'radiologist').length, icon: Brain, color: 'cyan' as const },
-    { label: 'Hospital Admins', value: usersList.filter((u) => u.role === 'hospital_admin').length, icon: Crown, color: 'violet' as const },
+    { label: 'Hospital Admins', value: usersList.filter((u) => u.role === 'admin').length, icon: Crown, color: 'violet' as const },
   ], [usersList, doctorsList, patientsList]);
 
   // User status handlers
@@ -706,7 +706,7 @@ export const HospitalAdminDashboard: React.FC = () => {
         eyebrow="Hospital Admin"
         title="Hospital Admin Dashboard"
         description="Complete hospital ecosystem management for AI4Neuro services."
-        routeChip="/hospital-admin/dashboard"
+        routeChip="/admin/dashboard"
         accent="teal"
       />
 
@@ -963,7 +963,7 @@ export const HospitalAdminDashboard: React.FC = () => {
                           <option value="patient">Patient</option>
                           <option value="doctor">Doctor</option>
                           <option value="radiologist">Radiologist</option>
-                          <option value="hospital_admin">Hospital Admin</option>
+                          <option value="admin">Hospital Admin</option>
                         </select>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1256,7 +1256,7 @@ export const HospitalAdminDashboard: React.FC = () => {
               { label: 'Add Doctor', onClick: () => setIsCreateUserOpen(true) },
               { label: 'Add Radiologist', onClick: () => setIsCreateUserOpen(true) },
               { label: 'Add Patient', onClick: () => setIsCreateUserOpen(true) },
-              { label: 'View Scan Sessions', href: '/hospital-admin/sessions' },
+              { label: 'View Scan Sessions', href: '/admin/sessions' },
             ]}
           />
 
@@ -1268,10 +1268,10 @@ export const HospitalAdminDashboard: React.FC = () => {
             </h3>
             <div className="space-y-2">
               <Button variant="outline" size="sm" asChild className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200">
-                <a href="/hospital-admin/sessions?status=completed"><Activity className="h-3.5 w-3.5" />Completed Reports</a>
+                <a href="/admin/sessions?status=completed"><Activity className="h-3.5 w-3.5" />Completed Reports</a>
               </Button>
               <Button variant="outline" size="sm" asChild className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-200">
-                <a href="/hospital-admin/users"><Users className="h-3.5 w-3.5" />User Statistics</a>
+                <a href="/admin/users"><Users className="h-3.5 w-3.5" />User Statistics</a>
               </Button>
             </div>
           </SectionCard>

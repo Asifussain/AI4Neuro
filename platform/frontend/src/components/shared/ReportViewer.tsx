@@ -17,7 +17,7 @@ interface ReportViewerProps {
   status?: string;
   generatedAt?: string;
   reports: ReportUrls;
-  userRole: 'patient' | 'doctor' | 'radiologist' | 'hospital_admin' | 'super_admin';
+  userRole: 'patient' | 'doctor' | 'radiologist' | 'admin' | 'super_admin';
   prediction?: string;
   confidence?: number;
 }
@@ -132,7 +132,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({
     }
 
     // Radiologist and admin see all reports
-    if (userRole === 'radiologist' || userRole === 'hospital_admin' || userRole === 'super_admin') {
+    if (userRole === 'radiologist' || userRole === 'admin' || userRole === 'super_admin') {
       if (isValidUrl(reports.technical)) {
         reportTypes.push({
           key: 'technical',

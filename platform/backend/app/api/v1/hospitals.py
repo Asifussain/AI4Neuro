@@ -46,7 +46,7 @@ def list_hospitals(
 ) -> list[HospitalResponse]:
     if principal.role == "super_admin":
         rows = db.list_hospitals()
-    elif principal.role == "hospital_admin" and principal.hospital_id:
+    elif principal.role == "admin" and principal.hospital_id:
         hospital = db.get_hospital(principal.hospital_id)
         rows = [hospital] if hospital else []
     else:

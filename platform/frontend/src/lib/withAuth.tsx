@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 
-type UserRole = 'patient' | 'doctor' | 'radiologist' | 'hospital_admin' | 'super_admin';
+type UserRole = 'patient' | 'doctor' | 'radiologist' | 'admin' | 'super_admin';
 
 interface WithAuthOptions {
   allowedRoles?: UserRole[];
@@ -32,7 +32,6 @@ export function withAuth<P extends object>(
     useEffect(() => {
       if (loading) {
         const timeout = setTimeout(() => {
-          console.log('withAuth: Auth loading timed out after 3s');
           setTimedOut(true);
         }, AUTH_TIMEOUT);
         return () => clearTimeout(timeout);
@@ -45,21 +44,18 @@ export function withAuth<P extends object>(
 
       // Timed out or no user - redirect to login
       if (timedOut || !user) {
-        console.log('withAuth: No user or timed out, redirecting to login');
         router.replace(redirectTo || '/login');
         return;
       }
 
       // User exists but no profile
       if (!userProfile) {
-        console.log('withAuth: User exists but no profile, redirecting to login');
         router.replace('/login');
         return;
       }
 
       // Check account status
       if (userProfile.account_status !== 'active') {
-        console.log('withAuth: Account not active, redirecting to suspended');
         router.replace('/account-suspended');
         return;
       }
@@ -67,7 +63,6 @@ export function withAuth<P extends object>(
       // Check role if specified
       if (allowedRoles && allowedRoles.length > 0) {
         if (!allowedRoles.includes(userProfile.role)) {
-          console.log('withAuth: Role not allowed, redirecting to correct dashboard');
           router.replace(`/${userProfile.role.replace(/_/g, '-')}/dashboard`);
           return;
         }

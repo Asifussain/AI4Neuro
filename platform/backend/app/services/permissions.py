@@ -21,8 +21,8 @@ from __future__ import annotations
 
 # Which roles may create an analysis of a given modality.
 _CREATE_MATRIX: dict[str, set[str]] = {
-    "eeg": {"super_admin", "hospital_admin", "radiologist", "doctor"},
-    "mri": {"super_admin", "hospital_admin", "radiologist", "doctor"},
+    "eeg": {"super_admin", "admin", "radiologist", "doctor"},
+    "mri": {"super_admin", "admin", "radiologist", "doctor"},
 }
 
 
@@ -51,7 +51,7 @@ def can_read_session(
     if role == "super_admin":
         return True
 
-    if role == "hospital_admin":
+    if role == "admin":
         return _same_hospital(hospital_id, session.get("hospital_id"))
 
     if not _same_hospital(hospital_id, session.get("hospital_id")):
@@ -93,7 +93,7 @@ def can_retry_session(
 # Hospital & user management (Super Admin / Hospital Admin)
 # --------------------------------------------------------------------------- #
 
-_HOSPITAL_MANAGED_ROLES = {"hospital_admin", "doctor", "radiologist", "patient"}
+_HOSPITAL_MANAGED_ROLES = {"admin", "doctor", "radiologist", "patient"}
 
 
 def can_manage_hospitals(role: str | None) -> bool:
@@ -104,7 +104,7 @@ def can_manage_hospitals(role: str | None) -> bool:
 def can_view_hospital(role: str | None, actor_hospital_id, target_hospital_id) -> bool:
     if role == "super_admin":
         return True
-    if role == "hospital_admin":
+    if role == "admin":
         return _same_hospital(actor_hospital_id, target_hospital_id)
     return False
 
@@ -124,7 +124,7 @@ def can_create_user_with_role(
     """
     if actor_role == "super_admin":
         return True
-    if actor_role == "hospital_admin":
+    if actor_role == "admin":
         if target_role not in ("doctor", "radiologist", "patient"):
             return False
         return _same_hospital(actor_hospital_id, target_hospital_id)
@@ -140,7 +140,7 @@ def can_manage_user(
     """Whether the actor may view/update/suspend a given user."""
     if actor_role == "super_admin":
         return True
-    if actor_role == "hospital_admin":
+    if actor_role == "admin":
         if target_role == "super_admin":
             return False
         return _same_hospital(actor_hospital_id, target_hospital_id)
@@ -152,7 +152,7 @@ def can_assign_doctor_to_patient(
 ) -> bool:
     if actor_role == "super_admin":
         return True
-    if actor_role == "hospital_admin":
+    if actor_role == "admin":
         return _same_hospital(actor_hospital_id, hospital_id)
     return False
 
@@ -164,7 +164,7 @@ def can_view_platform_analytics(role: str | None) -> bool:
 def can_view_hospital_analytics(role: str | None, actor_hospital_id, target_hospital_id) -> bool:
     if role == "super_admin":
         return True
-    if role == "hospital_admin":
+    if role == "admin":
         return _same_hospital(actor_hospital_id, target_hospital_id)
     return False
 
