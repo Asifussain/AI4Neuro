@@ -108,14 +108,7 @@ class PdfReportService:
     # ------------------------------- EEG -------------------------------- #
 
     def _build_eeg(self, context: dict, result: PipelineResult) -> dict[str, bytes]:
-        from app.reports.eeg import (
-            ClinicianPDFReport,
-            PatientPDFReport,
-            TechnicalPDFReport,
-            build_clinician_pdf_report_content,
-            build_patient_pdf_report_content,
-            build_technical_pdf_report_content,
-        )
+        from app.reports.eeg import UnifiedPDFReport, build_unified_pdf_report_content
 
         context["prediction"] = _eeg_prediction_context(result, context)
         stats = result.metrics.get("eeg_stats")
@@ -125,20 +118,14 @@ class PdfReportService:
         psd = _artifact_data_uri(result, "psd_plot_url")
         sim = _artifact_data_uri(result, "similarity_plot_url")
 
-        return {
-            "technical": _render(
-                TechnicalPDFReport, build_technical_pdf_report_content,
-                context, stats, similarity, consistency, ts, psd, sim,
-            ),
-            "clinician": _render(
-                ClinicianPDFReport, build_clinician_pdf_report_content,
-                context, stats, similarity, consistency, ts, psd, sim,
-            ),
-            "patient": _render(
-                PatientPDFReport, build_patient_pdf_report_content,
-                context, similarity, consistency, sim,
-            ),
-        }
+        # A single unified report replaces the separate patient/clinician/
+        # technical EEG copies. All three URLs point at the same PDF so
+        # existing API consumers (which expect all three keys) keep working.
+        unified = _render(
+            UnifiedPDFReport, build_unified_pdf_report_content,
+            context, stats, similarity, consistency, ts, psd, sim,
+        )
+        return {"technical": unified, "clinician": unified, "patient": unified}
 
     # ------------------------------- MRI -------------------------------- #
 
@@ -179,15 +166,25 @@ class PdfReportService:
     def _upload_pdfs(self, session_id: str, pdfs: dict[str, bytes]) -> dict[str, str]:
         urls: dict[str, str] = {}
         bucket = self._settings.reports_bucket
+        # Some modalities (EEG) hand back the same PDF bytes for multiple
+        # report_type keys (a single unified report standing in for all
+        # three) - upload identical payloads once and reuse the URL.
+        uploaded_by_identity: dict[int, str] = {}
         for report_type, pdf_bytes in pdfs.items():
             if not pdf_bytes:
                 continue
+            cache_key = id(pdf_bytes)
+            if cache_key in uploaded_by_identity:
+                urls[report_type] = uploaded_by_identity[cache_key]
+                continue
             path = f"{session_id}/{report_type}.pdf"
             try:
-                urls[report_type] = self._storage.upload_bytes(
+                url = self._storage.upload_bytes(
                     bucket=bucket, path=path, data=pdf_bytes,
                     content_type="application/pdf",
                 )
+                urls[report_type] = url
+                uploaded_by_identity[cache_key] = url
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Failed uploading %s report: %s", report_type, exc)
         return urls
