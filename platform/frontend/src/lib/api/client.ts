@@ -59,10 +59,25 @@ async function parse<T>(res: Response): Promise<T> {
   return (text ? JSON.parse(text) : {}) as T;
 }
 
+/** fetch() wrapper that turns a network failure (backend down / wrong URL /
+ * CORS) into a clear, actionable ApiError instead of the opaque
+ * "Failed to fetch" the browser surfaces. */
+async function doFetch(path: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(`${API_BASE}${path}`, init);
+  } catch {
+    throw new ApiError(
+      0,
+      'network_error',
+      `Cannot reach the API server at ${API_BASE}. Is the backend running, and is NEXT_PUBLIC_API_BASE_URL set correctly?`
+    );
+  }
+}
+
 export const apiClient = {
   async get<T>(path: string): Promise<T> {
     const headers = await authHeaders();
-    return parse<T>(await fetch(`${API_BASE}${path}`, { headers, cache: 'no-store' }));
+    return parse<T>(await doFetch(path, { headers, cache: 'no-store' }));
   },
 
   /** POST JSON or multipart FormData (auto-detected). */
@@ -75,7 +90,7 @@ export const apiClient = {
       init.headers = { ...headers, 'Content-Type': 'application/json' };
       init.body = JSON.stringify(body);
     }
-    return parse<T>(await fetch(`${API_BASE}${path}`, init));
+    return parse<T>(await doFetch(path, init));
   },
 };
 

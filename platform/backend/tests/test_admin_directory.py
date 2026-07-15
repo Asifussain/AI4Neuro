@@ -96,12 +96,40 @@ def test_list_patients_merges_profile_detail(client, db_service):
     assert body[0]["patient_code"] == "PC-1"
 
 
-def test_directory_forbidden_for_doctor_role(client, db_service):
+def test_clinical_directory_allowed_for_doctor(client, db_service):
+    # Doctors may browse the hospital-scoped patient/doctor pickers (used by the
+    # New Analysis flow), but only within their own hospital.
+    h1 = _hospital(db_service, "H1")
+    h2 = _hospital(db_service, "H2")
+    _patient(db_service, h1["id"], name="Mine", email="mine@x.com")
+    _patient(db_service, h2["id"], name="Other", email="other@x.com")
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id="d1", role="doctor", hospital_id=h1["id"], is_dev=False
+    )
+    res = client.get("/api/v1/patients")
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body) == 1
+    assert body[0]["hospital_id"] == h1["id"]
+
+
+def test_clinical_directory_forbidden_for_patient(client, db_service):
+    h1 = _hospital(db_service, "H1")
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id="p1", role="patient", hospital_id=h1["id"], is_dev=False
+    )
+    res = client.get("/api/v1/patients")
+    assert res.status_code == 403
+
+
+def test_user_directory_still_forbidden_for_doctor(client, db_service):
+    # The admin user directory (/users) stays admin-only even though the
+    # clinical pickers were opened up to clinicians.
     h1 = _hospital(db_service, "H1")
     client.app.dependency_overrides[get_current_user] = lambda: Principal(
         user_id="d1", role="doctor", hospital_id=h1["id"], is_dev=False
     )
-    res = client.get("/api/v1/doctors")
+    res = client.get("/api/v1/users")
     assert res.status_code == 403
 
 

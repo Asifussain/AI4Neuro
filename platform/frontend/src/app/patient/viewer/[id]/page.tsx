@@ -162,7 +162,7 @@ export default function PatientViewerPage({
               asChild
               className="text-muted-foreground hover:text-foreground"
             >
-              <Link href="/home">
+              <Link href="/patient/dashboard">
                 <ArrowLeft className="h-4 w-4 mr-1" />
                 Dashboard
               </Link>

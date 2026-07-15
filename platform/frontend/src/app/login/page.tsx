@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, EyeOff, Loader2, Brain, Waves, ScanLine } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Brain, Waves, ScanLine, ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
@@ -111,12 +111,19 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#f7fafc] flex flex-col">
       {/* Minimal header */}
-      <header className="px-6 py-5">
+      <header className="px-6 py-5 flex items-center justify-between gap-4">
         <Link href="/landing" className="inline-flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center">
             <Brain className="h-5 w-5 text-white" />
           </div>
           <span className="font-bold text-slate-900 text-lg">AI4Neuro</span>
+        </Link>
+        <Link
+          href="/landing"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-emerald-700 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Home
         </Link>
       </header>
 

@@ -51,6 +51,7 @@ export function NotificationBell({ accent }: { accent: Accent }) {
   const [loading, setLoading] = useState(false);
   const [lastSeen, setLastSeen] = useState<number>(0);
   const ref = useRef<HTMLDivElement>(null);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
     const raw = typeof window !== 'undefined' ? window.localStorage.getItem(LAST_SEEN_KEY) : null;
@@ -58,13 +59,16 @@ export function NotificationBell({ accent }: { accent: Accent }) {
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    // Only surface the loading spinner on the very first fetch; subsequent
+    // opens show the cached list immediately and refresh in the background.
+    setLoading((prev) => (loadedRef.current ? prev : true));
     try {
       const rows = await analysisApi.list({ limit: 8 });
       setSessions(rows);
     } catch {
-      setSessions([]);
+      if (!loadedRef.current) setSessions([]);
     } finally {
+      loadedRef.current = true;
       setLoading(false);
     }
   }, []);
@@ -120,7 +124,7 @@ export function NotificationBell({ accent }: { accent: Accent }) {
             <span className={cn('text-xs font-medium', styles.text)}>Recent analyses</span>
           </div>
           <div className="max-h-80 overflow-y-auto">
-            {loading ? (
+            {loading && sessions.length === 0 ? (
               <div className="flex items-center justify-center py-8 text-slate-400">
                 <Loader2 className="h-5 w-5 animate-spin" />
               </div>

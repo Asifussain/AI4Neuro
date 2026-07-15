@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Brain, ShieldCheck, Lock, CheckCircle2 } from 'lucide-react';
+import { Brain, ShieldCheck, Lock, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/components/providers/AuthProvider';
 import { toast } from 'sonner';
 
 export default function ChangePasswordPage() {
@@ -14,6 +15,10 @@ export default function ChangePasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+  const { userProfile } = useAuth();
+  const dashboardHref = userProfile?.role
+    ? `/${userProfile.role.replace(/_/g, '-')}/dashboard`
+    : '/';
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,12 +89,19 @@ export default function ChangePasswordPage() {
       {/* Left Panel - Form */}
       <div className="w-full lg:w-[45%] flex flex-col bg-white">
         {/* Logo Header */}
-        <div className="p-8">
+        <div className="p-8 flex items-center justify-between gap-4">
           <Link href="/landing" className="flex items-center gap-2.5 group">
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center">
               <Brain className="w-6 h-6 text-white" />
             </div>
             <span className="text-xl font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">AI4Neuro</span>
+          </Link>
+          <Link
+            href={dashboardHref}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-emerald-700 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
           </Link>
         </div>
 

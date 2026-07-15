@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/components/providers/AuthProvider';
-import { createClient } from '@/lib/supabase/client';
+import { adminApi } from '@/features/admin/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,9 @@ import { analysisApi } from '../api';
 import { ACCEPTED_EXTENSIONS, ANALYSIS_TYPES } from '../types';
 import type { Modality } from '../types';
 import { ApiError } from '@/lib/api/client';
+import { ACCENT_STYLES } from '@/components/dashboards/shared/primitives';
+import { getRoleMeta, type Role } from '@/lib/navigation';
+import { cn } from '@/lib/utils';
 
 const NO_DOCTOR_VALUE = '__none__';
 
@@ -36,51 +39,6 @@ interface DoctorOption {
   id: string;
   label: string;
   sublabel?: string;
-}
-
-interface ProfileLite {
-  full_name?: string | null;
-  email?: string | null;
-  account_status?: string | null;
-}
-
-interface PatientRow {
-  user_id: string;
-  patient_id: string | null;
-  user_profile?: ProfileLite | ProfileLite[] | null;
-}
-
-interface LoadedPatient {
-  user_id: string;
-  patient_id: string | null;
-  user_profile: ProfileLite | null;
-}
-
-interface DoctorRow {
-  user_id: string;
-  medical_license: string | null;
-  specialization?: string | null;
-  user_profile?: ProfileLite | ProfileLite[] | null;
-}
-
-interface AssignmentRow {
-  patient?: PatientRow | PatientRow[] | null;
-}
-
-function firstRelation<T>(relation: T | T[] | null | undefined): T | null {
-  if (!relation) return null;
-  return Array.isArray(relation) ? relation[0] ?? null : relation;
-}
-
-function normalizePatient(patient: PatientRow | null): LoadedPatient | null {
-  if (!patient) return null;
-  const user = firstRelation(patient.user_profile);
-  if (user?.account_status && user.account_status !== 'active') return null;
-  return {
-    user_id: patient.user_id,
-    patient_id: patient.patient_id,
-    user_profile: user,
-  };
 }
 
 function getInitialModality(): Modality {
@@ -130,6 +88,10 @@ export function AnalysisUploadForm() {
   const analysisTypeOptions = useMemo(() => ANALYSIS_TYPES[modality], [modality]);
   const role = userProfile?.role;
   const isDoctor = role === 'doctor';
+  // Match the accent to the caller's dashboard so New Analysis looks like the
+  // rest of their profile rather than a generic page.
+  const accent = getRoleMeta((role ?? 'patient') as Role).accent;
+  const accentStyles = ACCENT_STYLES[accent];
   const retryFrom = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('retry_from')
     : null;
@@ -137,118 +99,62 @@ export function AnalysisUploadForm() {
   useEffect(() => {
     if (!userProfile?.id || !role) return;
 
+    let cancelled = false;
+
+    // Patient/doctor pickers are sourced from the backend (service-role, so it
+    // works under the fail-closed RLS on the profile tables) rather than direct
+    // Supabase reads from the browser.
     const fetchAssociations = async () => {
-      const supabase = createClient();
       setLoadingAssociations(true);
       setAssociationError(null);
 
       try {
-        let currentDoctorId = '';
-        let patientRows: LoadedPatient[] = [];
-
-        if (isDoctor) {
-          const { data: doctorProfile, error: doctorError } = await supabase
-            .from('doctor_profiles')
-            .select('user_id, medical_license, specialization')
-            .eq('user_id', userProfile.id)
-            .single();
-
-          if (doctorError) throw doctorError;
-
-          currentDoctorId = doctorProfile?.user_id ?? '';
-
-          const { data: assignmentRows, error: assignmentError } = await supabase
-            .from('doctor_patient_relationships')
-            .select(`
-              patient:patient_profiles(
-                user_id,
-                patient_id,
-                user_profile:user_profiles!patient_profiles_user_id_fkey(full_name, email, account_status)
-              )
-            `)
-            .eq('doctor_id', currentDoctorId)
-            .eq('relationship_status', 'active')
-            .order('assigned_at', { ascending: false });
-
-          if (assignmentError) throw assignmentError;
-
-          patientRows = ((assignmentRows ?? []) as AssignmentRow[])
-            .map((row) => {
-              const patient = firstRelation(row.patient);
-              return normalizePatient(patient);
-            })
-            .filter((patient): patient is LoadedPatient => Boolean(patient));
-
-          setDoctorId(currentDoctorId);
-          setDoctors([
-            {
-              id: currentDoctorId,
-              label: userProfile.full_name || 'Current doctor',
-              sublabel: doctorProfile?.medical_license,
-            },
-          ]);
-        } else {
-          const { data: patientProfiles, error: patientsError } = await supabase
-            .from('patient_profiles')
-            .select(`
-              user_id,
-              patient_id,
-              user_profile:user_profiles!patient_profiles_user_id_fkey(full_name, email, account_status)
-            `)
-            .order('created_at', { ascending: false })
-            .limit(100);
-
-          if (patientsError) throw patientsError;
-
-          patientRows = ((patientProfiles ?? []) as PatientRow[])
-            .map((patient) => normalizePatient(patient))
-            .filter((patient): patient is LoadedPatient => Boolean(patient));
-
-          const { data: doctorProfiles, error: doctorsError } = await supabase
-            .from('doctor_profiles')
-            .select(`
-              user_id,
-              medical_license,
-              specialization,
-              user_profile:user_profiles!doctor_profiles_user_id_fkey(full_name, email, account_status)
-            `)
-            .order('created_at', { ascending: false })
-            .limit(100);
-
-          if (doctorsError) throw doctorsError;
-
-          setDoctors(
-            ((doctorProfiles ?? []) as DoctorRow[])
-              .map((doctor) => {
-                const user = firstRelation(doctor.user_profile);
-                if (user?.account_status && user.account_status !== 'active') return null;
-                const option: DoctorOption = {
-                  id: doctor.user_id,
-                  label: user?.full_name || doctor.medical_license || 'Doctor',
-                  sublabel: [doctor.medical_license, doctor.specialization].filter(Boolean).join(' - '),
-                };
-                return option;
-              })
-              .filter((doctor): doctor is DoctorOption => Boolean(doctor))
-          );
-        }
+        const patientRows = await adminApi.patients();
+        if (cancelled) return;
 
         setPatients(
-          patientRows.map((patient) => ({
-            id: patient.user_id,
-            label: patient.user_profile?.full_name || patient.patient_id || 'Patient',
-            sublabel: [patient.patient_id, patient.user_profile?.email].filter(Boolean).join(' - '),
-          }))
+          patientRows
+            .filter((p) => p.account_status === 'active')
+            .map((p) => ({
+              id: p.id,
+              label: p.full_name || p.patient_code || 'Patient',
+              sublabel: [p.patient_code, p.email].filter(Boolean).join(' - '),
+            }))
         );
+
+        if (isDoctor) {
+          // The signed-in doctor is implicitly the ordering clinician.
+          setDoctorId(userProfile.id);
+          setDoctors([{ id: userProfile.id, label: userProfile.full_name || 'Current doctor' }]);
+        } else {
+          const doctorRows = await adminApi.doctors();
+          if (cancelled) return;
+          setDoctors(
+            doctorRows
+              .filter((d) => d.account_status === 'active')
+              .map((d) => ({
+                id: d.id,
+                label: d.full_name || d.medical_license || 'Doctor',
+                sublabel: [d.medical_license, d.specialization].filter(Boolean).join(' - '),
+              }))
+          );
+        }
       } catch (error) {
-        console.error('Failed to load associated users:', error);
-        setAssociationError('Could not load patient and doctor lists.');
+        if (cancelled) return;
+        const message =
+          error instanceof ApiError
+            ? error.message
+            : 'Could not load patient and doctor lists.';
+        setAssociationError(message);
       } finally {
-        setLoadingAssociations(false);
+        if (!cancelled) setLoadingAssociations(false);
       }
     };
 
     fetchAssociations();
+    return () => {
+      cancelled = true;
+    };
   }, [isDoctor, role, userProfile?.full_name, userProfile?.id]);
 
   const onModalityChange = (value: string) => {
@@ -313,7 +219,7 @@ export function AnalysisUploadForm() {
     <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[0.9fr_1.1fr]">
       <section className="space-y-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+          <p className={cn('text-sm font-semibold uppercase tracking-wide', accentStyles.text)}>
             {retryFrom ? 'Retry with changes' : 'New analysis'}
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Choose the clinical flow</h1>
@@ -333,18 +239,19 @@ export function AnalysisUploadForm() {
                 key={item}
                 type="button"
                 onClick={() => onModalityChange(item)}
-                className={`rounded-xl border bg-white p-4 text-left shadow-sm transition ${
-                  selected ? 'border-primary ring-2 ring-primary/15' : 'border-border hover:border-primary/40'
-                }`}
+                className={cn(
+                  'rounded-xl border bg-white p-4 text-left shadow-sm transition',
+                  selected ? cn('ring-2', accentStyles.ring, 'border-transparent') : 'border-border hover:border-slate-300'
+                )}
               >
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', accentStyles.soft, accentStyles.text)}>
                     {details.icon}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
                       <h2 className="font-semibold">{details.title}</h2>
-                      {selected && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                      {selected && <CheckCircle2 className={cn('h-5 w-5', accentStyles.text)} />}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{details.description}</p>
                     <ul className="mt-3 grid gap-1 text-xs text-muted-foreground">
@@ -360,7 +267,7 @@ export function AnalysisUploadForm() {
         </div>
       </section>
 
-      <Card className="ai4-card">
+      <Card className="rounded-2xl border-slate-200/80 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
         <CardHeader>
           <CardTitle>{modalityDetails[modality].title}</CardTitle>
           <CardDescription>{modalityDetails[modality].description}</CardDescription>
@@ -487,7 +394,7 @@ export function AnalysisUploadForm() {
               </p>
             </div>
 
-            <Button type="submit" disabled={submitting} className="w-full">
+            <Button type="submit" disabled={submitting} className={cn('w-full text-white', accentStyles.solid, 'hover:brightness-95')}>
               {submitting ? 'Uploading...' : retryFrom ? 'Start corrected analysis' : 'Start analysis'}
             </Button>
           </form>

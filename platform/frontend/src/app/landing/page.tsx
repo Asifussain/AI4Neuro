@@ -402,7 +402,7 @@ function PublicNavbar() {
 
         <div className="nav-actions">
           {!loading && user && userProfile ? (
-            <Link href={`/${userProfile.role}/dashboard`} className="nav-cta">
+            <Link href={`/${userProfile.role.replace(/_/g, '-')}/dashboard`} className="nav-cta">
               Dashboard
               <span>
                 <MoveUpRight size={16} />

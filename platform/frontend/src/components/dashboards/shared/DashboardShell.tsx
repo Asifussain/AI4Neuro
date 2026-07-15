@@ -49,7 +49,8 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
   const router = useRouter();
   const styles = ACCENT_STYLES[accent];
 
-  const hospitalName = userProfile?.roleProfile?.hospitals?.name || 'AI4Neuro Platform';
+  // Patients cannot create analyses, so the modality shortcuts are read-only for them.
+  const canCreate = userProfile?.role !== 'patient';
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,20 +98,46 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
             AI4Neuro Services
           </p>
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-50">
-              <Scan className="h-4 w-4 text-slate-500" />
-              <div>
-                <p className="text-xs font-semibold text-slate-700">MRI Analysis</p>
-                <p className={cn('text-[11px] font-medium', styles.text)}>Active</p>
+            {canCreate ? (
+              <Link
+                href="/analysis/new?modality=mri"
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors"
+              >
+                <Scan className="h-4 w-4 text-slate-500" />
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">MRI Analysis</p>
+                  <p className={cn('text-[11px] font-medium', styles.text)}>Active</p>
+                </div>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-50">
+                <Scan className="h-4 w-4 text-slate-500" />
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">MRI Analysis</p>
+                  <p className={cn('text-[11px] font-medium', styles.text)}>Active</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-50">
-              <Waves className="h-4 w-4 text-slate-500" />
-              <div>
-                <p className="text-xs font-semibold text-slate-700">EEG Analysis</p>
-                <p className={cn('text-[11px] font-medium', styles.text)}>Active</p>
+            )}
+            {canCreate ? (
+              <Link
+                href="/analysis/new?modality=eeg"
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors"
+              >
+                <Waves className="h-4 w-4 text-slate-500" />
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">EEG Analysis</p>
+                  <p className={cn('text-[11px] font-medium', styles.text)}>Active</p>
+                </div>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-50">
+                <Waves className="h-4 w-4 text-slate-500" />
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">EEG Analysis</p>
+                  <p className={cn('text-[11px] font-medium', styles.text)}>Active</p>
+                </div>
               </div>
-            </div>
+            )}
             <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-50 opacity-60">
               <Brain className="h-4 w-4 text-slate-400" />
               <div>
@@ -192,7 +219,6 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
             <span className={cn('hidden lg:inline text-xs font-semibold px-3 py-1.5 rounded-full', styles.soft, styles.text)}>
               {roleLabel}
             </span>
-            <span className="hidden lg:inline text-sm text-slate-500">{hospitalName}</span>
             <NotificationBell accent={accent} />
             <ProfileMenu accent={accent} />
           </div>

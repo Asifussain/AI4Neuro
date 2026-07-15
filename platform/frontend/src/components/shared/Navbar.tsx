@@ -73,32 +73,12 @@ export const Navbar = () => {
                 </Link>
               </li>
             )}
-            <li>
-              <Link href="/about" onClick={closeMobileMenu}>
-                About
-              </Link>
-            </li>
-            <li>
-              <Link href="/contact" onClick={closeMobileMenu}>
-                Contact
-              </Link>
-            </li>
           </>
         ) : (
           <>
             <li>
               <Link href="/landing" onClick={closeMobileMenu}>
                 Home
-              </Link>
-            </li>
-            <li>
-              <Link href="/about" onClick={closeMobileMenu}>
-                About
-              </Link>
-            </li>
-            <li>
-              <Link href="/contact" onClick={closeMobileMenu}>
-                Contact
               </Link>
             </li>
           </>
