@@ -103,9 +103,10 @@ class BasePDFReport(FPDF):
                 self.set_text_color(*self.text_color_light)
                 self.cell(card_width - 6, 4, sanitize_for_helvetica(description), 0, 0, 'L')
 
-            # Position for next card
-            self.set_y(start_y)
-            self.set_x(start_x + card_width + 6)
+            # Position for next card. NOTE: fpdf2's set_y() always resets x to
+            # l_margin as a side effect, so set_xy (not set_y then set_x) is
+            # required here to preserve the horizontal offset for a 2nd card.
+            self.set_xy(start_x + card_width + 6, start_y)
             self.set_text_color(*self.text_color_normal)
             self.set_line_width(0.2)
         except Exception as e:
@@ -510,6 +511,13 @@ class BasePDFReport(FPDF):
                     "Analysis performed using validated AI algorithms. Results represent statistical pattern recognition and require clinical correlation.",
                     "Methodology: Deep learning-based EEG classification with DTW similarity analysis against reference datasets.",
                     "Quality control measures and artifact rejection protocols were applied according to standard neurophysiological guidelines."
+                ],
+                "comprehensive": [
+                    "This report contains AI-assisted analysis of EEG data, including clinical, technical and plain-language summaries, for the referring clinician, care team and patient/family.",
+                    "This report does NOT constitute a medical diagnosis. All findings must be interpreted within the complete clinical context by a licensed medical practitioner.",
+                    "The AI model provides statistical pattern-recognition support and should be used as an adjunct to, not a replacement for, clinical judgment and comprehensive evaluation.",
+                    "Patients: the information in this report is not a diagnosis and should not be used for self-diagnosis or self-treatment. Please discuss these results with your doctor.",
+                    "Results should be correlated with patient history, physical examination, cognitive assessment and other diagnostic procedures as clinically indicated."
                 ]
             }
 

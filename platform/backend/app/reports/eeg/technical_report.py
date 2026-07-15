@@ -161,7 +161,9 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
                 current_y = pdf.get_y()
                 pdf.metric_card(*metric1_args)
                 if metric2_args:
-                    pdf.set_y(current_y)
+                    # metric_card already leaves the cursor positioned for a
+                    # 2nd card (see base_report.metric_card) - do not
+                    # set_y() here, it would reset x back to l_margin.
                     pdf.metric_card(*metric2_args)
                 else:
                     # Reset X for next row if only one card
