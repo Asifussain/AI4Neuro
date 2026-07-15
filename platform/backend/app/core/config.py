@@ -91,8 +91,15 @@ class Settings(BaseSettings):
         default=str(_DEFAULT_EEG_REFERENCE_DIR), alias="EEG_REFERENCE_DIR"
     )
     eeg_use_gpu: bool = Field(default=False, alias="EEG_USE_GPU")
+    # Display/PSD-axis rate only, independent of checkpoint_registry's
+    # target_fs=256.0 (the model's actual expected rate) — do not conflate
+    # the two when changing either.
     eeg_default_fs: int = Field(default=128, alias="EEG_DEFAULT_FS")
     eeg_subprocess_timeout: int = Field(default=600, alias="EEG_SUBPROCESS_TIMEOUT")
+    # Off by default: the ADFD checkpoint's original training-time
+    # normalization is unverified, so z-scoring uploaded EEG before inference
+    # could shift accuracy in an unconfirmed direction. See preprocessing.py.
+    eeg_apply_zscore: bool = Field(default=False, alias="EEG_APPLY_ZSCORE")
 
     # ---- MRI pipeline (Phase 3) ----
     # The runtime pipeline takes the uploaded scan as already preprocessed (no

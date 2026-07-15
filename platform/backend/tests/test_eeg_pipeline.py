@@ -49,31 +49,36 @@ def _make_context(base_dir, arr, analysis_type: str, sid: str, channel_index: in
     )
 
 
-def test_binary_end_to_end(tmp_path):
+def test_multiclass_128_seqlen_input_end_to_end(tmp_path):
+    """The 128-seq-len ADSZ-format sample now runs through preprocessing
+    (interpolated to 256 timepoints) and the ADFD-only pipeline, instead of
+    requiring a separate binary checkpoint."""
     from app.pipelines.eeg.runner import run_eeg_pipeline
 
     arr = np.load(_SAMPLE, allow_pickle=True)
-    ctx = _make_context(tmp_path, arr, "binary", "sess-bin")
+    ctx = _make_context(tmp_path, arr, "multiclass", "sess-128")
     res = run_eeg_pipeline(ctx)
 
-    assert res.prediction in {"Normal", "Alzheimer's"}
+    assert res.prediction in {"CN", "MCI", "AD"}
     assert abs(sum(res.probabilities.values()) - 1.0) < 1e-4
-    assert res.model_version == "ADFormer-ADSZ-Indep"
+    assert res.model_version == "ADFormer-ADFD-Indep"
     assert "eeg_stats" in res.metrics
     for key in ("timeseries_plot_url", "psd_plot_url", "similarity_plot_url"):
         assert key in res.artifacts and os.path.exists(res.artifacts[key])
 
 
 def test_multiclass_shape(tmp_path):
+    from app.pipelines.eeg.checkpoint_registry import get_spec
     from app.pipelines.eeg.runner import run_eeg_pipeline
 
     arr = np.random.randn(256, 19).astype(np.float32)
     ctx = _make_context(tmp_path, arr, "multiclass", "sess-mc")
     res = run_eeg_pipeline(ctx)
 
-    assert set(res.probabilities.keys()) == {"CN", "MCI", "AD"}
-    assert res.prediction in {"CN", "MCI", "AD"}
-    assert res.model_version == "ADFormer-ADFD-Indep"
+    spec = get_spec("multiclass")
+    assert set(res.probabilities.keys()) == set(spec.classes)
+    assert res.prediction in spec.classes
+    assert res.model_version == spec.model_version
 
 
 def test_concurrent_jobs_no_collision(tmp_path):
@@ -86,7 +91,7 @@ def test_concurrent_jobs_no_collision(tmp_path):
 
     def _run(sid: str) -> None:
         try:
-            results[sid] = run_eeg_pipeline(_make_context(tmp_path, arr, "binary", sid))
+            results[sid] = run_eeg_pipeline(_make_context(tmp_path, arr, "multiclass", sid))
         except Exception as exc:  # noqa: BLE001
             errors.append(exc)
 
@@ -98,7 +103,7 @@ def test_concurrent_jobs_no_collision(tmp_path):
 
     assert not errors, f"Concurrent EEG jobs raised: {errors}"
     assert len(results) == 2
-    assert all(r.prediction in {"Normal", "Alzheimer's"} for r in results.values())
+    assert all(r.prediction in {"CN", "MCI", "AD"} for r in results.values())
 
 
 def test_full_loop_via_orchestrator(tmp_path, monkeypatch):
@@ -119,7 +124,7 @@ def test_full_loop_via_orchestrator(tmp_path, monkeypatch):
 
     session = db.create_session(
         modality="eeg",
-        analysis_type="binary",
+        analysis_type="multiclass",
         original_filename="input.npy",
         patient_id="11111111-1111-1111-1111-111111111111",
         pipeline_options={"channel_index": 0},
@@ -137,8 +142,8 @@ def test_full_loop_via_orchestrator(tmp_path, monkeypatch):
     session = db.get_session(sid)
     assert session["status"] == "completed"
     result = db.get_result(sid)
-    assert result["prediction"] in {"Normal", "Alzheimer's"}
-    assert result["model_version"] == "ADFormer-ADSZ-Indep"
+    assert result["prediction"] in {"CN", "MCI", "AD"}
+    assert result["model_version"] == "ADFormer-ADFD-Indep"
     # Artifacts were uploaded and folded into visualizations as signed URLs.
     assert set(result["visualizations"].keys()) >= {
         "timeseries_plot_url", "psd_plot_url", "similarity_plot_url"

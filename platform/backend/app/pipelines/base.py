@@ -119,11 +119,8 @@ def stub_runner_factory(modality: Modality) -> Callable[[AnalysisContext], Pipel
     """
 
     def _run(context: AnalysisContext) -> PipelineResult:
-        classes = (
-            ["Normal", "Alzheimer's"]
-            if (modality == "eeg" and context.analysis_type == "binary")
-            else ["CN", "MCI", "AD"]
-        )
+        # EEG is ADFD-only (multiclass) end to end; MRI is multiclass-only too.
+        classes = ["CN", "MCI", "AD"]
         # Deterministic pseudo-distribution favouring the last class.
         base = {c: round(0.1 + 0.05 * i, 4) for i, c in enumerate(classes)}
         total = sum(base.values())
