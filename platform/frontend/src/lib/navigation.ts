@@ -18,6 +18,7 @@ import {
   Users,
   FileText,
   Landmark,
+  ScanLine,
 } from 'lucide-react';
 import type { NavItem } from '@/components/dashboards/shared/DashboardShell';
 import type { Accent } from '@/components/dashboards/shared/primitives';
@@ -60,8 +61,12 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   ],
   hospital_admin: [
     { label: 'Dashboard', href: '/hospital-admin/dashboard', icon: LayoutGrid },
+    { label: 'Doctors', href: '/hospital-admin/users?role=doctor', icon: Stethoscope },
+    { label: 'Radiologists', href: '/hospital-admin/users?role=radiologist', icon: Brain },
+    { label: 'Patients', href: '/hospital-admin/users?role=patient', icon: Users },
+    { label: 'Scan Sessions', href: '/hospital-admin/sessions', icon: ScanLine },
+    { label: 'Reports', href: '/hospital-admin/sessions?status=completed', icon: FileText },
     { label: 'New Analysis', href: '/analysis/new', icon: Upload },
-    { label: 'Profile', href: '/profile', icon: User },
     { label: 'Settings', href: '/profile', icon: Settings },
   ],
   radiologist: [
@@ -73,7 +78,6 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   doctor: [
     { label: 'Dashboard', href: '/doctor/dashboard', icon: LayoutGrid },
     { label: 'New Analysis', href: '/analysis/new', icon: Upload },
-    { label: 'Reports', href: '/analysis/new', icon: FileText },
     { label: 'Profile', href: '/profile', icon: User },
     { label: 'Settings', href: '/profile', icon: Settings },
   ],

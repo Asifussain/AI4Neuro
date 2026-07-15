@@ -324,9 +324,37 @@ class DatabaseService:
         res = self.client.table(table).insert(row).execute()
         return _one(res) or {}
 
+    def list_role_profiles(self, table: str) -> list[dict]:
+        """Fetch every row of a role-detail table (keyed by user_id).
+
+        Small, per-hospital-scale tables — callers merge these in Python against
+        a already-scoped user_profiles list rather than filtering server-side,
+        matching the existing list_hospitals/list_user_profiles pattern.
+        """
+        res = self.client.table(table).select("*").execute()
+        return list(getattr(res, "data", None) or [])
+
+    def update_role_profile(self, table: str, user_id: str, patch: dict) -> dict | None:
+        self.client.table(table).update(patch).eq("user_id", user_id).execute()
+        res = (
+            self.client.table(table)
+            .select("*")
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        return _one(res)
+
     def create_doctor_patient_relationship(self, row: dict) -> dict:
         res = self.client.table("doctor_patient_relationships").insert(row).execute()
         return _one(res) or {}
+
+    def list_doctor_patient_relationships(self, *, hospital_id: str | None = None) -> list[dict]:
+        query = self.client.table("doctor_patient_relationships").select("*")
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        res = query.execute()
+        return list(getattr(res, "data", None) or [])
 
     # ---------------------------- audit log ------------------------------- #
 

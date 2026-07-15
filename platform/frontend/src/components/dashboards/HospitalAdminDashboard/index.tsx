@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,9 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useAdminStats, useUsers, useDoctors, usePatients, useUpdateUserStatus, useAssignPatient, useAllAssignments } from '@/lib/hooks/useApi';
-import type { User as ApiUser } from '@/lib/api/users';
-import type { Doctor } from '@/lib/api/doctors';
+import {
+  adminApi,
+  type AdminUser,
+  type DoctorDirectoryEntry,
+  type PatientDirectoryEntry,
+  type Assignment,
+} from '@/features/admin/api';
+import { analysisApi } from '@/features/analysis/api';
+import type { SessionStatusResponse } from '@/features/analysis/types';
 import {
   Users,
   UserPlus,
@@ -48,27 +54,17 @@ import {
   Server,
   Database,
   HardDrive,
-  Cpu,
-  ScanLine,
-  Settings,
 } from 'lucide-react';
-import { DashboardShell, type NavItem } from '@/components/dashboards/shared/DashboardShell';
+import { DashboardShell } from '@/components/dashboards/shared/DashboardShell';
 import {
   SectionCard,
   StatCard as SharedStatCard,
   QuickActionsList,
   DashboardPageHeader,
 } from '@/components/dashboards/shared/primitives';
+import { getNavItems } from '@/lib/navigation';
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/hospital-admin/dashboard', icon: LayoutGrid },
-  { label: 'Doctors', href: '/hospital-admin/dashboard', icon: Stethoscope },
-  { label: 'Radiologists', href: '/hospital-admin/dashboard', icon: Brain },
-  { label: 'Patients', href: '/hospital-admin/dashboard', icon: Users },
-  { label: 'Scan Sessions', href: '/hospital-admin/dashboard', icon: ScanLine },
-  { label: 'Reports', href: '/hospital-admin/dashboard', icon: FileText },
-  { label: 'Settings', href: '/profile', icon: Settings },
-];
+const NAV_ITEMS = getNavItems('hospital_admin');
 
 // ============================================================================
 // ROLE CARD
@@ -163,7 +159,7 @@ function UserRow({
   onSuspend,
   onActivate,
 }: {
-  user: ApiUser;
+  user: AdminUser;
   onSuspend?: (id: string) => void;
   onActivate?: (id: string) => void;
 }) {
@@ -216,7 +212,7 @@ function UserGridCard({
   onSuspend,
   onActivate,
 }: {
-  user: ApiUser;
+  user: AdminUser;
   onSuspend?: (id: string) => void;
   onActivate?: (id: string) => void;
 }) {
@@ -269,8 +265,18 @@ function UserGridCard({
 // ============================================================================
 // VERIFICATION CARD
 // ============================================================================
-function VerificationCard({ doctor }: { doctor: Doctor }) {
-  const doctorName = doctor.full_name || doctor.user_profile?.full_name || 'Unknown';
+function VerificationCard({
+  doctor,
+  onApprove,
+  onReject,
+  isBusy,
+}: {
+  doctor: DoctorDirectoryEntry;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+  isBusy: boolean;
+}) {
+  const decided = doctor.verification_status === 'verified' || doctor.verification_status === 'rejected';
 
   return (
     <SectionCard className="p-5">
@@ -280,22 +286,32 @@ function VerificationCard({ doctor }: { doctor: Doctor }) {
             <Stethoscope className="h-5 w-5 text-teal-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-slate-900">{doctorName}</h3>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 text-xs">{doctor.specialization}</span>
-              <span className="text-xs text-slate-500">License: <span className="font-mono">{doctor.license_number}</span></span>
+            <h3 className="font-semibold text-slate-900">{doctor.full_name}</h3>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {doctor.specialization && (
+                <span className="px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 text-xs">{doctor.specialization}</span>
+              )}
+              {doctor.medical_license && (
+                <span className="text-xs text-slate-500">License: <span className="font-mono">{doctor.medical_license}</span></span>
+              )}
             </div>
             <p className="text-xs text-slate-500 mt-1">Experience: {doctor.experience_years || 0} years</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1">
-            <CheckCircle2 className="h-3.5 w-3.5" />Approve
-          </Button>
-          <Button size="sm" variant="outline" className="border-red-200 text-red-700 hover:bg-red-50 gap-1">
-            <XCircle className="h-3.5 w-3.5" />Reject
-          </Button>
-        </div>
+        {decided ? (
+          <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${doctor.verification_status === 'verified' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+            {doctor.verification_status}
+          </span>
+        ) : (
+          <div className="flex gap-2">
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1" disabled={isBusy} onClick={() => onApprove(doctor.id)}>
+              {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}Approve
+            </Button>
+            <Button size="sm" variant="outline" className="border-red-200 text-red-700 hover:bg-red-50 gap-1" disabled={isBusy} onClick={() => onReject(doctor.id)}>
+              {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}Reject
+            </Button>
+          </div>
+        )}
       </div>
     </SectionCard>
   );
@@ -406,6 +422,8 @@ function GridCardSkeleton() {
   );
 }
 
+type HealthState = 'ok' | 'not_configured' | 'unreachable' | 'checking';
+
 // ============================================================================
 // MAIN HOSPITAL ADMIN DASHBOARD
 // ============================================================================
@@ -431,37 +449,134 @@ export const HospitalAdminDashboard: React.FC = () => {
   // Assignment state
   const [selectedDoctor, setSelectedDoctor] = useState<string>('');
   const [selectedPatient, setSelectedPatient] = useState<string>('');
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
-  // Data
-  const { data: stats, isLoading: statsLoading, error: statsError } = useAdminStats();
-  const { data: usersData, isLoading: usersLoading, refetch: refetchUsers } = useUsers({ pageSize: 50 });
-  const { data: doctorsData, isLoading: doctorsLoading } = useDoctors({ pageSize: 50 });
-  const { data: patientsData, isLoading: patientsLoading } = usePatients({ pageSize: 50 });
-  const { data: assignmentsData, isLoading: assignmentsLoading, refetch: refetchAssignments } = useAllAssignments({ pageSize: 50 });
-  const { suspendUser, activateUser } = useUpdateUserStatus();
-  const { assignPatient, isLoading: assignLoading, error: assignError } = useAssignPatient();
+  // Data (backend-backed — see features/admin/api.ts)
+  const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const [doctors, setDoctors] = useState<DoctorDirectoryEntry[] | null>(null);
+  const [patients, setPatients] = useState<PatientDirectoryEntry[] | null>(null);
+  const [assignments, setAssignments] = useState<Assignment[] | null>(null);
+  const [scans, setScans] = useState<SessionStatusResponse[] | null>(null);
+  const [health, setHealth] = useState<{ api: HealthState; database: HealthState; storage: HealthState }>({
+    api: 'checking',
+    database: 'checking',
+    storage: 'checking',
+  });
 
-  const users = usersData?.data || [];
-  const doctors = doctorsData?.data || [];
-  const patients = patientsData?.data || [];
-  const assignments = assignmentsData?.data || [];
+  const loadUsers = useCallback(() => {
+    adminApi.users().then(setUsers).catch((e) => setUsersError((e as Error).message));
+  }, []);
+  const loadDoctors = useCallback(() => {
+    adminApi.doctors().then(setDoctors).catch(() => setDoctors([]));
+  }, []);
+  const loadPatients = useCallback(() => {
+    adminApi.patients().then(setPatients).catch(() => setPatients([]));
+  }, []);
+  const loadAssignments = useCallback(() => {
+    adminApi.assignments().then(setAssignments).catch(() => setAssignments([]));
+  }, []);
+
+  useEffect(() => {
+    loadUsers();
+    loadDoctors();
+    loadPatients();
+    loadAssignments();
+    analysisApi.list({ limit: 200 }).then(setScans).catch(() => setScans([]));
+
+    adminApi.health().then((r) => setHealth((h) => ({ ...h, api: r.status === 'ok' ? 'ok' : 'unreachable' }))).catch(() => setHealth((h) => ({ ...h, api: 'unreachable' })));
+    adminApi.healthDatabase().then((r) => setHealth((h) => ({ ...h, database: r.status === 'ok' ? 'ok' : 'not_configured' }))).catch(() => setHealth((h) => ({ ...h, database: 'unreachable' })));
+    adminApi.healthStorage().then((r) => setHealth((h) => ({ ...h, storage: r.status === 'ok' ? 'ok' : 'not_configured' }))).catch(() => setHealth((h) => ({ ...h, storage: 'unreachable' })));
+  }, [loadUsers, loadDoctors, loadPatients, loadAssignments]);
+
+  const usersLoading = users === null && !usersError;
+  const doctorsLoading = doctors === null;
+  const patientsLoading = patients === null;
+  const assignmentsLoading = assignments === null;
+
+  const usersList = useMemo(() => users || [], [users]);
+  const doctorsList = useMemo(() => doctors || [], [doctors]);
+  const patientsList = useMemo(() => patients || [], [patients]);
+  const assignmentsList = useMemo(() => assignments || [], [assignments]);
+  const scansList = useMemo(() => scans || [], [scans]);
+
+  // Derived stats — computed from real data instead of a broken aggregate endpoint.
+  const stats = useMemo(() => {
+    const activeUsers = usersList.filter((u) => u.account_status === 'active').length;
+    const suspendedUsers = usersList.filter((u) => u.account_status === 'suspended').length;
+    const pendingVerifications =
+      doctorsList.filter((d) => (d.verification_status ?? 'pending') === 'pending').length +
+      patientsList.filter((p) => (p.verification_status ?? 'pending') === 'pending').length;
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const scansThisMonth = scansList.filter(
+      (s) => s.created_at && new Date(s.created_at) >= startOfMonth
+    ).length;
+
+    return {
+      totalUsers: usersList.length,
+      activeUsers,
+      suspendedUsers,
+      pendingVerifications,
+      totalScans: scansList.length,
+      scansThisMonth,
+    };
+  }, [usersList, doctorsList, patientsList, scansList]);
 
   // Role stats
   const roleStats = useMemo(() => [
-    { label: 'Patients', value: stats?.totalPatients || 0, icon: Users, color: 'blue' as const },
-    { label: 'Doctors', value: stats?.totalDoctors || 0, icon: Stethoscope, color: 'green' as const },
-    { label: 'Radiologists', value: stats?.totalRadiologists || 0, icon: Brain, color: 'cyan' as const },
-    { label: 'Hospital Admins', value: stats?.totalAdmins || 0, icon: Crown, color: 'violet' as const },
-  ], [stats]);
+    { label: 'Patients', value: patientsList.length, icon: Users, color: 'blue' as const },
+    { label: 'Doctors', value: doctorsList.length, icon: Stethoscope, color: 'green' as const },
+    { label: 'Radiologists', value: usersList.filter((u) => u.role === 'radiologist').length, icon: Brain, color: 'cyan' as const },
+    { label: 'Hospital Admins', value: usersList.filter((u) => u.role === 'hospital_admin').length, icon: Crown, color: 'violet' as const },
+  ], [usersList, doctorsList, patientsList]);
 
   // User status handlers
   const handleSuspendUser = async (userId: string) => {
-    await suspendUser(userId);
-    refetchUsers();
+    try {
+      await adminApi.suspendUser(userId);
+      loadUsers();
+    } catch (e) {
+      toast.error((e as Error).message || 'Failed to suspend user');
+    }
   };
   const handleActivateUser = async (userId: string) => {
-    await activateUser(userId);
-    refetchUsers();
+    try {
+      await adminApi.reactivateUser(userId);
+      loadUsers();
+    } catch (e) {
+      toast.error((e as Error).message || 'Failed to activate user');
+    }
+  };
+
+  // Verification handlers
+  const handleApproveDoctor = async (doctorId: string) => {
+    setVerifyingId(doctorId);
+    try {
+      await adminApi.verifyUser(doctorId);
+      loadDoctors();
+      toast.success('Doctor verified');
+    } catch (e) {
+      toast.error((e as Error).message || 'Failed to verify doctor');
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+  const handleRejectDoctor = async (doctorId: string) => {
+    setVerifyingId(doctorId);
+    try {
+      await adminApi.rejectUser(doctorId);
+      loadDoctors();
+      toast.success('Doctor rejected');
+    } catch (e) {
+      toast.error((e as Error).message || 'Failed to reject doctor');
+    } finally {
+      setVerifyingId(null);
+    }
   };
 
   // Create user handler
@@ -492,12 +607,14 @@ export const HospitalAdminDashboard: React.FC = () => {
       });
       setCreateForm({ full_name: '', email: '', role: '', phone: '' });
       setIsCreateUserOpen(false);
-      refetchUsers();
+      loadUsers();
+      loadDoctors();
+      loadPatients();
       toast.success(result.emailSent
         ? 'User created! Credentials sent via email.'
         : 'User created! Please share credentials manually.');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to create user');
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to create user');
     } finally {
       setCreateLoading(false);
     }
@@ -505,13 +622,18 @@ export const HospitalAdminDashboard: React.FC = () => {
 
   // Assignment handler
   const handleAssignPatient = async () => {
-    if (selectedDoctor && selectedPatient) {
-      const result = await assignPatient(selectedDoctor, selectedPatient);
-      if (result) {
-        setSelectedDoctor('');
-        setSelectedPatient('');
-        refetchAssignments();
-      }
+    if (!selectedDoctor || !selectedPatient) return;
+    setAssignLoading(true);
+    setAssignError(null);
+    try {
+      await adminApi.assignDoctor(selectedDoctor, selectedPatient);
+      setSelectedDoctor('');
+      setSelectedPatient('');
+      loadAssignments();
+    } catch (e) {
+      setAssignError((e as Error).message || 'Failed to assign patient');
+    } finally {
+      setAssignLoading(false);
     }
   };
 
@@ -519,7 +641,7 @@ export const HospitalAdminDashboard: React.FC = () => {
   const PAGE_SIZE = 12;
 
   const filteredUsers = useMemo(() => {
-    let result = [...users];
+    let result = [...usersList];
 
     if (roleFilter !== 'all') {
       result = result.filter((u) => u.role === roleFilter);
@@ -546,13 +668,13 @@ export const HospitalAdminDashboard: React.FC = () => {
     });
 
     return result;
-  }, [users, roleFilter, statusFilter, searchTerm, sortBy]);
+  }, [usersList, roleFilter, statusFilter, searchTerm, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
   const paginatedUsers = filteredUsers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-  const updateFilter = useCallback((setter: (v: any) => void, value: any) => {
+  const updateFilter = useCallback(<T,>(setter: (v: T) => void, value: T) => {
     setter(value);
     setCurrentPage(1);
   }, []);
@@ -563,14 +685,19 @@ export const HospitalAdminDashboard: React.FC = () => {
     searchTerm !== '',
   ].filter(Boolean).length;
 
-  const isLoading = statsLoading && usersLoading && !stats && users.length === 0;
+  const isLoading = usersLoading && users === null;
 
-  // System health
-  const systemHealth = stats?.systemHealth || { database: 'healthy', storage: 'healthy', mlService: 'healthy' };
-  const healthDot = (status: string) => {
-    if (status === 'healthy') return 'bg-emerald-500';
-    if (status === 'degraded') return 'bg-amber-500';
+  const healthDot = (state: HealthState) => {
+    if (state === 'ok') return 'bg-emerald-500';
+    if (state === 'checking') return 'bg-slate-300 animate-pulse';
+    if (state === 'not_configured') return 'bg-amber-500';
     return 'bg-red-500';
+  };
+  const healthLabel = (state: HealthState) => {
+    if (state === 'ok') return 'Healthy';
+    if (state === 'checking') return 'Checking…';
+    if (state === 'not_configured') return 'Not configured';
+    return 'Unreachable';
   };
 
   return (
@@ -579,7 +706,7 @@ export const HospitalAdminDashboard: React.FC = () => {
         eyebrow="Hospital Admin"
         title="Hospital Admin Dashboard"
         description="Complete hospital ecosystem management for AI4Neuro services."
-        routeChip="/hospital-admin-dashboard"
+        routeChip="/hospital-admin/dashboard"
         accent="teal"
       />
 
@@ -715,9 +842,9 @@ export const HospitalAdminDashboard: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {statsError && (
+      {usersError && (
         <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-          Failed to load stats: {statsError}
+          Failed to load users: {usersError}
         </div>
       )}
 
@@ -727,10 +854,10 @@ export const HospitalAdminDashboard: React.FC = () => {
           <>{[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}</>
         ) : (
           <>
-            <SharedStatCard label="Total Users" value={stats?.totalUsers || 0} icon={Users} sublabel="All roles combined" accent="teal" />
-            <SharedStatCard label="Pending Actions" value={stats?.pendingVerifications || 0} icon={AlertCircle} sublabel="Require attention" accent="teal" />
-            <SharedStatCard label="Monthly Scans" value={stats?.scansThisMonth || 0} icon={Activity} sublabel="Hospital-wide" accent="teal" />
-            <SharedStatCard label="Active Users" value={stats?.activeUsers || 0} icon={Shield} sublabel="Currently active" accent="teal" />
+            <SharedStatCard label="Total Users" value={stats.totalUsers} icon={Users} sublabel="All roles combined" accent="teal" />
+            <SharedStatCard label="Pending Actions" value={stats.pendingVerifications} icon={AlertCircle} sublabel="Require attention" accent="teal" />
+            <SharedStatCard label="Monthly Scans" value={stats.scansThisMonth} icon={Activity} sublabel="Hospital-wide" accent="teal" />
+            <SharedStatCard label="Active Users" value={stats.activeUsers} icon={Shield} sublabel="Currently active" accent="teal" />
           </>
         )}
       </div>
@@ -750,7 +877,7 @@ export const HospitalAdminDashboard: React.FC = () => {
           <SectionToggle
             activeSection={activeSection}
             onSectionChange={setActiveSection}
-            pendingCount={stats?.pendingVerifications || 0}
+            pendingCount={stats.pendingVerifications}
           />
 
           {/* === USERS SECTION === */}
@@ -892,12 +1019,12 @@ export const HospitalAdminDashboard: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-500">
                   {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
-                  {activeFilterCount > 0 && ` (filtered from ${users.length})`}
+                  {activeFilterCount > 0 && ` (filtered from ${usersList.length})`}
                 </span>
               </div>
 
               {/* Users Display */}
-              {usersLoading && users.length === 0 ? (
+              {usersLoading && usersList.length === 0 ? (
                 viewMode === 'grid' ? (
                   <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                     {[1, 2, 3, 4, 5, 6].map((i) => <GridCardSkeleton key={i} />)}
@@ -944,20 +1071,26 @@ export const HospitalAdminDashboard: React.FC = () => {
                 <div className="p-2 rounded-lg bg-teal-50">
                   <AlertCircle className="h-5 w-5 text-teal-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900">Pending Verifications</h3>
+                <h3 className="text-lg font-semibold text-slate-900">Doctor Verifications</h3>
                 <span className="px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 text-xs font-medium">
-                  {stats?.pendingVerifications || 0} pending
+                  {stats.pendingVerifications} pending
                 </span>
               </div>
 
               <div className="space-y-3">
                 {doctorsLoading ? (
                   <>{[1, 2].map((i) => <RowSkeleton key={i} />)}</>
-                ) : doctors.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500">No pending verifications</div>
+                ) : doctorsList.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">No doctors on file yet</div>
                 ) : (
-                  doctors.slice(0, 10).map((doctor) => (
-                    <VerificationCard key={doctor.id} doctor={doctor} />
+                  doctorsList.map((doctor) => (
+                    <VerificationCard
+                      key={doctor.id}
+                      doctor={doctor}
+                      onApprove={handleApproveDoctor}
+                      onReject={handleRejectDoctor}
+                      isBusy={verifyingId === doctor.id}
+                    />
                   ))
                 )}
               </div>
@@ -989,9 +1122,9 @@ export const HospitalAdminDashboard: React.FC = () => {
                       {doctorsLoading ? (
                         <SelectItem value="" disabled>Loading...</SelectItem>
                       ) : (
-                        doctors.map((doctor) => (
+                        doctorsList.map((doctor) => (
                           <SelectItem key={doctor.id} value={doctor.id}>
-                            {doctor.full_name || doctor.user_profile?.full_name} - {doctor.specialization}
+                            {doctor.full_name}{doctor.specialization ? ` - ${doctor.specialization}` : ''}
                           </SelectItem>
                         ))
                       )}
@@ -1008,9 +1141,9 @@ export const HospitalAdminDashboard: React.FC = () => {
                       {patientsLoading ? (
                         <SelectItem value="" disabled>Loading...</SelectItem>
                       ) : (
-                        patients.map((patient) => (
+                        patientsList.map((patient) => (
                           <SelectItem key={patient.id} value={patient.id}>
-                            {patient.full_name || patient.user_profile?.full_name} - {patient.patient_code}
+                            {patient.full_name}{patient.patient_code ? ` - ${patient.patient_code}` : ''}
                           </SelectItem>
                         ))
                       )}
@@ -1032,16 +1165,16 @@ export const HospitalAdminDashboard: React.FC = () => {
               <div className="mt-6 pt-4 border-t border-slate-100">
                 <div className="flex items-center gap-3 mb-3">
                   <h4 className="text-sm font-semibold text-slate-900">Current Assignments</h4>
-                  <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">{assignments.length} active</span>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">{assignmentsList.length} active</span>
                 </div>
 
                 <div className="space-y-2 max-h-[400px] overflow-y-auto">
                   {assignmentsLoading ? (
                     <>{[1, 2, 3].map((i) => <RowSkeleton key={i} />)}</>
-                  ) : assignments.length === 0 ? (
+                  ) : assignmentsList.length === 0 ? (
                     <div className="text-center py-6 text-slate-500 text-sm">No assignments found</div>
                   ) : (
-                    assignments.map((assignment: any) => (
+                    assignmentsList.map((assignment) => (
                       <div key={assignment.id} className="p-3 rounded-xl bg-white border border-slate-200 hover:border-blue-300 transition-all">
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1054,7 +1187,7 @@ export const HospitalAdminDashboard: React.FC = () => {
                             <span className="text-sm text-slate-900 truncate">{assignment.patient_name}</span>
                           </div>
                           <span className="text-[10px] text-slate-400 shrink-0">
-                            {assignment.assigned_date ? new Date(assignment.assigned_date).toLocaleDateString() : ''}
+                            {assignment.created_at ? new Date(assignment.created_at).toLocaleDateString() : ''}
                           </span>
                         </div>
                       </div>
@@ -1076,18 +1209,18 @@ export const HospitalAdminDashboard: React.FC = () => {
             </h3>
             <div className="space-y-2.5">
               {[
-                { label: 'Database', status: systemHealth.database, icon: Database },
-                { label: 'Storage', status: systemHealth.storage, icon: HardDrive },
-                { label: 'ML Service', status: systemHealth.mlService, icon: Cpu },
-              ].map(({ label, status, icon: SIcon }) => (
+                { label: 'API', status: health.api, icon: Server },
+                { label: 'Database', status: health.database, icon: Database },
+                { label: 'Storage', status: health.storage, icon: HardDrive },
+              ].map(({ label, status: hStatus, icon: SIcon }) => (
                 <div key={label} className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50">
                   <div className="flex items-center gap-2">
                     <SIcon className="h-3.5 w-3.5 text-slate-400" />
                     <span className="text-xs text-slate-500">{label}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${healthDot(status)}`} />
-                    <span className="text-xs text-slate-800 capitalize">{status}</span>
+                    <span className={`w-2 h-2 rounded-full ${healthDot(hStatus)}`} />
+                    <span className="text-xs text-slate-800">{healthLabel(hStatus)}</span>
                   </div>
                 </div>
               ))}
@@ -1103,15 +1236,15 @@ export const HospitalAdminDashboard: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50">
                 <span className="text-xs text-slate-500">Total Scans</span>
-                <span className="text-sm font-bold text-slate-900">{stats?.totalScans || 0}</span>
+                <span className="text-sm font-bold text-slate-900">{stats.totalScans}</span>
               </div>
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50">
                 <span className="text-xs text-slate-500">This Month</span>
-                <span className="text-sm font-bold text-teal-700">{stats?.scansThisMonth || 0}</span>
+                <span className="text-sm font-bold text-teal-700">{stats.scansThisMonth}</span>
               </div>
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50">
                 <span className="text-xs text-slate-500">Suspended</span>
-                <span className="text-sm font-bold text-red-600">{stats?.suspendedUsers || 0}</span>
+                <span className="text-sm font-bold text-red-600">{stats.suspendedUsers}</span>
               </div>
             </div>
           </SectionCard>
@@ -1123,6 +1256,7 @@ export const HospitalAdminDashboard: React.FC = () => {
               { label: 'Add Doctor', onClick: () => setIsCreateUserOpen(true) },
               { label: 'Add Radiologist', onClick: () => setIsCreateUserOpen(true) },
               { label: 'Add Patient', onClick: () => setIsCreateUserOpen(true) },
+              { label: 'View Scan Sessions', href: '/hospital-admin/sessions' },
             ]}
           />
 
@@ -1133,14 +1267,11 @@ export const HospitalAdminDashboard: React.FC = () => {
               Reports
             </h3>
             <div className="space-y-2">
-              <Button variant="outline" size="sm" className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200">
-                <Activity className="h-3.5 w-3.5" />Usage Report
+              <Button variant="outline" size="sm" asChild className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200">
+                <a href="/hospital-admin/sessions?status=completed"><Activity className="h-3.5 w-3.5" />Completed Reports</a>
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-200">
-                <Users className="h-3.5 w-3.5" />User Statistics
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200">
-                <Shield className="h-3.5 w-3.5" />Audit Log
+              <Button variant="outline" size="sm" asChild className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-200">
+                <a href="/hospital-admin/users"><Users className="h-3.5 w-3.5" />User Statistics</a>
               </Button>
             </div>
           </SectionCard>
