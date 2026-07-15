@@ -5,13 +5,14 @@ import traceback
 from fpdf import XPos, YPos
 from .base_report import BasePDFReport
 from app.reports.eeg.utils import sanitize_for_helvetica
+from app.reports import theme
 
 class TechnicalPDFReport(BasePDFReport):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.report_title = "Technical EEG Analysis Report - Radiologist Copy"
-        self.primary_color = (40, 60, 80)
-        self.secondary_color = (52, 152, 219)
+        self.report_title = "Technical EEG Analysis - Radiologist Copy"
+        self.primary_color = theme.BRAND
+        self.secondary_color = theme.BRAND
 
 def format_metric_for_pdf(value, type='float', precision=1):
     """Format metric values for PDF display"""
@@ -160,7 +161,9 @@ def build_technical_pdf_report_content(pdf: TechnicalPDFReport, comprehensive_da
                 current_y = pdf.get_y()
                 pdf.metric_card(*metric1_args)
                 if metric2_args:
-                    pdf.set_y(current_y)
+                    # metric_card already leaves the cursor positioned for a
+                    # 2nd card (see base_report.metric_card) - do not
+                    # set_y() here, it would reset x back to l_margin.
                     pdf.metric_card(*metric2_args)
                 else:
                     # Reset X for next row if only one card

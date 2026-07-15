@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.reports.mri.utils import sanitize_for_pdf, format_percentage
 from app.pipelines.mri.config import DISEASE_INFO, NORMATIVE_VOLUMES, MODEL_VERSION
+from app.reports import theme
 
 
 class TechnicalPDFReport(BaseMRIReport):
@@ -21,8 +22,8 @@ class TechnicalPDFReport(BaseMRIReport):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.report_title = "Technical MRI Analysis Report"
-        self.primary_color = (40, 60, 80)
-        self.secondary_color = (52, 152, 219)
+        self.primary_color = theme.BRAND
+        self.secondary_color = theme.BRAND
 
 
 def build_technical_report(
@@ -172,8 +173,8 @@ def build_technical_report(
 
             # Table header
             pdf.set_font('Helvetica', 'B', 8.5)
-            pdf.set_fill_color(*pdf.primary_color)
-            pdf.set_text_color(255, 255, 255)
+            pdf.set_fill_color(*theme.PANEL)
+            pdf.set_text_color(*theme.INK)
             pdf.cell(50, 7, " Region", 0, 0, 'L', True)
             pdf.cell(35, 7, "Severity", 0, 0, 'C', True)
             pdf.cell(0, 7, "Observation", 0, 1, 'L', True)
@@ -182,7 +183,7 @@ def build_technical_report(
             pdf.set_font('Helvetica', '', 8.5)
             for i, region in enumerate(affected_regions):
                 if i % 2 == 0:
-                    pdf.set_fill_color(*pdf.card_bg_color)
+                    pdf.set_fill_color(*theme.ZEBRA)
                 else:
                     pdf.set_fill_color(255, 255, 255)
                 pdf.set_text_color(*pdf.text_color_dark)
@@ -322,8 +323,8 @@ def _add_detailed_volume_table(pdf: TechnicalPDFReport, ml_results: Dict):
 
     # Table header — dark background
     pdf.set_font('Helvetica', 'B', 8)
-    pdf.set_fill_color(*pdf.primary_color)
-    pdf.set_text_color(255, 255, 255)
+    pdf.set_fill_color(*theme.PANEL)
+    pdf.set_text_color(*theme.INK)
     pdf.cell(48, 7, " Structure", 0, 0, 'L', True)
     pdf.cell(28, 7, "Measured", 0, 0, 'C', True)
     pdf.cell(32, 7, "Normal Range", 0, 0, 'C', True)
@@ -360,7 +361,7 @@ def _add_detailed_volume_table(pdf: TechnicalPDFReport, ml_results: Dict):
 
         # Alternating row backgrounds
         if row_idx % 2 == 0:
-            pdf.set_fill_color(*pdf.card_bg_color)
+            pdf.set_fill_color(*theme.ZEBRA)
         else:
             pdf.set_fill_color(255, 255, 255)
 

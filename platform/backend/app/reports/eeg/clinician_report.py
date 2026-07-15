@@ -5,14 +5,15 @@ import traceback
 from fpdf import XPos, YPos
 from .base_report import BasePDFReport
 from app.reports.eeg.utils import sanitize_for_helvetica
+from app.reports import theme
 from .technical_report import format_metric_for_pdf
 
 class ClinicianPDFReport(BasePDFReport):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.report_title = "EEG Pattern Analysis Report - Clinician Copy"
-        self.primary_color = (41, 128, 185)
-        self.secondary_color = (52, 152, 219)
+        self.report_title = "EEG Pattern Analysis - Clinician Copy"
+        self.primary_color = theme.BRAND
+        self.secondary_color = theme.BRAND
 
 def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_data, stats_data,
                                        similarity_data, consistency_metrics,
@@ -102,61 +103,33 @@ def build_clinician_pdf_report_content(pdf: ClinicianPDFReport, comprehensive_da
 
         # Primary Finding
         primary_finding_text = "Indeterminate"
-        finding_color = pdf.text_color_dark
+        finding_tone = theme.MUTED
         clinical_significance = ""
 
         if prediction_label == "Alzheimer's" or prediction_label == "AD":
             primary_finding_text = "EEG Patterns Suggestive of Alzheimer's Disease"
-            finding_color = (192, 57, 43)
+            finding_tone = theme.DANGER
             clinical_significance = (
                 "The AI analysis identified EEG patterns consistent with those typically observed in Alzheimer's disease. "
                 "These findings may indicate neurodegenerative changes affecting brain electrical activity."
             )
         elif prediction_label == "MCI":
             primary_finding_text = "EEG Patterns Suggestive of Mild Cognitive Impairment"
-            finding_color = (243, 156, 18)  # Orange color for MCI
+            finding_tone = theme.WARN
             clinical_significance = (
                 "The AI analysis identified EEG patterns consistent with those typically observed in Mild Cognitive Impairment (MCI). "
                 "These findings may indicate early changes in brain electrical activity that warrant further clinical evaluation and monitoring."
             )
         elif prediction_label == "Normal" or prediction_label == "CN":
             primary_finding_text = "Normal EEG Pattern"
-            finding_color = (39, 174, 96)
+            finding_tone = theme.OK
             clinical_significance = (
                 "The AI analysis found EEG patterns within normal parameters, showing typical healthy brain electrical activity. "
                 "No significant deviations from expected normal patterns were detected."
             )
 
-        pdf.set_font('Helvetica', 'B', 9)
-        pdf.set_text_color(*pdf.text_color_dark)
-        pdf.cell(0, 6, "Primary Classification:", 0, 1, 'L')
+        theme.finding_banner(pdf, primary_finding_text, clinical_significance, tone=finding_tone)
         pdf.ln(2)
-
-        # Finding box - aligned to margins
-        box_x = pdf.l_margin
-        box_y = pdf.get_y()
-        box_width = pdf.w - pdf.l_margin - pdf.r_margin
-        box_height = 11
-
-        pdf.set_draw_color(*finding_color)
-        pdf.set_line_width(0.7)
-        pdf.rect(box_x, box_y, box_width, box_height, 'D')
-        pdf.set_line_width(0.2)
-
-        pdf.set_font('Helvetica', 'B', 10)
-        pdf.set_text_color(*finding_color)
-        pdf.set_xy(box_x, box_y + 3)
-        pdf.cell(box_width, 5, primary_finding_text, 0, 0, 'C')
-
-        pdf.set_y(box_y + box_height + 3)
-        pdf.set_text_color(*pdf.text_color_normal)
-
-        # Clinical Significance
-        if clinical_significance:
-            pdf.set_font('Helvetica', '', 9)
-            pdf.set_text_color(*pdf.text_color_dark)
-            pdf.multi_cell(0, 6, sanitize_for_helvetica(clinical_significance), align='L', max_line_height=6)
-            pdf.ln(12)
 
         # Model Confidence & Reliability
         # Check space before this section
