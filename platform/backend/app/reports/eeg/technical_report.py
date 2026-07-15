@@ -5,13 +5,14 @@ import traceback
 from fpdf import XPos, YPos
 from .base_report import BasePDFReport
 from app.reports.eeg.utils import sanitize_for_helvetica
+from app.reports import theme
 
 class TechnicalPDFReport(BasePDFReport):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.report_title = "Technical EEG Analysis Report - Radiologist Copy"
-        self.primary_color = (40, 60, 80)
-        self.secondary_color = (52, 152, 219)
+        self.report_title = "Technical EEG Analysis - Radiologist Copy"
+        self.primary_color = theme.BRAND
+        self.secondary_color = theme.BRAND
 
 def format_metric_for_pdf(value, type='float', precision=1):
     """Format metric values for PDF display"""

@@ -3,15 +3,16 @@ import traceback
 from fpdf import XPos, YPos
 from .base_report import BasePDFReport
 from app.reports.eeg.utils import sanitize_for_helvetica
+from app.reports import theme
 from .technical_report import format_metric_for_pdf
 
 class PatientPDFReport(BasePDFReport):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.report_title = "EEG Pattern Analysis Report - Patient Copy"
-        self.primary_color = (74, 144, 226)
-        self.highlight_color_alz = (231, 76, 60)
-        self.highlight_color_norm = (46, 204, 113)
+        self.report_title = "EEG Pattern Analysis - Patient Copy"
+        self.primary_color = theme.BRAND
+        self.highlight_color_alz = theme.DANGER
+        self.highlight_color_norm = theme.OK
 
 def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
                                      similarity_data, consistency_metrics,
@@ -54,59 +55,32 @@ def build_patient_pdf_report_content(pdf: PatientPDFReport, comprehensive_data,
         # Analysis performed by
         pdf.add_medical_professional_info(role="radiologist")
 
-        # Main Findings Section - Force new page for clean layout
-        pdf.add_page()
+        # Main Findings Section - keep the impression block together
+        if pdf.get_y() > pdf.h - 70:
+            pdf.add_page()
         pdf.section_title("Analysis Results & Findings")
         pdf.ln(2)
 
         prediction_label = prediction_data.get('prediction', 'Not Determined')
         pred_display_text = "Pattern assessment inconclusive"
-        pred_color = pdf.text_color_dark
+        pred_tone = theme.MUTED
         interpretation_text = ""
 
         if prediction_label == "Alzheimer's" or prediction_label == "AD":
             pred_display_text = "Patterns Suggestive of Alzheimer's Characteristics"
-            pred_color = pdf.highlight_color_alz
+            pred_tone = theme.DANGER
             interpretation_text = "The AI analysis found brain wave patterns that are similar to those typically seen in individuals with Alzheimer's disease."
         elif prediction_label == "MCI":
             pred_display_text = "Patterns Suggestive of Mild Cognitive Impairment"
-            pred_color = (243, 156, 18)  # Orange color for MCI
+            pred_tone = theme.WARN
             interpretation_text = "The AI analysis found brain wave patterns that are similar to those seen in individuals with Mild Cognitive Impairment (MCI), which represents early changes in brain activity."
         elif prediction_label == "Normal" or prediction_label == "CN":
             pred_display_text = "Normal Brainwave Patterns Observed"
-            pred_color = pdf.highlight_color_norm
+            pred_tone = theme.OK
             interpretation_text = "The AI analysis found brain wave patterns that are similar to typical healthy brain activity."
 
-        pdf.set_font('Helvetica', 'B', 9)
-        pdf.set_text_color(*pdf.text_color_dark)
-        pdf.cell(0, 6, "Primary Finding:", 0, 1, 'L')
-        pdf.ln(3)
-
-        # Finding Box
-        box_x = pdf.l_margin
-        box_y = pdf.get_y()
-        box_width = pdf.w - pdf.l_margin - pdf.r_margin
-        box_height = 11
-
-        pdf.set_draw_color(*pred_color)
-        pdf.set_line_width(0.7)
-        pdf.rect(box_x, box_y, box_width, box_height, 'D')
-        pdf.set_line_width(0.2)
-
-        pdf.set_font('Helvetica', 'B', 10)
-        pdf.set_text_color(*pred_color)
-        pdf.set_xy(box_x, box_y + 3)
-        pdf.cell(box_width, 5, pred_display_text, 0, 0, 'C')
-
-        pdf.set_y(box_y + box_height + 3)
-        pdf.set_text_color(*pdf.text_color_normal)
-
-        # Interpretation
-        if interpretation_text:
-            pdf.set_font('Helvetica', '', 9)
-            pdf.set_text_color(*pdf.text_color_dark)
-            pdf.multi_cell(0, 6, sanitize_for_helvetica(interpretation_text), align='L', max_line_height=6)
-            pdf.ln(8)
+        theme.finding_banner(pdf, pred_display_text, interpretation_text, tone=pred_tone)
+        pdf.ln(2)
 
         # Model Confidence Level
         probabilities = prediction_data.get('probabilities')

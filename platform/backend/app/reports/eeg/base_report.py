@@ -1,5 +1,6 @@
 from fpdf import FPDF, XPos, YPos
 from app.reports.eeg.utils import sanitize_for_helvetica
+from app.reports import theme
 from datetime import datetime
 import pandas as pd
 
@@ -7,22 +8,27 @@ class BasePDFReport(FPDF):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.report_title = "EEG Analysis Report"
-        self.primary_color = (52, 73, 94)
-        self.secondary_color = (74, 144, 226)
-        self.text_color_dark = (30, 30, 30)
-        self.text_color_light = (100, 100, 100)
-        self.text_color_normal = (0,0,0)
-        self.line_color = (220, 220, 220)
-        self.card_bg_color = (248, 249, 250)
-        self.highlight_color_alz = (220, 60, 60)
-        self.highlight_color_norm = (60, 179, 113)
-        self.warning_bg_color = (255, 243, 205)
-        self.warning_text_color = (133, 100, 4)
+        # Subtle clinical palette (shared design system — see reports/theme.py)
+        self.primary_color = theme.BRAND
+        self.secondary_color = theme.BRAND
+        self.text_color_dark = theme.INK
+        self.text_color_light = theme.MUTED
+        self.text_color_normal = theme.INK
+        self.line_color = theme.HAIRLINE
+        self.card_bg_color = theme.PANEL
+        self.highlight_color_alz = theme.DANGER
+        self.highlight_color_norm = theme.OK
+        self.warning_bg_color = theme.ALERT_FILL
+        self.warning_text_color = theme.ALERT_TEXT
         self.page_margin = 15
-        self.set_auto_page_break(auto=True, margin=self.page_margin)
+        self.set_margins(15, 12, 15)
+        self.set_auto_page_break(auto=True, margin=16)
         self.set_line_width(0.2)
         # Store comprehensive report data
         self.comprehensive_data = None
+
+    def _theme_sanitize(self, text):
+        return sanitize_for_helvetica(text)
 
     def _is_bold_font(self):
         return 'B' in self.font_style
@@ -41,79 +47,16 @@ class BasePDFReport(FPDF):
         super().write(h, txt_to_render, link)
 
     def header(self):
-        try:
-            self.set_font('Helvetica', 'B', 15)
-            title = sanitize_for_helvetica(self.report_title)
-            title_w = self.get_string_width(title) + 6
-            doc_w = self.w
-            self.set_x((doc_w - title_w) / 2)
-            self.set_text_color(*self.secondary_color)
-            self.cell(title_w, 10, title, border=0, align='C', ln=1)
-            self.set_text_color(*self.text_color_normal)
-            self.ln(5)
-            self.set_draw_color(*self.line_color)
-            self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
-            self.ln(8)
-        except Exception as e:
-            print(f"PDF Header Error: {e}")
+        theme.draw_letterhead(self, subtitle=self.report_title)
 
     def footer(self):
-        try:
-            self.set_y(-15)
-            self.set_font('Helvetica', 'I', 8)
-            self.set_text_color(128, 128, 128)
-            self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='C')
-            self.set_text_color(*self.text_color_normal)
-        except Exception as e:
-            print(f"PDF Footer Error: {e}")
+        theme.draw_footer(self)
 
     def section_title(self, title_text: str):
-        try:
-            # Prevent orphaned section titles - ensure at least 30mm space after title
-            if self.get_y() > self.h - 40:
-                self.add_page()
-
-            self.set_font('Helvetica', 'B', 12)
-            self.set_fill_color(80, 227, 194)
-            self.set_text_color(10, 15, 26)
-            self.cell(0, 9, " " + sanitize_for_helvetica(title_text), border='B', align='L', fill=True, ln=1)
-            self.set_text_color(*self.text_color_normal)
-            self.ln(5)
-        except Exception as e:
-            print(f"PDF Section Title Error for '{title_text}': {e}")
+        theme.section_heading(self, title_text)
 
     def key_value_pair(self, key: str, value, key_width=50):
-        try:
-            # Check if we need a new page to avoid orphaned content
-            if self.get_y() > self.h - 25:
-                self.add_page()
-
-            current_y = self.get_y()
-            self.set_font('Helvetica', 'B', 9)
-            self.set_text_color(*self.text_color_dark)
-
-            # Key on left
-            self.cell(key_width, 6, sanitize_for_helvetica(str(key))+":", 0, 0, 'L')
-
-            # Value on right
-            self.set_font('Helvetica', '', 9)
-            self.set_text_color(*self.text_color_normal)
-
-            # Calculate available width for value
-            value_width = self.w - self.l_margin - self.r_margin - key_width - 2
-            value_text = sanitize_for_helvetica(str(value))
-
-            # Check if value fits in one line
-            if self.get_string_width(value_text) <= value_width:
-                self.cell(value_width, 6, value_text, 0, 1, 'L')
-            else:
-                # Multi-line value - save position and render properly
-                value_x = self.get_x()
-                self.multi_cell(value_width, 6, value_text, 0, 'L', max_line_height=6)
-
-            self.ln(1.5)
-        except Exception as e:
-            print(f"PDF Key/Value Error for key '{key}': {e}")
+        theme.key_value(self, key, value, key_width=key_width)
 
     def write_multiline(self, text: str, height=5, indent=5):
         try:
@@ -135,8 +78,8 @@ class BasePDFReport(FPDF):
             card_height = 22
 
             # Draw card background
-            self.set_fill_color(245, 248, 252)
-            self.set_draw_color(180, 200, 220)
+            self.set_fill_color(*theme.PANEL)
+            self.set_draw_color(*theme.HAIRLINE)
             self.set_line_width(0.3)
             self.rect(start_x, start_y, card_width, card_height, 'DF')
 
@@ -257,114 +200,8 @@ class BasePDFReport(FPDF):
     def add_explanation_box(self, title: str, text_lines: list, icon_char: str = "",
                             bg_color=None, title_color=None, text_color_override=None,
                             font_size_text=9, line_h=5.5):
-        from fpdf import XPos, YPos
-        try:
-            # Check space - need more room for boxes
-            estimated_min_height = 15 + (len(text_lines) * 10)
-            if self.get_y() > self.h - estimated_min_height - 10:
-                self.add_page()
-
-            self.ln(2)
-            current_bg_color = bg_color if bg_color else self.card_bg_color
-            current_title_color = title_color if title_color else self.primary_color
-            current_text_color = text_color_override if text_color_override else self.text_color_dark
-
-            # Title
-            if title:
-                self.set_font('Helvetica', 'B', 10)
-                self.set_text_color(*current_title_color)
-                self.cell(0, 6, sanitize_for_helvetica(title), 0, 1, 'L')
-                self.ln(1)
-
-            # Calculate box parameters
-            box_start_y = self.get_y()
-            box_x = self.l_margin
-            box_width = self.w - self.l_margin - self.r_margin
-            content_x = box_x + 5
-            content_width = box_width - 10
-
-            # Render content using multi_cell for proper text wrapping
-            self.set_y(box_start_y + 4)
-
-            for item in text_lines:
-                is_list_item = isinstance(item, tuple) and item[0] == "bullet"
-                actual_text = item[1] if is_list_item else item
-                text_str = sanitize_for_helvetica(str(actual_text))
-
-                if is_list_item:
-                    self.set_font('Helvetica', '', font_size_text)
-                    self.set_text_color(*current_text_color)
-
-                    # Handle bold text (**text**)
-                    if "**" in text_str:
-                        # Custom rendering for bold
-                        current_y = self.get_y()
-                        self.set_x(content_x)
-                        self.cell(4, line_h, "-", 0, 0, 'L')
-                        self.set_x(content_x + 6)
-
-                        parts = text_str.split("**")
-                        x_pos = self.get_x()
-                        text_width = content_width - 6
-
-                        for i, part in enumerate(parts):
-                            if not part:
-                                continue
-                            is_bold = (i % 2 == 1)
-                            self.set_font('Helvetica', 'B' if is_bold else '', font_size_text)
-
-                            part_width = self.get_string_width(part)
-                            if x_pos + part_width > content_x + text_width:
-                                self.ln(line_h)
-                                self.set_x(content_x + 6)
-                                x_pos = self.get_x()
-
-                            self.cell(part_width, line_h, part, 0, 0, 'L')
-                            x_pos += part_width
-
-                        self.set_xy(self.l_margin, self.get_y() + line_h + 1.5)
-                    else:
-                        # Simple bullet with multi_cell
-                        current_y = self.get_y()
-                        self.set_x(content_x)
-                        self.cell(4, line_h, "-", 0, 0, 'L')
-                        self.set_xy(content_x + 6, current_y)
-                        self.multi_cell(content_width - 6, line_h, text_str, align='L', max_line_height=line_h, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-                        self.ln(1.5)
-                else:
-                    # Regular text (non-bullet)
-                    self.set_x(content_x)
-                    self.set_font('Helvetica', '', font_size_text)
-                    self.set_text_color(*current_text_color)
-                    self.multi_cell(content_width, line_h, text_str, align='L', max_line_height=line_h, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-                    self.ln(1.5)
-
-            # Get actual content height
-            content_end_y = self.get_y()
-            actual_box_height = content_end_y - box_start_y + 4
-
-            # Check if box would go off page - if so, add page and re-render
-            if box_start_y + actual_box_height > self.h - self.b_margin:
-                self.add_page()
-                # Don't re-render, just note that box is incomplete
-                self.set_text_color(*self.text_color_normal)
-                return
-
-            # Draw box border (not filled, so text shows through)
-            self.set_draw_color(200, 200, 200)
-            self.set_line_width(0.3)
-            self.rect(box_x, box_start_y, box_width, actual_box_height, 'D')
-            self.set_line_width(0.2)
-
-            # Position after box
-            self.set_y(content_end_y + 2)
-            self.set_text_color(*self.text_color_normal)
-
-        except Exception as e:
-            print(f"Error in add_explanation_box: {e}")
-            import traceback
-            traceback.print_exc()
-            self.ln(5)
+        # Delegates to the shared clinical panel style (see reports/theme.py).
+        theme.info_panel(self, title, text_lines)
 
     def calculate_age(self, date_of_birth):
         """Calculate age from date of birth"""
@@ -405,160 +242,86 @@ class BasePDFReport(FPDF):
             return str(date_input) if date_input else 'N/A'
 
     def add_hospital_header(self, hospital_data):
-        """Add professional hospital header to the report"""
-        if not hospital_data:
-            return
-
-        try:
-            self.set_font('Helvetica', 'B', 16)
-            self.set_text_color(*self.primary_color)
-            hospital_name = hospital_data.get('name', 'Medical Center')
-            self.cell(0, 8, sanitize_for_helvetica(hospital_name), 0, 1, 'C')
-
-            self.set_font('Helvetica', '', 9)
-            self.set_text_color(*self.text_color_dark)
-
-            # Address
-            address = hospital_data.get('address', '')
-            if address:
-                self.cell(0, 5, sanitize_for_helvetica(address), 0, 1, 'C')
-
-            # Contact info on one line
-            contact_parts = []
-            phone = hospital_data.get('phone')
-            email = hospital_data.get('email')
-            if phone:
-                contact_parts.append(f"Phone: {phone}")
-            if email:
-                contact_parts.append(f"Email: {email}")
-
-            if contact_parts:
-                self.cell(0, 5, sanitize_for_helvetica(" | ".join(contact_parts)), 0, 1, 'C')
-
-            # License number
-            license_num = hospital_data.get('license_number')
-            if license_num:
-                self.set_font('Helvetica', '', 8)
-                self.set_text_color(*self.text_color_light)
-                self.cell(0, 4, sanitize_for_helvetica(f"License No: {license_num}"), 0, 1, 'C')
-
-            self.ln(3)
-            self.set_draw_color(*self.primary_color)
-            self.set_line_width(0.5)
-            self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
-            self.ln(3)
-            self.set_line_width(0.2)
-            self.set_text_color(*self.text_color_normal)
-        except Exception as e:
-            print(f"Error adding hospital header: {e}")
+        """Branding is rendered by the shared letterhead (reports/theme.py); the
+        facility name is surfaced inside the encounter grid instead. Retained for
+        API compatibility with the report builders."""
+        return
 
     def add_report_metadata_section(self, report_type="EEG Analysis"):
-        """Add report metadata section with report type, ID, and generation date"""
-        try:
-            start_y = self.get_y()
-            self.set_fill_color(240, 248, 255)
-            box_height = 22
+        """No-op: the report subtitle and date are shown in the letterhead.
+        Retained for API compatibility with the report builders."""
+        return
 
-            # Draw background box
-            self.rect(self.l_margin, start_y, self.w - self.l_margin - self.r_margin, box_height, 'F')
-
-            self.set_y(start_y + 3)
-
-            # Report Type
-            self.set_font('Helvetica', 'B', 12)
-            self.set_text_color(*self.secondary_color)
-            self.cell(0, 6, sanitize_for_helvetica(report_type), 0, 1, 'C')
-
-            # Report ID and Date
-            self.set_font('Helvetica', '', 8)
-            self.set_text_color(*self.text_color_dark)
-
-            report_id = ""
-            if self.comprehensive_data and self.comprehensive_data.get('prediction'):
-                pred_id = self.comprehensive_data['prediction'].get('id', '')
-                if pred_id:
-                    report_id = f"Report ID: {pred_id[:8].upper()}"
-
-            report_date = f"Generated: {datetime.now().strftime('%d %B %Y, %H:%M')}"
-
-            meta_line = f"{report_id}  |  {report_date}" if report_id else report_date
-            self.cell(0, 5, sanitize_for_helvetica(meta_line), 0, 1, 'C')
-
-            self.set_y(start_y + box_height + 2)
-            self.set_text_color(*self.text_color_normal)
-            self.ln(3)
-        except Exception as e:
-            print(f"Error adding report metadata: {e}")
+    def _session_date_only(self):
+        session = (self.comprehensive_data or {}).get('session') or {}
+        raw = session.get('scan_date') or session.get('session_date')
+        return self.format_date(raw, 'date_only') if raw else datetime.now().strftime('%d %B %Y')
 
     def add_patient_demographics_section(self):
-        """Add comprehensive patient demographics section"""
+        """Render the patient / encounter demographics as a bordered grid."""
         if not self.comprehensive_data:
             return
 
-        patient = self.comprehensive_data.get('patient')
-        patient_profile = self.comprehensive_data.get('patient_profile')
+        patient = self.comprehensive_data.get('patient') or {}
+        patient_profile = self.comprehensive_data.get('patient_profile') or {}
+        hospital = self.comprehensive_data.get('hospital') or {}
+        doctor = self.comprehensive_data.get('doctor') or {}
+        session = self.comprehensive_data.get('session') or {}
 
         if not patient:
             return
 
         try:
-            # Check if we have enough space for patient section
-            if self.get_y() > self.h - 70:
-                self.add_page()
+            self.section_title("Patient Demographics & Encounter")
 
-            self.section_title("Patient Information")
-
-            # Calculate age if DOB available
-            age_str = "N/A"
-            dob = patient.get('date_of_birth')
+            dob = patient.get('date_of_birth') or patient_profile.get('date_of_birth')
             if dob:
                 age = self.calculate_age(dob)
-                age_str = f"{age} years" if age else "N/A"
-                dob_formatted = self.format_date(dob, 'date_only')
+                dob_str = f"{self.format_date(dob, 'date_only')}"
+                if age:
+                    dob_str += f"  (Age {age})"
             else:
-                dob_formatted = "N/A"
+                dob_str = "-"
 
-            # Patient ID
-            patient_id = patient.get('unique_identifier', 'N/A')
-            self.key_value_pair("Patient ID", patient_id, key_width=45)
+            gender = patient_profile.get('gender') or patient.get('gender') or "-"
+            patient_id = patient.get('unique_identifier') or patient_profile.get('patient_code') or "-"
 
-            # Full Name
-            full_name = patient.get('full_name', 'N/A')
-            self.key_value_pair("Full Name", full_name, key_width=45)
+            items = [
+                ("Patient Name", patient.get('full_name')),
+                ("Date of Birth / Age", dob_str),
+                ("Sex", gender),
+                ("MRN / Patient ID", patient_id),
+                ("Date of Assessment", self._session_date_only()),
+                ("Status", "COMPLETED"),
+                ("Referring Facility", hospital.get('name')),
+                ("Ordering Provider", doctor.get('full_name')),
+                ("Accession No.", session.get('session_code')),
+            ]
+            theme.demographics_grid(self, items, ncols=3)
 
-            # DOB and Age
-            self.key_value_pair("Date of Birth", f"{dob_formatted} (Age: {age_str})", key_width=45)
-
-            # Blood Group
-            blood_group = self.comprehensive_data.get('blood_group')
-            if blood_group and blood_group != 'N/A':
-                self.key_value_pair("Blood Group", blood_group, key_width=45)
-
-            # Contact Information
-            phone = patient.get('phone')
-            if phone and phone != 'N/A':
-                self.key_value_pair("Phone", phone, key_width=45)
-
-            email = patient.get('email')
-            if email and email != 'N/A':
-                self.key_value_pair("Email", email, key_width=45)
-
-            # Address
+            # Long / optional fields below the grid as clean key-value rows.
             address = patient.get('address')
             if address and str(address).strip() and address != 'N/A':
-                self.key_value_pair("Address", address, key_width=45)
+                self.key_value_pair("Address", address, key_width=46)
 
-            # Emergency Contact
-            if patient_profile:
-                emergency_contact_name = patient_profile.get('emergency_contact_name')
-                emergency_contact_phone = patient_profile.get('emergency_contact_phone')
+            contact_bits = []
+            if patient.get('phone') and patient.get('phone') != 'N/A':
+                contact_bits.append(str(patient['phone']))
+            if patient.get('email') and patient.get('email') != 'N/A':
+                contact_bits.append(str(patient['email']))
+            if contact_bits:
+                self.key_value_pair("Contact", "  |  ".join(contact_bits), key_width=46)
 
-                if emergency_contact_name or emergency_contact_phone:
-                    ec_name = emergency_contact_name if emergency_contact_name else 'N/A'
-                    ec_phone = emergency_contact_phone if emergency_contact_phone else 'N/A'
-                    self.key_value_pair("Emergency Contact", f"{ec_name}, {ec_phone}", key_width=45)
+            blood_group = self.comprehensive_data.get('blood_group')
+            if blood_group and blood_group != 'N/A':
+                self.key_value_pair("Blood Group", blood_group, key_width=46)
 
-            self.ln(3)
+            ec_name = patient_profile.get('emergency_contact_name')
+            ec_phone = patient_profile.get('emergency_contact_phone')
+            if ec_name or ec_phone:
+                self.key_value_pair("Emergency Contact", f"{ec_name or '-'}, {ec_phone or '-'}", key_width=46)
+
+            self.ln(2)
         except Exception as e:
             print(f"Error adding patient demographics: {e}")
 
@@ -751,86 +514,16 @@ class BasePDFReport(FPDF):
             }
 
             disclaimer_text = disclaimers.get(disclaimer_type, disclaimers["standard"])
-
-            # Calculate actual height needed by rendering text first
-            temp_y = start_y + 8
-            content_width = self.w - self.l_margin - self.r_margin - 10
-
-            self.set_font('Helvetica', '', 8)
-            for point in disclaimer_text:
-                text_content = f"* {sanitize_for_helvetica(point)}"
-                # Estimate lines needed for this point
-                text_width = self.get_string_width(text_content)
-                lines_needed = max(1, int(text_width / content_width) + 1)
-                temp_y += (lines_needed * 4.8) + 1
-
-            actual_height = temp_y - start_y + 4
-
-            # Draw box with actual height
-            self.rect(self.l_margin, start_y, self.w - self.l_margin - self.r_margin, actual_height, 'D')
-
-            self.set_y(start_y + 3)
-            self.set_x(self.l_margin + 3)
-
-            # Title
-            self.set_font('Helvetica', 'B', 9)
-            self.set_text_color(139, 69, 19)
-            self.cell(0, 5, "IMPORTANT MEDICAL DISCLAIMER", 0, 1, 'C')
-            self.ln(1)
-
-            # Disclaimer points
-            self.set_font('Helvetica', '', 8)
-            self.set_text_color(*self.text_color_dark)
-
-            for point in disclaimer_text:
-                self.set_x(self.l_margin + 5)
-                self.multi_cell(self.w - self.l_margin - self.r_margin - 10, 4.8,
-                              f"* {sanitize_for_helvetica(point)}",
-                              align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-                self.ln(0.5)
-
-            self.set_y(start_y + actual_height + 2)
-            self.set_text_color(*self.text_color_normal)
-            self.ln(3)
+            theme.disclaimer(self, disclaimer_text)
         except Exception as e:
             print(f"Error adding disclaimer: {e}")
 
     def add_signature_section(self):
-        """Add signature section for medical professionals"""
+        """Add electronic-signature block for the reporting professional."""
         try:
-            # Check if we need a new page
-            if self.get_y() > self.h - 60:
-                self.add_page()
-
-            self.ln(10)
-            start_y = self.get_y()
-
-            # Radiologist/Technician signature
             radiologist = self.comprehensive_data.get('radiologist') if self.comprehensive_data else None
-            if radiologist:
-                self.set_font('Helvetica', '', 9)
-                self.set_text_color(*self.text_color_dark)
-
-                # Signature line
-                sig_line_y = self.get_y()
-                self.line(self.l_margin + 10, sig_line_y, self.l_margin + 90, sig_line_y)
-                self.ln(2)
-
-                self.set_x(self.l_margin + 10)
-                self.set_font('Helvetica', 'B', 9)
-                radiologist_name = radiologist.get('full_name', 'Authorized Personnel')
-                self.cell(80, 5, sanitize_for_helvetica(radiologist_name), 0, 1, 'L')
-
-                self.set_x(self.l_margin + 10)
-                self.set_font('Helvetica', '', 8)
-                self.set_text_color(*self.text_color_light)
-                self.cell(80, 4, "EEG Technician / Radiologist", 0, 1, 'L')
-
-                # Date
-                self.set_x(self.l_margin + 10)
-                self.cell(80, 4, f"Date: {datetime.now().strftime('%d %B %Y')}", 0, 1, 'L')
-
-            self.set_text_color(*self.text_color_normal)
-            self.ln(5)
+            name = (radiologist or {}).get('full_name', 'Authorized Personnel')
+            theme.signature(self, name, role="EEG Technician / Radiologist",
+                            date_str=datetime.now().strftime('%d %b %Y'))
         except Exception as e:
             print(f"Error adding signature section: {e}")
