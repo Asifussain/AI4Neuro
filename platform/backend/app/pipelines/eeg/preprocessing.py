@@ -18,9 +18,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.signal import resample
 
 from app.pipelines.eeg.checkpoint_registry import EegCheckpointSpec
+
+# scipy is only installed in the EEG worker image (requirements/eeg.txt), not
+# in the base API/test environment (requirements/dev.txt). Import it lazily
+# inside _resample_time_axis so this module — and error_messages.py, which
+# imports EegPreprocessingError unconditionally — stays importable without
+# scipy; only actually resampling a sample requires it to be present.
 
 # Plausible band for channel-count pad/truncate when no channel names are
 # supplied: close enough to 19 that guessing a positional alignment is
@@ -201,6 +206,8 @@ def _resample_time_axis(
     subsequent ``_fit_seq_len`` step handles the exact-length correction)."""
     if source_fs is None or source_fs == target_fs:
         return arr
+
+    from scipy.signal import resample
 
     _, seq_len, _ = arr.shape
     new_len = max(1, round(seq_len * target_fs / source_fs))

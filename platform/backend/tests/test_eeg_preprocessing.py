@@ -47,6 +47,7 @@ def test_128_seqlen_needs_resample_no_metadata():
 
 
 def test_128_seqlen_with_source_fs_resamples_to_256():
+    pytest.importorskip("scipy.signal")
     n_trials = 3
     t = np.linspace(0, 1, 128, endpoint=False)
     sine = np.sin(2 * np.pi * 5 * t).astype(np.float32)
