@@ -93,11 +93,10 @@ export function AnalysisResultPanel({ result }: { result: AnalysisResultResponse
     ['Confidence distribution', urlOf(viz, 'confidence_chart_url')],
   ] as const;
 
-  const reports = [
-    ['Patient', result.report_urls?.patient],
-    ['Clinician', result.report_urls?.clinician],
-    ['Technical', result.report_urls?.technical],
-  ] as const;
+  // patient/clinician/technical all point at the same unified report PDF -
+  // show a single link rather than three identical ones.
+  const reportUrl =
+    result.report_urls?.patient ?? result.report_urls?.clinician ?? result.report_urls?.technical ?? null;
 
   return (
     <div className="space-y-4">
@@ -163,25 +162,20 @@ export function AnalysisResultPanel({ result }: { result: AnalysisResultResponse
         </Card>
       )}
 
-      {reports.some(([, url]) => url) && (
+      {reportUrl && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Reports</CardTitle>
+            <CardTitle className="text-base">Report</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-3">
-            {reports.map(([label, url]) =>
-              url ? (
-                <a
-                  key={label}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary text-sm underline"
-                >
-                  {label} report (PDF)
-                </a>
-              ) : null,
-            )}
+          <CardContent>
+            <a
+              href={reportUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary text-sm underline"
+            >
+              Click to View the Report
+            </a>
           </CardContent>
         </Card>
       )}
