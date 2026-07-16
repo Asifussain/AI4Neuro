@@ -284,3 +284,42 @@ def test_full_mri_loop_generates_reports(tmp_path, monkeypatch):
     assert report_row["patient_pdf_url"]
     assert report_row["clinician_pdf_url"]
     assert report_row["technical_pdf_url"]
+
+
+def test_report_urls_are_refreshed_on_every_read():
+    """The API must re-sign stored report URLs on each read instead of
+    serving back whatever was stored at report-generation time - the signed
+    URL's embedded JWT expires ~1h after it was minted, so serving the
+    stored value verbatim eventually fails with
+    InvalidJWT: "exp" claim timestamp check failed."""
+    from app.api.v1.analysis import _report_urls
+
+    fake = FakeSupabase()
+    storage = StorageService(client=fake)
+    svc = PdfReportService(storage)
+
+    result = PipelineResult(
+        prediction="MCI",
+        confidence=0.61,
+        probabilities={"CN": 0.24, "MCI": 0.61, "AD": 0.15},
+        metrics={
+            "brain_volume": 1180.4, "gm_volume": 512.7, "wm_volume": 468.2,
+            "csf_volume": 199.5, "hippocampal_volume": 3.05, "ventricular_volume": 42.8,
+        },
+        model_version="mri-volnet-v1.4",
+    )
+    generated = svc.generate_reports(_session("mri", "multiclass", "sess-refresh-check"), result, {})
+    stored_row = {
+        "patient_pdf_url": generated.patient_pdf_url,
+        "clinician_pdf_url": generated.clinician_pdf_url,
+        "technical_pdf_url": generated.technical_pdf_url,
+    }
+
+    first_read = _report_urls(stored_row, storage)
+    second_read = _report_urls(stored_row, storage)
+
+    # Each read mints a fresh token - never the (potentially stale) URL as
+    # stored, and never the same token twice in a row.
+    assert first_read.patient != stored_row["patient_pdf_url"]
+    assert first_read.patient != second_read.patient
+    assert "/object/sign/" in first_read.patient

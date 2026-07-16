@@ -96,7 +96,19 @@ class _BucketOps:
             raise FileNotFoundError(f"{self._bucket}/{path}") from None
 
     def create_signed_url(self, path: str, expires_in: int = 3600) -> dict:
-        return {"signedURL": f"https://fake.storage/{self._bucket}/{path}?exp={expires_in}"}
+        # Mirrors the real supabase-py / storage-api URL shape
+        # (.../storage/v1/object/sign/{bucket}/{path}?token=...) so callers
+        # that parse signed URLs (see StorageService.refresh_signed_url) are
+        # exercised faithfully in tests. A fresh nonce per call lets tests
+        # assert that refreshing actually re-signs rather than returning a
+        # cached value.
+        nonce = uuid.uuid4().hex[:8]
+        return {
+            "signedURL": (
+                f"https://fake.storage/storage/v1/object/sign/{self._bucket}/{path}"
+                f"?token=fake-{nonce}&exp={expires_in}"
+            )
+        }
 
 
 class _Storage:
