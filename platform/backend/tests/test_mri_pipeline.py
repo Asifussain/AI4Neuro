@@ -88,7 +88,7 @@ def test_viewer_slice_extraction_and_upload(tmp_path):
     urls = storage.upload_viewer_slices("sess-viewer", slices)
     assert set(urls.keys()) == {"axial", "sagittal", "coronal"}
     assert all(len(v) == len(slices[k]) for k, v in urls.items())
-    assert all(u.startswith("https://fake.storage/viewer-slices/") for v in urls.values() for u in v)
+    assert all("/object/sign/viewer-slices/" in u for v in urls.values() for u in v)
 
 
 def test_full_loop_via_orchestrator_fails_without_checkpoint(tmp_path, monkeypatch):

@@ -271,6 +271,7 @@ def get_result(
     session_id: str,
     principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
+    storage: StorageService = Depends(get_storage),
 ) -> AnalysisResultResponse:
     session = _require_session(db, session_id)
     _require_read(principal, session)
@@ -293,7 +294,7 @@ def get_result(
         consistency=result.get("consistency") or {},
         visualizations=result.get("visualizations") or {},
         model_version=result.get("model_version"),
-        report_urls=_report_urls(reports),
+        report_urls=_report_urls(reports, storage),
     )
 
 
@@ -302,6 +303,7 @@ def get_reports(
     session_id: str,
     principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
+    storage: StorageService = Depends(get_storage),
 ) -> ReportsResponse:
     session = _require_session(db, session_id)
     if not permissions.can_read_report(
@@ -311,7 +313,7 @@ def get_reports(
     reports = db.get_reports(session_id) or {}
     return ReportsResponse(
         session_id=session_id,
-        report_urls=_report_urls(reports),
+        report_urls=_report_urls(reports, storage),
         asset_urls=reports.get("asset_urls") or {},
     )
 
@@ -417,9 +419,13 @@ def _forbid(message: str) -> HTTPException:
     )
 
 
-def _report_urls(reports: dict) -> ReportUrls:
+def _report_urls(reports: dict, storage: StorageService) -> ReportUrls:
+    # Report PDFs are generated once and their signed URL stored as-is; the
+    # embedded JWT expires ~1h after generation (see StorageService.
+    # refresh_signed_url). Re-sign on every read so a report viewed long
+    # after it was generated doesn't fail with an expired-token error.
     return ReportUrls(
-        patient=reports.get("patient_pdf_url"),
-        clinician=reports.get("clinician_pdf_url"),
-        technical=reports.get("technical_pdf_url"),
+        patient=storage.refresh_signed_url(reports.get("patient_pdf_url")),
+        clinician=storage.refresh_signed_url(reports.get("clinician_pdf_url")),
+        technical=storage.refresh_signed_url(reports.get("technical_pdf_url")),
     )

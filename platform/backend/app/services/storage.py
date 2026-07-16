@@ -8,8 +8,10 @@ Paths follow the doc's layout, e.g. ``raw-files/eeg/{session_id}/input.npy``.
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 from typing import Any
+from urllib.parse import urlsplit
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -113,6 +115,36 @@ class StorageService:
         if isinstance(res, dict):
             return res.get("signedURL") or res.get("signed_url") or res.get("signedUrl") or ""
         return str(res)
+
+    # Matches .../storage/v1/object/sign/{bucket}/{path...}?token=...
+    _SIGNED_URL_PATH_RE = re.compile(r"/object/sign/(?P<bucket>[^/]+)/(?P<path>.+)$")
+
+    def refresh_signed_url(self, url: str | None, expires_in: int = 3600) -> str | None:
+        """Re-sign a previously issued signed URL.
+
+        Signed URLs embed a JWT with a short-lived ``exp`` claim (1h by
+        default). Report URLs are generated once at report-creation time and
+        then served back verbatim on every later read, so any view attempted
+        after that window produces ``InvalidJWT: "exp" claim timestamp check
+        failed``. Callers that serve a stored signed URL back to a client
+        should refresh it first so the token is valid from the moment it's
+        handed out, not from whenever the report happened to be generated.
+
+        Returns the original value unchanged if it isn't a recognised signed
+        storage URL (e.g. already null, or some other kind of link).
+        """
+        if not url:
+            return url
+        try:
+            match = self._SIGNED_URL_PATH_RE.search(urlsplit(url).path)
+            if not match:
+                return url
+            return self.create_signed_url(
+                match.group("bucket"), match.group("path"), expires_in
+            )
+        except Exception as exc:  # noqa: BLE001 - never break a read on refresh failure
+            logger.warning("Could not refresh signed URL: %s", exc)
+            return url
 
     # ------------------------------- internal ------------------------------ #
 
