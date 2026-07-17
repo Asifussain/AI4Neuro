@@ -83,6 +83,7 @@ export function StatCard({
   icon: Icon,
   accent = 'blue',
   isLoading = false,
+  onClick,
 }: {
   label: string;
   value: string | number;
@@ -90,10 +91,11 @@ export function StatCard({
   icon: React.ElementType;
   accent?: Accent;
   isLoading?: boolean;
+  onClick?: () => void;
 }) {
   const styles = ACCENT_STYLES[accent];
-  return (
-    <SectionCard className="p-5">
+  const content = (
+    <>
       <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center mb-4', styles.solid)}>
         <Icon className="h-5 w-5 text-white" />
       </div>
@@ -104,8 +106,24 @@ export function StatCard({
         <p className="text-3xl font-bold text-slate-900 mt-0.5">{value}</p>
       )}
       {sublabel && <p className={cn('text-sm font-medium mt-1', styles.text)}>{sublabel}</p>}
-    </SectionCard>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <SectionCard className="p-0 overflow-hidden">
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full text-left p-5 hover:bg-slate-50/80 transition-colors cursor-pointer"
+        >
+          {content}
+        </button>
+      </SectionCard>
+    );
+  }
+
+  return <SectionCard className="p-5">{content}</SectionCard>;
 }
 
 // ============================================================================
@@ -315,32 +333,23 @@ export function DashboardPageHeader({
   eyebrow,
   title,
   description,
-  routeChip,
   accent = 'blue',
 }: {
   eyebrow: string;
   title: string;
   description: string;
-  routeChip?: string;
   accent?: Accent;
 }) {
   const styles = ACCENT_STYLES[accent];
   return (
     <SectionCard className="p-6 md:p-8 relative overflow-hidden">
       <div className={cn('absolute inset-0 opacity-[0.05] bg-gradient-to-br', styles.gradient)} />
-      <div className="relative flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <span className={cn('text-xs font-bold uppercase tracking-wider', styles.text)}>
-            {eyebrow}
-          </span>
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">{title}</h1>
-          <p className="text-slate-500 mt-2 max-w-xl">{description}</p>
-        </div>
-        {routeChip && (
-          <span className={cn('text-xs font-mono px-3 py-1.5 rounded-full', styles.soft, styles.text)}>
-            {routeChip}
-          </span>
-        )}
+      <div className="relative">
+        <span className={cn('text-xs font-bold uppercase tracking-wider', styles.text)}>
+          {eyebrow}
+        </span>
+        <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">{title}</h1>
+        <p className="text-slate-500 mt-2 max-w-xl">{description}</p>
       </div>
     </SectionCard>
   );

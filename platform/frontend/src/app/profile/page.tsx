@@ -5,13 +5,78 @@ import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { withAuth } from '@/lib/withAuth';
 import { RoleShell } from '@/components/dashboards/shared/RoleShell';
+import { getRoleMeta, type Role } from '@/lib/navigation';
+import { ACCENT_STYLES, type Accent } from '@/components/dashboards/shared/primitives';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
+// Cover-photo gradients per accent — lighter than ACCENT_STYLES.gradient (which
+// is tuned for opaque badges/buttons, too dark for a large background panel).
+const COVER_GRADIENT: Record<Accent, string> = {
+  green: 'from-emerald-100 via-emerald-50 to-teal-50',
+  indigo: 'from-indigo-100 via-indigo-50 to-violet-50',
+  blue: 'from-blue-100 via-blue-50 to-indigo-50',
+  teal: 'from-teal-100 via-teal-50 to-cyan-50',
+};
+
+// Border shade to pair with ACCENT_STYLES.soft/.text (not itself in that map).
+const ACCENT_BORDER: Record<Accent, string> = {
+  green: 'border-emerald-200',
+  indigo: 'border-indigo-200',
+  blue: 'border-blue-200',
+  teal: 'border-teal-200',
+};
+
+// SettingsLink hover state per accent. Tailwind's JIT scanner only picks up
+// class names that appear literally in source, so these must be complete
+// strings rather than built by concatenating a variant prefix onto
+// ACCENT_STYLES at runtime.
+const SETTINGS_LINK_HOVER: Record<
+  Accent,
+  { border: string; bg: string; iconBg: string; text: string }
+> = {
+  green: {
+    border: 'hover:border-emerald-300',
+    bg: 'hover:bg-emerald-50/50',
+    iconBg: 'group-hover:bg-emerald-50',
+    text: 'group-hover:text-emerald-700',
+  },
+  indigo: {
+    border: 'hover:border-indigo-300',
+    bg: 'hover:bg-indigo-50/50',
+    iconBg: 'group-hover:bg-indigo-50',
+    text: 'group-hover:text-indigo-700',
+  },
+  blue: {
+    border: 'hover:border-blue-300',
+    bg: 'hover:bg-blue-50/50',
+    iconBg: 'group-hover:bg-blue-50',
+    text: 'group-hover:text-blue-700',
+  },
+  teal: {
+    border: 'hover:border-teal-300',
+    bg: 'hover:bg-teal-50/50',
+    iconBg: 'group-hover:bg-teal-50',
+    text: 'group-hover:text-teal-700',
+  },
+};
+
 // Info card component
-function InfoCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+function InfoCard({
+  label,
+  value,
+  icon,
+  accent,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  accent: Accent;
+}) {
+  const styles = ACCENT_STYLES[accent];
   return (
     <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 transition-colors">
-      <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+      <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0', styles.soft)}>
         {icon}
       </div>
       <div className="min-w-0 flex-1">
@@ -23,29 +88,36 @@ function InfoCard({ label, value, icon }: { label: string; value: string; icon: 
 }
 
 // Settings link component
-function SettingsLink({ icon, title, description, href, badge }: {
+function SettingsLink({ icon, title, description, href, badge, accent }: {
   icon: React.ReactNode;
   title: string;
   description: string;
   href: string;
   badge?: string;
+  accent: Accent;
 }) {
+  const styles = ACCENT_STYLES[accent];
+  const hover = SETTINGS_LINK_HOVER[accent];
   return (
     <Link
       href={href}
-      className="group flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 transition-all"
+      className={cn(
+        'group flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200 transition-all',
+        hover.border,
+        hover.bg
+      )}
     >
-      <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center group-hover:bg-emerald-50 transition-colors">
+      <div className={cn('w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center transition-colors', hover.iconBg)}>
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-slate-900 group-hover:text-emerald-700 transition-colors">{title}</p>
+        <p className={cn('text-sm font-medium text-slate-900 transition-colors', hover.text)}>{title}</p>
         <p className="text-xs text-slate-500">{description}</p>
       </div>
       {badge && (
-        <span className="px-2 py-1 text-xs bg-emerald-50 text-emerald-700 rounded-full">{badge}</span>
+        <span className={cn('px-2 py-1 text-xs rounded-full', styles.soft, styles.text)}>{badge}</span>
       )}
-      <svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" strokeWidth="2">
+      <svg viewBox="0 0 24 24" className={cn('w-5 h-5 text-slate-300 group-hover:translate-x-1 transition-all', hover.text)} fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     </Link>
@@ -77,7 +149,9 @@ function ProfilePage() {
 
   const displayName = userProfile?.full_name || 'User';
   const initials = getInitials(displayName);
-  const role = userProfile?.role || 'user';
+  const role = userProfile?.role || 'patient';
+  const accent = getRoleMeta(role as Role).accent;
+  const styles = ACCENT_STYLES[accent];
   const email = userProfile?.email || user?.email || '';
   const phone = userProfile?.phone || '';
   const accountStatus = userProfile?.account_status || 'active';
@@ -130,12 +204,12 @@ function ProfilePage() {
           {/* Profile Header */}
           <div className="relative mb-8">
             {/* Cover Background */}
-            <div className="h-32 sm:h-40 rounded-t-3xl bg-gradient-to-r from-emerald-100 via-teal-100 to-cyan-100 border border-slate-200 border-b-0 overflow-hidden">
+            <div className={cn('h-32 sm:h-40 rounded-t-3xl bg-gradient-to-r border border-slate-200 border-b-0 overflow-hidden', COVER_GRADIENT[accent])}>
               <div className="absolute inset-0">
                 <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
                   <defs>
                     <pattern id="profileGrid" width="30" height="30" patternUnits="userSpaceOnUse">
-                      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(16, 185, 129, 0.12)" strokeWidth="1"/>
+                      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(100, 116, 139, 0.12)" strokeWidth="1"/>
                     </pattern>
                   </defs>
                   <rect width="100%" height="100%" fill="url(#profileGrid)" />
@@ -148,7 +222,7 @@ function ProfilePage() {
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
                 {/* Avatar */}
                 <div className="relative">
-                  <div className="w-28 h-28 rounded-2xl bg-emerald-600 flex items-center justify-center text-3xl font-bold text-white shadow-lg">
+                  <div className={cn('w-28 h-28 rounded-2xl flex items-center justify-center text-3xl font-bold text-white shadow-lg', styles.solid)}>
                     {initials}
                   </div>
                   {/* Status indicator */}
@@ -162,8 +236,8 @@ function ProfilePage() {
                   <h1 className="text-2xl font-bold text-slate-900 mb-1">{displayName}</h1>
                   <p className="text-slate-500 mb-3">{email}</p>
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                    <span className={cn('inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border', styles.soft, styles.text, ACCENT_BORDER[accent])}>
+                      <span className={cn('w-1.5 h-1.5 rounded-full', styles.solid)}></span>
                       {role.charAt(0).toUpperCase() + role.slice(1)}
                     </span>
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
@@ -196,7 +270,7 @@ function ProfilePage() {
             {/* Contact Information */}
             <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
               <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <svg viewBox="0 0 24 24" className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg viewBox="0 0 24 24" className={cn('w-5 h-5', styles.text)} fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                 </svg>
                 Contact Information
@@ -205,17 +279,20 @@ function ProfilePage() {
                 <InfoCard
                   label="Email Address"
                   value={email}
-                  icon={<svg viewBox="0 0 24 24" className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>}
+                  accent={accent}
+                  icon={<svg viewBox="0 0 24 24" className={cn('w-5 h-5', styles.text)} fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>}
                 />
                 <InfoCard
                   label="Phone Number"
                   value={phone}
-                  icon={<svg viewBox="0 0 24 24" className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>}
+                  accent={accent}
+                  icon={<svg viewBox="0 0 24 24" className={cn('w-5 h-5', styles.text)} fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>}
                 />
                 <InfoCard
                   label="Member Since"
                   value={joinDate}
-                  icon={<svg viewBox="0 0 24 24" className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>}
+                  accent={accent}
+                  icon={<svg viewBox="0 0 24 24" className={cn('w-5 h-5', styles.text)} fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>}
                 />
               </div>
             </div>
@@ -223,7 +300,7 @@ function ProfilePage() {
             {/* Role Specific Information */}
             <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
               <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <svg viewBox="0 0 24 24" className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg viewBox="0 0 24 24" className={cn('w-5 h-5', styles.text)} fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
                 </svg>
                 {role.charAt(0).toUpperCase() + role.slice(1)} Details
@@ -231,7 +308,7 @@ function ProfilePage() {
               <div className="space-y-3">
                 {roleSpecificInfo.length > 0 ? (
                   roleSpecificInfo.map((info, index) => (
-                    <InfoCard key={index} {...info} />
+                    <InfoCard key={index} {...info} accent={accent} />
                   ))
                 ) : (
                   <div className="text-center py-8 text-slate-500">
@@ -254,12 +331,14 @@ function ProfilePage() {
             <div className="space-y-3">
               <SettingsLink
                 href="/change-password"
+                accent={accent}
                 icon={<svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>}
                 title="Change Password"
                 description="Update your account password"
               />
               <SettingsLink
                 href={`/${role.replace(/_/g, '-')}/dashboard`}
+                accent={accent}
                 icon={<svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>}
                 title="Go to Dashboard"
                 description="Access your role-specific dashboard"

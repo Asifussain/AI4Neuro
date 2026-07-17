@@ -78,7 +78,6 @@ export const SuperAdminDashboard: React.FC = () => {
         eyebrow="Super Admin"
         title="Super Admin Dashboard"
         description="Platform-wide control for hospitals, hospital admins, and user directories across every tenant."
-        routeChip="/super-admin/dashboard"
         accent="indigo"
       />
 

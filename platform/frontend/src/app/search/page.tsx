@@ -53,7 +53,6 @@ function SearchInner() {
         eyebrow="Search"
         title={q ? `Results for “${q}”` : 'Search'}
         description="Find analyses by session ID, modality, analysis type, or status."
-        routeChip="/search"
         accent="indigo"
       />
 

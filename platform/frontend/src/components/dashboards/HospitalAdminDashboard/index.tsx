@@ -706,7 +706,6 @@ export const HospitalAdminDashboard: React.FC = () => {
         eyebrow="Hospital Admin"
         title="Hospital Admin Dashboard"
         description="Complete hospital ecosystem management for AI4Neuro services."
-        routeChip="/admin/dashboard"
         accent="teal"
       />
 

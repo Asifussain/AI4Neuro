@@ -12,7 +12,6 @@ Real viewer slices are extracted only when the input is a genuine NIfTI.
 from __future__ import annotations
 
 import os
-import threading
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -23,12 +22,13 @@ from app.pipelines.mri.similarity_analyzer import (
     generate_confidence_chart,
     generate_volume_comparison_chart,
 )
+from app.pipelines.plotting import PLOT_LOCK
 
 logger = get_logger(__name__)
 
 # matplotlib pyplot is process-global / not thread-safe (same as EEG); serialize
-# the fast charting so concurrent MRI jobs can't corrupt each other's figures.
-_PLOT_LOCK = threading.Lock()
+# the fast charting with the process-wide PLOT_LOCK (shared with the EEG runner)
+# so concurrent MRI+EEG jobs can't corrupt each other's figures.
 
 _VOLUME_KEYS = [
     "brain_volume", "gm_volume", "wm_volume",
@@ -82,7 +82,7 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
             metrics[opt] = ml[opt]
 
     # --- 3) Charts (serialized: pyplot global state) ---
-    with _PLOT_LOCK:
+    with PLOT_LOCK:
         volume_chart_b64 = generate_volume_comparison_chart(ml)
         confidence_chart_b64 = (
             generate_confidence_chart(probs_list, classes) if probs_list else None

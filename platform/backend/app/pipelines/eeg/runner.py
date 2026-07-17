@@ -12,7 +12,6 @@ the orchestrator uploads into ``visualizations``.
 from __future__ import annotations
 
 import os
-import threading
 
 import numpy as np
 
@@ -30,14 +29,16 @@ from app.pipelines.eeg.visualization import (
     generate_descriptive_stats,
     generate_stacked_timeseries_image,
 )
+from app.pipelines.plotting import PLOT_LOCK
 
 logger = get_logger(__name__)
 
 # matplotlib's pyplot state machine is process-global and not thread-safe; the
-# copied viz/similarity helpers use pyplot. Serialize only the (fast) plotting so
-# concurrent EEG jobs can't corrupt each other's figures. The (slow) model
-# inference runs in a subprocess and stays fully parallel.
-_PLOT_LOCK = threading.Lock()
+# copied viz/similarity helpers use pyplot. Serialize only the (fast) plotting
+# with the process-wide PLOT_LOCK (shared with the MRI runner — a same-process
+# EEG+MRI job pair races on the same pyplot state too) so concurrent jobs can't
+# corrupt each other's figures. The (slow) model inference runs in a subprocess
+# and stays fully parallel.
 
 
 def _reference_paths() -> dict[str, str]:
@@ -88,7 +89,7 @@ def run_eeg_pipeline(context: AnalysisContext) -> PipelineResult:
     )
 
     # --- 3) Stats + plots + similarity (serialized: pyplot global state) ---
-    with _PLOT_LOCK:
+    with PLOT_LOCK:
         eeg_data = first_trial_2d(prepared)
         fs = settings.eeg_default_fs
         stats = generate_descriptive_stats(eeg_data, fs)

@@ -73,7 +73,6 @@ function UserDirectoryInner({
         eyebrow={eyebrow}
         title={meta?.title ?? 'All Users'}
         description={meta?.description ?? fallbackDescription}
-        routeChip={`${basePath}${role ? `?role=${role}` : ''}`}
         accent={accent}
       />
 
