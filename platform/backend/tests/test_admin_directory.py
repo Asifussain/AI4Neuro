@@ -220,3 +220,47 @@ def test_list_assignments_scoped_to_own_hospital(client, db_service):
     body = res.json()
     assert len(body) == 1
     assert body[0]["doctor_name"] == "Dr. A"
+
+
+def _as_doctor(client, user_id, hospital_id):
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id=user_id, role="doctor", hospital_id=hospital_id, is_dev=False
+    )
+
+
+def test_list_my_patients_only_returns_own_assignments(client, db_service):
+    h1 = _hospital(db_service, "H1")
+    doctor_a = _doctor(db_service, h1["id"], name="Dr. A", email="a@x.com")
+    doctor_b = _doctor(db_service, h1["id"], name="Dr. B", email="b@x.com")
+    mine = _patient(db_service, h1["id"], name="Mine", email="mine@x.com")
+    not_mine = _patient(db_service, h1["id"], name="NotMine", email="notmine@x.com")
+    db_service.create_doctor_patient_relationship(
+        {"doctor_id": doctor_a["id"], "patient_id": mine["id"], "hospital_id": h1["id"]}
+    )
+    db_service.create_doctor_patient_relationship(
+        {"doctor_id": doctor_b["id"], "patient_id": not_mine["id"], "hospital_id": h1["id"]}
+    )
+
+    _as_doctor(client, doctor_a["id"], h1["id"])
+    res = client.get("/api/v1/patients/mine")
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body) == 1
+    assert body[0]["full_name"] == "Mine"
+
+
+def test_list_my_patients_empty_when_no_assignments(client, db_service):
+    h1 = _hospital(db_service, "H1")
+    doctor_a = _doctor(db_service, h1["id"], name="Dr. A", email="a@x.com")
+
+    _as_doctor(client, doctor_a["id"], h1["id"])
+    res = client.get("/api/v1/patients/mine")
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_list_my_patients_forbidden_for_non_doctor(client, db_service):
+    h1 = _hospital(db_service, "H1")
+    _as_hospital_admin(client, h1["id"])
+    res = client.get("/api/v1/patients/mine")
+    assert res.status_code == 403

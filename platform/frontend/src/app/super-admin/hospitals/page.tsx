@@ -47,7 +47,6 @@ function HospitalsPage() {
         eyebrow="Super Admin"
         title="Hospitals"
         description="All hospitals onboarded on the platform, with their status and contact details."
-        routeChip="/super-admin/hospitals"
         accent="indigo"
       />
 

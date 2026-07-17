@@ -314,7 +314,7 @@ export function AnalysisUploadForm() {
               </div>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className={cn('grid gap-2', !isDoctor && 'sm:grid-cols-2')}>
             <div className="grid gap-2">
               <Label htmlFor="patient-id">Patient</Label>
               <Select value={patientId} onValueChange={setPatientId} disabled={loadingAssociations}>
@@ -335,31 +335,36 @@ export function AnalysisUploadForm() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="doctor-id">Referring doctor</Label>
-              <Select
-                value={doctorId || NO_DOCTOR_VALUE}
-                onValueChange={(value) => setDoctorId(value === NO_DOCTOR_VALUE ? '' : value)}
-                disabled={loadingAssociations || isDoctor}
-              >
-                <SelectTrigger id="doctor-id">
-                  <SelectValue placeholder={loadingAssociations ? 'Loading doctors...' : 'Select doctor'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {!isDoctor && <SelectItem value={NO_DOCTOR_VALUE}>No referring doctor</SelectItem>}
-                  {doctors.map((doctor) => (
-                    <SelectItem key={doctor.id} value={doctor.id}>
-                      <span className="flex flex-col">
-                        <span>{doctor.label}</span>
-                        {doctor.sublabel && (
-                          <span className="text-xs text-muted-foreground">{doctor.sublabel}</span>
-                        )}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* A doctor is implicitly their own referring doctor (set below on
+                submit) — showing a disabled "Referring doctor" picker to them
+                is redundant, so the field only appears for non-doctor callers. */}
+            {!isDoctor && (
+              <div className="grid gap-2">
+                <Label htmlFor="doctor-id">Referring doctor</Label>
+                <Select
+                  value={doctorId || NO_DOCTOR_VALUE}
+                  onValueChange={(value) => setDoctorId(value === NO_DOCTOR_VALUE ? '' : value)}
+                  disabled={loadingAssociations}
+                >
+                  <SelectTrigger id="doctor-id">
+                    <SelectValue placeholder={loadingAssociations ? 'Loading doctors...' : 'Select doctor'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_DOCTOR_VALUE}>No referring doctor</SelectItem>
+                    {doctors.map((doctor) => (
+                      <SelectItem key={doctor.id} value={doctor.id}>
+                        <span className="flex flex-col">
+                          <span>{doctor.label}</span>
+                          {doctor.sublabel && (
+                            <span className="text-xs text-muted-foreground">{doctor.sublabel}</span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           {associationError && <p className="text-sm text-destructive">{associationError}</p>}
           {!loadingAssociations && patients.length === 0 && (

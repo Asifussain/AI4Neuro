@@ -199,6 +199,41 @@ def list_patients(
     ]
 
 
+@router.get("/patients/mine", response_model=list[PatientDirectoryEntry])
+def list_my_patients(
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> list[PatientDirectoryEntry]:
+    """The calling doctor's own assigned patients (doc 8.x) — self-scoped, no
+    hospital-wide directory access required, so a doctor can see their
+    patient list without needing the broader clinical-directory permission."""
+    if principal.role != Role.doctor.value:
+        raise _forbid("Only doctors have an assigned-patient list.")
+    relationships = db.list_doctor_patient_relationships(hospital_id=principal.hospital_id)
+    my_patient_ids = {
+        str(r["patient_id"]) for r in relationships if str(r.get("doctor_id")) == str(principal.user_id)
+    }
+    if not my_patient_ids:
+        return []
+    users = db.list_user_profiles(hospital_id=principal.hospital_id, role=Role.patient.value)
+    profiles = {p["user_id"]: p for p in db.list_role_profiles("patient_profiles")}
+    return [
+        PatientDirectoryEntry(
+            id=u["id"],
+            hospital_id=u.get("hospital_id"),
+            full_name=u["full_name"],
+            email=u["email"],
+            phone=u["phone"],
+            account_status=u["account_status"],
+            patient_code=profiles.get(u["id"], {}).get("patient_id"),
+            verification_status=profiles.get(u["id"], {}).get("verification_status"),
+            created_at=u.get("created_at"),
+        )
+        for u in users
+        if u["id"] in my_patient_ids
+    ]
+
+
 @router.get("/assignments", response_model=list[AssignmentResponse])
 def list_assignments(
     hospital_id: str | None = Query(default=None),

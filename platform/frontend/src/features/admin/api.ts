@@ -108,6 +108,9 @@ export const adminApi = {
   patients(): Promise<PatientDirectoryEntry[]> {
     return apiClient.get<PatientDirectoryEntry[]>('/api/v1/patients');
   },
+  myPatients(): Promise<PatientDirectoryEntry[]> {
+    return apiClient.get<PatientDirectoryEntry[]>('/api/v1/patients/mine');
+  },
   assignments(): Promise<Assignment[]> {
     return apiClient.get<Assignment[]>('/api/v1/assignments');
   },

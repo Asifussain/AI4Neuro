@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Loader2, Brain, Waves, ScanLine, ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { BrandLogo } from '@/components/shared/BrandLogo';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
@@ -98,9 +99,9 @@ export default function LoginPage() {
       <div className="min-h-screen flex items-center justify-center bg-[#f7fafc]">
         <div className="flex flex-col items-center gap-4">
           <div className="flex gap-2">
-            <div className="w-3 h-3 bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-3 h-3 bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="w-3 h-3 bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
           <p className="text-slate-500 text-sm">Checking session...</p>
         </div>
@@ -112,15 +113,12 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#f7fafc] flex flex-col">
       {/* Minimal header */}
       <header className="px-6 py-5 flex items-center justify-between gap-4">
-        <Link href="/landing" className="inline-flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center">
-            <Brain className="h-5 w-5 text-white" />
-          </div>
-          <span className="font-bold text-slate-900 text-lg">AI4Neuro</span>
+        <Link href="/landing" className="inline-flex items-center">
+          <BrandLogo markHeight={36} textHeight={18} />
         </Link>
         <Link
           href="/landing"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-emerald-700 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Home
@@ -132,7 +130,7 @@ export default function LoginPage() {
           {/* Left Panel - Login Form */}
           <div className="w-full max-w-md mx-auto lg:mx-0">
             <div className="mb-8">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-700">AI4Neuro</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-blue-700">AI4Neuro</p>
               <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Welcome back</h1>
               <p className="text-slate-500">Sign in to access EEG, MRI, and PET analysis workflows.</p>
             </div>
@@ -147,7 +145,7 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={loading}
                     required
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400 disabled:opacity-50"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 disabled:opacity-50"
                     placeholder="name@hospital.com"
                   />
                 </div>
@@ -161,7 +159,7 @@ export default function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       disabled={loading}
                       required
-                      className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400 disabled:opacity-50"
+                      className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 disabled:opacity-50"
                       placeholder="Enter password"
                     />
                     <button
@@ -181,11 +179,11 @@ export default function LoginPage() {
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/40"
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/40"
                     />
                     Remember Me
                   </label>
-                  <span className="text-emerald-700 font-medium cursor-not-allowed" title="Contact your administrator to reset your password">
+                  <span className="text-blue-700 font-medium cursor-not-allowed" title="Contact your administrator to reset your password">
                     Forgot Password?
                   </span>
                 </div>
@@ -193,7 +191,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -214,8 +212,8 @@ export default function LoginPage() {
 
           {/* Right Panel - Visual (hidden on mobile) */}
           <div className="hidden lg:block">
-            <div className="rounded-3xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 p-8">
-              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Unified clinical workspace</p>
+            <div className="rounded-3xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 p-8">
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-700">Unified clinical workspace</p>
               <h2 className="mt-3 text-2xl font-extrabold text-slate-900">One login for every diagnostic lane</h2>
               <p className="mt-3 text-slate-500 leading-relaxed">
                 Route EEG recordings, MRI scans, and PET biomarkers through the same secure platform

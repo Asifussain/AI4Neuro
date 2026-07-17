@@ -29,6 +29,7 @@ import {
   DonutLegend,
   StatusBadge,
 } from '@/components/dashboards/shared/primitives';
+import { ActivityCalendar } from '@/components/dashboards/shared/ActivityCalendar';
 
 const ROLE_COPY: Record<Role, { eyebrow: string; title: string; description: string }> = {
   super_admin: {
@@ -78,6 +79,7 @@ export function AnalysisDashboard() {
 
   const [sessions, setSessions] = useState<SessionStatusResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,7 +153,6 @@ export function AnalysisDashboard() {
         eyebrow={copy.eyebrow}
         title={copy.title}
         description={copy.description}
-        routeChip={meta.dashboard}
         accent={meta.accent}
       />
 
@@ -166,7 +167,14 @@ export function AnalysisDashboard() {
         <StatCard label="Total Analyses" value={stats.total} icon={Activity} accent={meta.accent} isLoading={loading} />
         <StatCard label="In Progress" value={stats.inProgress} icon={Clock} accent={meta.accent} isLoading={loading} />
         <StatCard label="Completed" value={stats.completed} icon={CheckCircle2} accent={meta.accent} isLoading={loading} />
-        <StatCard label="This Week" value={stats.completedThisWeek} icon={CalendarDays} accent={meta.accent} isLoading={loading} />
+        <StatCard
+          label="This Week"
+          value={stats.completedThisWeek}
+          icon={CalendarDays}
+          accent={meta.accent}
+          isLoading={loading}
+          onClick={() => setShowCalendar(true)}
+        />
       </div>
 
       {/* Analytics row */}
@@ -278,6 +286,15 @@ export function AnalysisDashboard() {
           </div>
         )}
       </SectionCard>
+
+      {showCalendar && (
+        <ActivityCalendar
+          title={`${copy.eyebrow} Activity`}
+          timestamps={(sessions ?? []).map((s) => s.created_at)}
+          accent={meta.accent}
+          onClose={() => setShowCalendar(false)}
+        />
+      )}
     </>
   );
 }

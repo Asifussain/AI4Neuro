@@ -54,7 +54,6 @@ function SessionsInner() {
             ? 'Completed EEG and MRI analyses with generated reports.'
             : 'All EEG and MRI analysis sessions for your hospital.'
         }
-        routeChip={`/admin/sessions${statusParam ? `?status=${statusParam}` : ''}`}
         accent="teal"
       />
 

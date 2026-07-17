@@ -615,7 +615,6 @@ export const PatientDashboard: React.FC = () => {
         eyebrow="Patient"
         title="Patient Dashboard"
         description="Read-only view for personal diagnosis summaries and downloadable reports."
-        routeChip="/patient-dashboard"
         accent="green"
       />
 

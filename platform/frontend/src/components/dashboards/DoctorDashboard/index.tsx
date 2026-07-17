@@ -637,7 +637,6 @@ export const DoctorDashboard: React.FC = () => {
         eyebrow="Doctor"
         title="Doctor Dashboard"
         description="Patient monitoring, AI prediction review, and clinical report workflows."
-        routeChip="/doctor-dashboard"
         accent="blue"
       />
 
