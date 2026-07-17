@@ -287,6 +287,15 @@ def build_unified_report(
         ])
         pdf.ln(4)
 
+        theme.info_panel(pdf, "Your Next Steps", [
+            ("bullet", "**Schedule an appointment** with the doctor to discuss these results in detail."),
+            ("bullet", "**Bring this report** to the doctor's appointment for their review."),
+            ("bullet", "**Prepare questions** about what these findings mean for the patient's health."),
+            ("bullet", "**Follow the doctor's advice** regarding any additional tests or treatments."),
+            ("bullet", "**Don't panic** - many factors affect brain patterns, and the doctor will provide proper context."),
+        ])
+        pdf.ln(4)
+
         theme.info_panel(pdf, "Suggested Questions for the Doctor", [
             "What do these MRI results mean in the context of the patient's symptoms?",
             "Are any additional tests or imaging studies needed?",
