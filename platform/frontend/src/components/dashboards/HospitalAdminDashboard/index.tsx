@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
+import Swal from 'sweetalert2';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -516,17 +517,43 @@ export const HospitalAdminDashboard: React.FC = () => {
 
   // User status handlers
   const handleSuspendUser = async (userId: string) => {
+    const name = users?.find((u) => u.id === userId)?.full_name || 'this user';
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: `Suspend ${name}?`,
+      text: 'They will be signed out and blocked from logging in until reactivated.',
+      showCancelButton: true,
+      confirmButtonText: 'Suspend',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!confirm.isConfirmed) return;
+
     try {
       await adminApi.suspendUser(userId);
       loadUsers();
+      Swal.fire({ icon: 'success', title: 'Account suspended', text: `${name} has been suspended.`, timer: 2500, showConfirmButton: false });
     } catch (e) {
       toast.error((e as Error).message || 'Failed to suspend user');
     }
   };
   const handleActivateUser = async (userId: string) => {
+    const name = users?.find((u) => u.id === userId)?.full_name || 'this user';
+    const confirm = await Swal.fire({
+      icon: 'question',
+      title: `Reactivate ${name}?`,
+      text: 'They will regain access and be able to log in again.',
+      showCancelButton: true,
+      confirmButtonText: 'Reactivate',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#16a34a',
+    });
+    if (!confirm.isConfirmed) return;
+
     try {
       await adminApi.reactivateUser(userId);
       loadUsers();
+      Swal.fire({ icon: 'success', title: 'Account reactivated', text: `${name} is active again.`, timer: 2500, showConfirmButton: false });
     } catch (e) {
       toast.error((e as Error).message || 'Failed to activate user');
     }
@@ -538,7 +565,7 @@ export const HospitalAdminDashboard: React.FC = () => {
     try {
       await adminApi.verifyUser(doctorId);
       loadDoctors();
-      toast.success('Doctor verified');
+      Swal.fire({ icon: 'success', title: 'Doctor verified', timer: 2000, showConfirmButton: false });
     } catch (e) {
       toast.error((e as Error).message || 'Failed to verify doctor');
     } finally {
@@ -550,7 +577,7 @@ export const HospitalAdminDashboard: React.FC = () => {
     try {
       await adminApi.rejectUser(doctorId);
       loadDoctors();
-      toast.success('Doctor rejected');
+      Swal.fire({ icon: 'success', title: 'Doctor rejected', timer: 2000, showConfirmButton: false });
     } catch (e) {
       toast.error((e as Error).message || 'Failed to reject doctor');
     } finally {
@@ -568,6 +595,7 @@ export const HospitalAdminDashboard: React.FC = () => {
       setSelectedDoctor('');
       setSelectedPatient('');
       loadAssignments();
+      Swal.fire({ icon: 'success', title: 'Patient assigned', timer: 2000, showConfirmButton: false });
     } catch (e) {
       setAssignError((e as Error).message || 'Failed to assign patient');
     } finally {

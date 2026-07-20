@@ -3,6 +3,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
+import Swal from 'sweetalert2';
 import { Search, Users, MoreHorizontal, Loader2, Plus } from 'lucide-react';
 import { SectionCard, DashboardPageHeader, StatusBadge, ACCENT_STYLES, type Accent } from './primitives';
 import { cn } from '@/lib/utils';
@@ -23,7 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { adminApi, type AdminUser } from '@/features/admin/api';
+import { adminApi, type AdminUser, type Hospital } from '@/features/admin/api';
 
 const ROLE_TITLES: Record<string, { title: string; description: string }> = {
   doctor: { title: 'Doctors', description: 'All doctors in this directory.' },
@@ -40,6 +41,11 @@ const ADD_USER_LABELS: Record<string, string> = {
   admin: 'Add Hospital Admin',
   super_admin: 'Add Super Admin',
 };
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString();
+}
 
 function initials(name: string) {
   return name
@@ -149,7 +155,7 @@ function DeleteUserDialog({
       await adminApi.deleteUser(user.id);
       onDeleted(user.id);
       onOpenChange(false);
-      toast.success('User deleted');
+      Swal.fire({ icon: 'success', title: 'User deleted', timer: 2000, showConfirmButton: false });
     } catch (e) {
       toast.error((e as Error).message || 'Failed to delete user');
     } finally {
@@ -228,6 +234,8 @@ function UserDirectoryInner({
   accent,
   fallbackDescription,
   onAddUser,
+  hospitals,
+  showHospitalColumn,
 }: {
   role?: string;
   eyebrow: string;
@@ -235,6 +243,13 @@ function UserDirectoryInner({
   accent: Accent;
   fallbackDescription: string;
   onAddUser?: () => void;
+  /** Only relevant when `showHospitalColumn` is set — used to resolve `hospital_id` -> name. */
+  hospitals?: Hospital[];
+  /** Cross-hospital views (Super Admin) need to show which hospital each row
+   * belongs to so doctors/radiologists/patients/admins from different
+   * hospitals aren't visually mixed together. Hospital Admin's own directory
+   * is already scoped to a single hospital, so it stays off there. */
+  showHospitalColumn?: boolean;
 }) {
   const meta = role ? ROLE_TITLES[role] : undefined;
   const addUserLabel = role ? ADD_USER_LABELS[role] ?? 'Add User' : 'Add User';
@@ -242,9 +257,15 @@ function UserDirectoryInner({
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
+  const [hospitalFilter, setHospitalFilter] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
+
+  const hospitalNameById = useMemo(
+    () => Object.fromEntries((hospitals ?? []).map((h) => [h.id, h.name])),
+    [hospitals]
+  );
 
   const load = useCallback(() => {
     adminApi
@@ -262,14 +283,16 @@ function UserDirectoryInner({
   const filtered = useMemo(() => {
     const all = users ?? [];
     const term = q.trim().toLowerCase();
-    if (!term) return all;
-    return all.filter(
-      (u) =>
+    return all.filter((u) => {
+      if (hospitalFilter && u.hospital_id !== hospitalFilter) return false;
+      if (!term) return true;
+      return (
         u.full_name.toLowerCase().includes(term) ||
         u.email.toLowerCase().includes(term) ||
         u.unique_identifier.toLowerCase().includes(term)
-    );
-  }, [users, q]);
+      );
+    });
+  }, [users, q, hospitalFilter]);
 
   const loading = users === null && !error;
 
@@ -281,11 +304,22 @@ function UserDirectoryInner({
   };
 
   const handleSuspend = async (u: AdminUser) => {
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: `Suspend ${u.full_name}?`,
+      text: 'They will be signed out and blocked from logging in until reactivated.',
+      showCancelButton: true,
+      confirmButtonText: 'Suspend',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!confirm.isConfirmed) return;
+
     setBusyId(u.id);
     try {
       const updated = await adminApi.suspendUser(u.id);
       patchUser(updated);
-      toast.success(`${u.full_name} suspended`);
+      Swal.fire({ icon: 'success', title: 'Account suspended', text: `${u.full_name} has been suspended.`, timer: 2500, showConfirmButton: false });
     } catch (e) {
       toast.error((e as Error).message || 'Failed to suspend user');
     } finally {
@@ -294,11 +328,22 @@ function UserDirectoryInner({
   };
 
   const handleReactivate = async (u: AdminUser) => {
+    const confirm = await Swal.fire({
+      icon: 'question',
+      title: `Reactivate ${u.full_name}?`,
+      text: 'They will regain access and be able to log in again.',
+      showCancelButton: true,
+      confirmButtonText: 'Reactivate',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#16a34a',
+    });
+    if (!confirm.isConfirmed) return;
+
     setBusyId(u.id);
     try {
       const updated = await adminApi.reactivateUser(u.id);
       patchUser(updated);
-      toast.success(`${u.full_name} reactivated`);
+      Swal.fire({ icon: 'success', title: 'Account reactivated', text: `${u.full_name} is active again.`, timer: 2500, showConfirmButton: false });
     } catch (e) {
       toast.error((e as Error).message || 'Failed to reactivate user');
     } finally {
@@ -327,6 +372,20 @@ function UserDirectoryInner({
             {loading ? 'Loading…' : `${filtered.length} user${filtered.length === 1 ? '' : 's'}`}
           </p>
           <div className="flex items-center gap-3 flex-wrap">
+            {showHospitalColumn && hospitals && hospitals.length > 0 && (
+              <select
+                value={hospitalFilter}
+                onChange={(e) => setHospitalFilter(e.target.value)}
+                className="py-2 pl-3 pr-8 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="">All hospitals</option>
+                {hospitals.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
@@ -359,16 +418,20 @@ function UserDirectoryInner({
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                  <th className="py-2.5 pr-4 font-medium w-10">Sr No</th>
                   <th className="py-2.5 pr-4 font-medium">Name</th>
                   <th className="py-2.5 pr-4 font-medium hidden md:table-cell">Email</th>
                   {!role && <th className="py-2.5 pr-4 font-medium">Role</th>}
+                  {showHospitalColumn && <th className="py-2.5 pr-4 font-medium">Hospital</th>}
+                  <th className="py-2.5 pr-4 font-medium hidden lg:table-cell">Created</th>
                   <th className="py-2.5 pr-4 font-medium">Status</th>
                   <th className="py-2.5 pr-4 font-medium w-10" />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((u) => (
+                {filtered.map((u, idx) => (
                   <tr key={u.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                    <td className="py-3 pr-4 text-slate-500">{idx + 1}</td>
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-semibold flex items-center justify-center shrink-0">
@@ -384,6 +447,14 @@ function UserDirectoryInner({
                     {!role && (
                       <td className="py-3 pr-4 capitalize text-slate-600">{u.role.replace(/_/g, ' ')}</td>
                     )}
+                    {showHospitalColumn && (
+                      <td className="py-3 pr-4 text-slate-600 truncate max-w-[160px]">
+                        {u.hospital_id ? hospitalNameById[u.hospital_id] ?? '—' : '—'}
+                      </td>
+                    )}
+                    <td className="py-3 pr-4 hidden lg:table-cell text-slate-500 whitespace-nowrap">
+                      {formatDate(u.created_at)}
+                    </td>
                     <td className="py-3 pr-4">
                       <StatusBadge status={u.account_status} />
                     </td>
@@ -436,6 +507,8 @@ export function UserDirectory({
   accent,
   fallbackDescription = 'Complete user directory.',
   onAddUser,
+  hospitals,
+  showHospitalColumn,
 }: {
   eyebrow: string;
   basePath: string;
@@ -443,6 +516,8 @@ export function UserDirectory({
   fallbackDescription?: string;
   /** Renders an "Add {Role}" button beside the search bar when provided. */
   onAddUser?: () => void;
+  hospitals?: Hospital[];
+  showHospitalColumn?: boolean;
 }) {
   return (
     <Suspense fallback={<div className="h-40" />}>
@@ -452,6 +527,8 @@ export function UserDirectory({
         accent={accent}
         fallbackDescription={fallbackDescription}
         onAddUser={onAddUser}
+        hospitals={hospitals}
+        showHospitalColumn={showHospitalColumn}
       />
     </Suspense>
   );
@@ -463,6 +540,8 @@ function UserDirectoryResolver(props: {
   accent: Accent;
   fallbackDescription: string;
   onAddUser?: () => void;
+  hospitals?: Hospital[];
+  showHospitalColumn?: boolean;
 }) {
   const role = useSearchParams().get('role') || undefined;
   // Keying by role remounts the inner view on filter change, giving a clean
