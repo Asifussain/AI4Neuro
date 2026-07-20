@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
   LogOut,
@@ -20,12 +20,66 @@ import { BrandLogo } from '@/components/shared/BrandLogo';
 import { ACCENT_STYLES, type Accent } from './primitives';
 import { NotificationBell, ProfileMenu } from './TopbarWidgets';
 
-/** Matches a nav href (which may carry a query string) against the active path. */
-function isNavActive(href: string, pathname: string): boolean {
-  const base = href.split('?')[0];
-  if (base === pathname) return true;
-  // Highlight parent section for its sub-routes, but never let '/' match everything.
-  return base !== '/' && pathname.startsWith(`${base}/`);
+/**
+ * Matches a nav href (which may carry a query string, e.g.
+ * `/super-admin/users?role=doctor`) against the active path *and* search
+ * params. Several nav items can share the same base path and differ only by
+ * query string (Hospital Admins/Doctors/Radiologists/Patients all route to
+ * `/super-admin/users`), so matching on path alone would light up all of
+ * them at once — every query param the href declares must also match the
+ * current URL's search params.
+ */
+function isNavActive(href: string, pathname: string, search: string): boolean {
+  const [base, query] = href.split('?');
+  const pathMatches = base === pathname || (base !== '/' && pathname.startsWith(`${base}/`));
+  if (!pathMatches) return false;
+  if (!query) return true;
+
+  const hrefParams = new URLSearchParams(query);
+  const currentParams = new URLSearchParams(search);
+  for (const [key, value] of hrefParams) {
+    if (currentParams.get(key) !== value) return false;
+  }
+  return true;
+}
+
+function NavLinks({
+  navItems,
+  pathname,
+  collapsed,
+  styles,
+  onNavigate,
+}: {
+  navItems: NavItem[];
+  pathname: string;
+  collapsed: boolean;
+  styles: (typeof ACCENT_STYLES)[Accent];
+  onNavigate: () => void;
+}) {
+  const search = useSearchParams().toString();
+  return (
+    <>
+      {navItems.map((item) => {
+        const active = isNavActive(item.href, pathname, search);
+        const Icon = item.icon;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
+              active ? cn(styles.soft, styles.text) : 'text-slate-600 hover:bg-slate-50'
+            )}
+            title={collapsed ? item.label : undefined}
+          >
+            <Icon className="h-4.5 w-4.5 shrink-0" />
+            {!collapsed && <span className="truncate">{item.label}</span>}
+          </Link>
+        );
+      })}
+    </>
+  );
 }
 
 export interface NavItem {
@@ -77,25 +131,15 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
 
       {/* Nav */}
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const active = isNavActive(item.href, pathname);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
-                active ? cn(styles.soft, styles.text) : 'text-slate-600 hover:bg-slate-50'
-              )}
-              title={collapsed ? item.label : undefined}
-            >
-              <Icon className="h-4.5 w-4.5 shrink-0" />
-              {!collapsed && <span className="truncate">{item.label}</span>}
-            </Link>
-          );
-        })}
+        <Suspense fallback={null}>
+          <NavLinks
+            navItems={navItems}
+            pathname={pathname}
+            collapsed={collapsed}
+            styles={styles}
+            onNavigate={() => setMobileOpen(false)}
+          />
+        </Suspense>
       </nav>
 
       {/* Services block */}
