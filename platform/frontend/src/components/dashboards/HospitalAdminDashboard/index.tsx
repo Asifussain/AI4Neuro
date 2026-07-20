@@ -44,9 +44,6 @@ import {
   List,
   ArrowUpDown,
   Filter,
-  Server,
-  Database,
-  HardDrive,
 } from 'lucide-react';
 import { DashboardShell } from '@/components/dashboards/shared/DashboardShell';
 import {
@@ -415,8 +412,6 @@ function GridCardSkeleton() {
   );
 }
 
-type HealthState = 'ok' | 'not_configured' | 'unreachable' | 'checking';
-
 // ============================================================================
 // MAIN HOSPITAL ADMIN DASHBOARD
 // ============================================================================
@@ -450,11 +445,6 @@ export const HospitalAdminDashboard: React.FC = () => {
   const [patients, setPatients] = useState<PatientDirectoryEntry[] | null>(null);
   const [assignments, setAssignments] = useState<Assignment[] | null>(null);
   const [scans, setScans] = useState<SessionStatusResponse[] | null>(null);
-  const [health, setHealth] = useState<{ api: HealthState; database: HealthState; storage: HealthState }>({
-    api: 'checking',
-    database: 'checking',
-    storage: 'checking',
-  });
 
   const loadUsers = useCallback(() => {
     adminApi
@@ -478,10 +468,6 @@ export const HospitalAdminDashboard: React.FC = () => {
     loadPatients();
     loadAssignments();
     analysisApi.list({ limit: 200 }).then(setScans).catch(() => setScans([]));
-
-    adminApi.health().then((r) => setHealth((h) => ({ ...h, api: r.status === 'ok' ? 'ok' : 'unreachable' }))).catch(() => setHealth((h) => ({ ...h, api: 'unreachable' })));
-    adminApi.healthDatabase().then((r) => setHealth((h) => ({ ...h, database: r.status === 'ok' ? 'ok' : 'not_configured' }))).catch(() => setHealth((h) => ({ ...h, database: 'unreachable' })));
-    adminApi.healthStorage().then((r) => setHealth((h) => ({ ...h, storage: r.status === 'ok' ? 'ok' : 'not_configured' }))).catch(() => setHealth((h) => ({ ...h, storage: 'unreachable' })));
   }, [loadUsers, loadDoctors, loadPatients, loadAssignments]);
 
   const usersLoading = users === null && !usersError;
@@ -638,19 +624,6 @@ export const HospitalAdminDashboard: React.FC = () => {
   ].filter(Boolean).length;
 
   const isLoading = usersLoading && users === null;
-
-  const healthDot = (state: HealthState) => {
-    if (state === 'ok') return 'bg-emerald-500';
-    if (state === 'checking') return 'bg-slate-300 animate-pulse';
-    if (state === 'not_configured') return 'bg-amber-500';
-    return 'bg-red-500';
-  };
-  const healthLabel = (state: HealthState) => {
-    if (state === 'ok') return 'Healthy';
-    if (state === 'checking') return 'Checking…';
-    if (state === 'not_configured') return 'Not configured';
-    return 'Unreachable';
-  };
 
   return (
     <DashboardShell roleLabel="Hospital Admin" accent="teal" navItems={NAV_ITEMS}>
@@ -1040,32 +1013,6 @@ export const HospitalAdminDashboard: React.FC = () => {
 
         {/* Right Sidebar */}
         <div className="space-y-4">
-          {/* System Health */}
-          <SectionCard className="p-4">
-            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3">
-              <Server className="h-4 w-4 text-teal-600" />
-              System Health
-            </h3>
-            <div className="space-y-2.5">
-              {[
-                { label: 'API', status: health.api, icon: Server },
-                { label: 'Database', status: health.database, icon: Database },
-                { label: 'Storage', status: health.storage, icon: HardDrive },
-              ].map(({ label, status: hStatus, icon: SIcon }) => (
-                <div key={label} className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50">
-                  <div className="flex items-center gap-2">
-                    <SIcon className="h-3.5 w-3.5 text-slate-400" />
-                    <span className="text-xs text-slate-500">{label}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${healthDot(hStatus)}`} />
-                    <span className="text-xs text-slate-800">{healthLabel(hStatus)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
           {/* Quick Stats */}
           <SectionCard className="p-4">
             <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3">

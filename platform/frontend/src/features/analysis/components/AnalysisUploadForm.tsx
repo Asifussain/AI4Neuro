@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Activity, Brain, CheckCircle2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import Swal from 'sweetalert2';
 
 import { useAuth } from '@/components/providers/AuthProvider';
 import { adminApi } from '@/features/admin/api';
@@ -157,11 +158,46 @@ export function AnalysisUploadForm() {
     };
   }, [isDoctor, role, userProfile?.full_name, userProfile?.id]);
 
-  const onModalityChange = (value: string) => {
-    const next = value as Modality;
+  // Any details already entered for the current modality that would be lost
+  // if the user switches lanes (EEG <-> MRI) without confirming first.
+  const hasUnsavedDetails = Boolean(file || patientId.trim() || (!isDoctor && doctorId.trim()));
+
+  const resetFormDetails = () => {
+    setPatientId('');
+    if (!isDoctor) setDoctorId('');
+    setChannelIndex('0');
+    setFile(null);
+  };
+
+  const switchModality = (next: Modality) => {
     setModality(next);
     setAnalysisType(ANALYSIS_TYPES[next][0].value);
     setFile(null);
+  };
+
+  const onModalityChange = (value: string) => {
+    const next = value as Modality;
+    if (next === modality) return;
+
+    if (hasUnsavedDetails) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Discard current analysis?',
+        text: `You have unsaved details for this ${modality.toUpperCase()} analysis (patient, doctor, or file). Switching to ${next.toUpperCase()} will discard them and start a fresh analysis.`,
+        showCancelButton: true,
+        confirmButtonText: 'Discard & switch',
+        cancelButtonText: 'Keep editing',
+        confirmButtonColor: '#dc2626',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          resetFormDetails();
+          switchModality(next);
+        }
+      });
+      return;
+    }
+
+    switchModality(next);
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -170,8 +206,37 @@ export function AnalysisUploadForm() {
       toast.error('Please choose a file to upload.');
       return;
     }
+
+    // Defense-in-depth: the file picker's `accept` filter is advisory only,
+    // so re-check the extension actually matches the selected modality
+    // before it can be submitted as the wrong scan type (e.g. an EEG .npy
+    // file posted against the MRI pipeline).
+    const allowedExtensions = ACCEPTED_EXTENSIONS[modality].split(',').map((ext) => ext.trim().toLowerCase());
+    const fileName = file.name.toLowerCase();
+    if (!allowedExtensions.some((ext) => fileName.endsWith(ext))) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Wrong file type',
+        text: `"${file.name}" doesn't look like a ${modality.toUpperCase()} file. Accepted for ${modality.toUpperCase()}: ${ACCEPTED_EXTENSIONS[modality]}`,
+      });
+      return;
+    }
+
     if (!patientId.trim()) {
-      toast.error('Please select a patient.');
+      Swal.fire({
+        icon: 'warning',
+        title: 'Select a patient',
+        text: 'Please select a patient before starting the analysis.',
+      });
+      return;
+    }
+
+    if (!doctorId.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Select a doctor',
+        text: 'Please select a referring doctor before starting the analysis.',
+      });
       return;
     }
 
@@ -316,7 +381,7 @@ export function AnalysisUploadForm() {
 
             <div className="grid gap-2 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="patient-id">Patient</Label>
+              <Label htmlFor="patient-id">Patient <span className="text-destructive">*</span></Label>
               <Select value={patientId} onValueChange={setPatientId} disabled={loadingAssociations}>
                 <SelectTrigger id="patient-id">
                   <SelectValue placeholder={loadingAssociations ? 'Loading patients...' : 'Select patient'} />
@@ -336,7 +401,7 @@ export function AnalysisUploadForm() {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="doctor-id">Referring doctor</Label>
+              <Label htmlFor="doctor-id">Referring doctor <span className="text-destructive">*</span></Label>
               <Select
                 value={doctorId || NO_DOCTOR_VALUE}
                 onValueChange={(value) => setDoctorId(value === NO_DOCTOR_VALUE ? '' : value)}
@@ -346,7 +411,6 @@ export function AnalysisUploadForm() {
                   <SelectValue placeholder={loadingAssociations ? 'Loading doctors...' : 'Select doctor'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {!isDoctor && <SelectItem value={NO_DOCTOR_VALUE}>No referring doctor</SelectItem>}
                   {doctors.map((doctor) => (
                     <SelectItem key={doctor.id} value={doctor.id}>
                       <span className="flex flex-col">

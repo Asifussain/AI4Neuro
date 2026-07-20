@@ -3,8 +3,9 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { Search, Users, MoreHorizontal, Loader2 } from 'lucide-react';
-import { SectionCard, DashboardPageHeader, StatusBadge, type Accent } from './primitives';
+import { Search, Users, MoreHorizontal, Loader2, Plus } from 'lucide-react';
+import { SectionCard, DashboardPageHeader, StatusBadge, ACCENT_STYLES, type Accent } from './primitives';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,6 +31,14 @@ const ROLE_TITLES: Record<string, { title: string; description: string }> = {
   patient: { title: 'Patients', description: 'All patients in this directory.' },
   admin: { title: 'Hospital Admins', description: 'All hospital administrators.' },
   super_admin: { title: 'Super Admins', description: 'Platform-level super administrators.' },
+};
+
+const ADD_USER_LABELS: Record<string, string> = {
+  doctor: 'Add Doctor',
+  radiologist: 'Add Radiologist',
+  patient: 'Add Patient',
+  admin: 'Add Hospital Admin',
+  super_admin: 'Add Super Admin',
 };
 
 function initials(name: string) {
@@ -218,14 +227,17 @@ function UserDirectoryInner({
   basePath,
   accent,
   fallbackDescription,
+  onAddUser,
 }: {
   role?: string;
   eyebrow: string;
   basePath: string;
   accent: Accent;
   fallbackDescription: string;
+  onAddUser?: () => void;
 }) {
   const meta = role ? ROLE_TITLES[role] : undefined;
+  const addUserLabel = role ? ADD_USER_LABELS[role] ?? 'Add User' : 'Add User';
 
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -314,14 +326,22 @@ function UserDirectoryInner({
           <p className="text-sm text-slate-500">
             {loading ? 'Loading…' : `${filtered.length} user${filtered.length === 1 ? '' : 's'}`}
           </p>
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search by name, email or ID…"
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-            />
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search by name, email or ID…"
+                className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+            {onAddUser && (
+              <Button className={cn('gap-2 text-white hover:brightness-95', ACCENT_STYLES[accent].solid)} onClick={onAddUser}>
+                <Plus className="h-4 w-4" />
+                {addUserLabel}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -415,11 +435,14 @@ export function UserDirectory({
   basePath,
   accent,
   fallbackDescription = 'Complete user directory.',
+  onAddUser,
 }: {
   eyebrow: string;
   basePath: string;
   accent: Accent;
   fallbackDescription?: string;
+  /** Renders an "Add {Role}" button beside the search bar when provided. */
+  onAddUser?: () => void;
 }) {
   return (
     <Suspense fallback={<div className="h-40" />}>
@@ -428,6 +451,7 @@ export function UserDirectory({
         basePath={basePath}
         accent={accent}
         fallbackDescription={fallbackDescription}
+        onAddUser={onAddUser}
       />
     </Suspense>
   );
@@ -438,6 +462,7 @@ function UserDirectoryResolver(props: {
   basePath: string;
   accent: Accent;
   fallbackDescription: string;
+  onAddUser?: () => void;
 }) {
   const role = useSearchParams().get('role') || undefined;
   // Keying by role remounts the inner view on filter change, giving a clean
