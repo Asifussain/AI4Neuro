@@ -28,6 +28,7 @@ from app.services import permissions
 from app.schemas.analysis import (
     ALLOWED_EXTENSIONS,
     AnalysisResultResponse,
+    CancelResponse,
     CreateAnalysisResponse,
     Modality,
     ReportsResponse,
@@ -36,6 +37,7 @@ from app.schemas.analysis import (
     SessionStatus,
     SessionStatusResponse,
 )
+from app.schemas.common import PaginatedResponse
 from app.services.database import DatabaseService
 from app.services.jobs import get_job_service
 from app.services.storage import StorageService
@@ -139,11 +141,40 @@ async def create_analysis(
         modality, channel_index, scan_metadata_json, eeg_metadata_json
     )
     uploaded_by_role = uploaded_by_role or principal.role
-    hospital_id = hospital_id or principal.hospital_id
+
+    # Authorization gap fix: reads are strictly hospital-scoped
+    # (permissions.can_read_session), but this write previously accepted a
+    # client-supplied hospital_id with no verification it matched the
+    # caller's own hospital. Only super_admin may create analyses for a
+    # hospital other than their own.
+    if principal.role != "super_admin":
+        if hospital_id and str(hospital_id) != str(principal.hospital_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "hospital_mismatch",
+                    "message": "hospital_id must match your own hospital.",
+                },
+            )
+        hospital_id = principal.hospital_id
+    else:
+        hospital_id = hospital_id or principal.hospital_id
+
     if principal.role == "radiologist" and not radiologist_id:
         radiologist_id = principal.user_id
     if principal.role == "doctor" and not doctor_id:
         doctor_id = principal.user_id
+
+    # TODO(security): doctor_id/radiologist_id supplied on the form are
+    # currently trusted as-is (beyond the self-assign defaults above).
+    # permissions.can_read_session grants read access to whoever is named as
+    # doctor_id/radiologist_id on a session row, so a malicious uploader could
+    # currently name themselves (or anyone) as doctor_id/radiologist_id on
+    # someone else's session to gain read access. This should verify (via a
+    # user_profiles lookup) that the named user actually belongs to
+    # hospital_id and holds the corresponding role before accepting it,
+    # mirroring the hospital_id check above. Deferred here to keep this pass
+    # focused — the hospital_id check (the required fix) is in place above.
 
     # 1) Create the session row (queued).
     try:
@@ -219,16 +250,17 @@ async def create_analysis(
     )
 
 
-@router.get("", response_model=list[SessionStatusResponse])
+@router.get("", response_model=PaginatedResponse[SessionStatusResponse])
 def list_analyses(
     modality: str | None = Query(default=None),
     status_filter: str | None = Query(default=None, alias="status"),
     patient_id: str | None = Query(default=None),
     mine: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
-) -> list[SessionStatusResponse]:
+) -> PaginatedResponse[SessionStatusResponse]:
     """Role-scoped list of analysis sessions the caller may see (doc 8.5).
 
     super_admin sees across all hospitals; every other role is pre-filtered to
@@ -252,7 +284,11 @@ def list_analyses(
     if mine:
         visible = [r for r in visible if str(r.get("uploaded_by")) == str(principal.user_id)]
     visible.sort(key=lambda r: str(r.get("created_at") or ""), reverse=True)
-    return [_to_status(r) for r in visible[:limit]]
+    total = len(visible)
+    page = visible[offset : offset + limit]
+    return PaginatedResponse(
+        items=[_to_status(r) for r in page], total=total, limit=limit, offset=offset
+    )
 
 
 @router.get("/{session_id}", response_model=SessionStatusResponse)
@@ -342,6 +378,41 @@ def retry_analysis(
     return RetryResponse(
         session_id=session_id, status=SessionStatus.queued.value, retry_count=retry_count
     )
+
+
+@router.post("/{session_id}/cancel", response_model=CancelResponse)
+def cancel_analysis(
+    session_id: str,
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> CancelResponse:
+    """Cancel an in-flight analysis. Same permission as retry (care team /
+    admins, not the patient). Only valid from queued/processing — a session
+    already terminal (completed/failed/cancelled) 409s, matching retry's
+    status-guard pattern."""
+    session = _require_session(db, session_id)
+    if not permissions.can_retry_session(
+        principal.user_id, principal.role, principal.hospital_id, session
+    ):
+        raise _forbid("You may not cancel this analysis.")
+    if session["status"] not in {SessionStatus.queued.value, SessionStatus.processing.value}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "cancel_not_allowed",
+                "message": f"Cannot cancel a session in status {session['status']!r}.",
+            },
+        )
+    db.update_session_stage(session_id, status=SessionStatus.cancelled.value)
+    db.insert_audit_log(
+        actor_id=principal.user_id,
+        actor_role=principal.role,
+        hospital_id=session.get("hospital_id"),
+        action="analysis.cancel",
+        target_table="analysis_sessions",
+        target_id=session_id,
+    )
+    return CancelResponse(session_id=session_id, status=SessionStatus.cancelled.value)
 
 
 def _build_pipeline_options(

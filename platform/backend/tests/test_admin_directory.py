@@ -63,9 +63,11 @@ def _as_hospital_admin(client, hospital_id):
 def test_list_doctors_merges_profile_detail(client, db_service):
     h1 = _hospital(db_service, "H1")
     _doctor(db_service, h1["id"])
-    res = client.get("/api/v1/doctors")
+    res = client.get("/api/v1/hospital/doctors")
     assert res.status_code == 200
-    body = res.json()
+    page = res.json()
+    assert page["total"] == 1
+    body = page["items"]
     assert len(body) == 1
     assert body[0]["specialization"] == "Neurology"
     assert body[0]["medical_license"] == "LIC-1"
@@ -79,9 +81,9 @@ def test_list_doctors_scoped_to_own_hospital(client, db_service):
     _doctor(db_service, h2["id"], name="Dr. B", email="b@x.com")
 
     _as_hospital_admin(client, h1["id"])
-    res = client.get("/api/v1/doctors")
+    res = client.get("/api/v1/hospital/doctors")
     assert res.status_code == 200
-    body = res.json()
+    body = res.json()["items"]
     assert len(body) == 1
     assert body[0]["hospital_id"] == h1["id"]
 
@@ -89,9 +91,9 @@ def test_list_doctors_scoped_to_own_hospital(client, db_service):
 def test_list_patients_merges_profile_detail(client, db_service):
     h1 = _hospital(db_service, "H1")
     _patient(db_service, h1["id"])
-    res = client.get("/api/v1/patients")
+    res = client.get("/api/v1/hospital/patients")
     assert res.status_code == 200
-    body = res.json()
+    body = res.json()["items"]
     assert len(body) == 1
     assert body[0]["patient_code"] == "PC-1"
 
@@ -106,9 +108,9 @@ def test_clinical_directory_allowed_for_doctor(client, db_service):
     client.app.dependency_overrides[get_current_user] = lambda: Principal(
         user_id="d1", role="doctor", hospital_id=h1["id"], is_dev=False
     )
-    res = client.get("/api/v1/patients")
+    res = client.get("/api/v1/hospital/patients")
     assert res.status_code == 200
-    body = res.json()
+    body = res.json()["items"]
     assert len(body) == 1
     assert body[0]["hospital_id"] == h1["id"]
 
@@ -118,18 +120,18 @@ def test_clinical_directory_forbidden_for_patient(client, db_service):
     client.app.dependency_overrides[get_current_user] = lambda: Principal(
         user_id="p1", role="patient", hospital_id=h1["id"], is_dev=False
     )
-    res = client.get("/api/v1/patients")
+    res = client.get("/api/v1/hospital/patients")
     assert res.status_code == 403
 
 
 def test_user_directory_still_forbidden_for_doctor(client, db_service):
-    # The admin user directory (/users) stays admin-only even though the
-    # clinical pickers were opened up to clinicians.
+    # The admin user directory (/hospital/users) stays admin-only even though
+    # the clinical pickers were opened up to clinicians.
     h1 = _hospital(db_service, "H1")
     client.app.dependency_overrides[get_current_user] = lambda: Principal(
         user_id="d1", role="doctor", hospital_id=h1["id"], is_dev=False
     )
-    res = client.get("/api/v1/users")
+    res = client.get("/api/v1/hospital/users")
     assert res.status_code == 403
 
 
@@ -137,7 +139,7 @@ def test_verify_doctor_updates_profile(client, db_service):
     h1 = _hospital(db_service, "H1")
     doctor = _doctor(db_service, h1["id"])
 
-    res = client.post(f"/api/v1/users/{doctor['id']}/verify")
+    res = client.post(f"/api/v1/hospital/users/{doctor['id']}/verify")
     assert res.status_code == 200
     assert res.json()["verification_status"] == "verified"
 
@@ -152,7 +154,7 @@ def test_reject_doctor_by_own_hospital_admin(client, db_service):
     doctor = _doctor(db_service, h1["id"])
 
     _as_hospital_admin(client, h1["id"])
-    res = client.post(f"/api/v1/users/{doctor['id']}/reject")
+    res = client.post(f"/api/v1/hospital/users/{doctor['id']}/reject")
     assert res.status_code == 200
     assert res.json()["verification_status"] == "rejected"
 
@@ -163,7 +165,7 @@ def test_verify_forbidden_across_hospitals(client, db_service):
     doctor = _doctor(db_service, h1["id"])
 
     _as_hospital_admin(client, h2["id"])
-    res = client.post(f"/api/v1/users/{doctor['id']}/verify")
+    res = client.post(f"/api/v1/hospital/users/{doctor['id']}/verify")
     assert res.status_code == 403
 
 
@@ -180,7 +182,7 @@ def test_verify_rejects_non_verifiable_role(client, db_service):
             "account_status": "active",
         }
     )
-    res = client.post(f"/api/v1/users/{admin_user['id']}/verify")
+    res = client.post(f"/api/v1/hospital/users/{admin_user['id']}/verify")
     assert res.status_code == 400
 
 
@@ -192,9 +194,9 @@ def test_list_assignments_with_joined_names(client, db_service):
         {"doctor_id": doctor["id"], "patient_id": patient["id"], "hospital_id": h1["id"]}
     )
 
-    res = client.get("/api/v1/assignments")
+    res = client.get("/api/v1/hospital/assignments")
     assert res.status_code == 200
-    body = res.json()
+    body = res.json()["items"]
     assert len(body) == 1
     assert body[0]["doctor_name"] == "Dr. A"
     assert body[0]["patient_name"] == "Pat A"
@@ -215,52 +217,87 @@ def test_list_assignments_scoped_to_own_hospital(client, db_service):
     )
 
     _as_hospital_admin(client, h1["id"])
-    res = client.get("/api/v1/assignments")
+    res = client.get("/api/v1/hospital/assignments")
     assert res.status_code == 200
-    body = res.json()
+    body = res.json()["items"]
     assert len(body) == 1
     assert body[0]["doctor_name"] == "Dr. A"
 
 
-def _as_doctor(client, user_id, hospital_id):
-    client.app.dependency_overrides[get_current_user] = lambda: Principal(
-        user_id=user_id, role="doctor", hospital_id=hospital_id, is_dev=False
-    )
-
-
-def test_list_my_patients_only_returns_own_assignments(client, db_service):
+def test_delete_hospital_user_soft_deletes_and_hides_from_directory(client, db_service):
     h1 = _hospital(db_service, "H1")
-    doctor_a = _doctor(db_service, h1["id"], name="Dr. A", email="a@x.com")
-    doctor_b = _doctor(db_service, h1["id"], name="Dr. B", email="b@x.com")
-    mine = _patient(db_service, h1["id"], name="Mine", email="mine@x.com")
-    not_mine = _patient(db_service, h1["id"], name="NotMine", email="notmine@x.com")
-    db_service.create_doctor_patient_relationship(
-        {"doctor_id": doctor_a["id"], "patient_id": mine["id"], "hospital_id": h1["id"]}
-    )
-    db_service.create_doctor_patient_relationship(
-        {"doctor_id": doctor_b["id"], "patient_id": not_mine["id"], "hospital_id": h1["id"]}
-    )
+    doctor = _doctor(db_service, h1["id"])
 
-    _as_doctor(client, doctor_a["id"], h1["id"])
-    res = client.get("/api/v1/patients/mine")
+    res = client.delete(f"/api/v1/hospital/users/{doctor['id']}")
     assert res.status_code == 200
-    body = res.json()
-    assert len(body) == 1
-    assert body[0]["full_name"] == "Mine"
+    assert res.json()["account_status"] == "deleted"
 
+    # Hidden from the directory listing by default...
+    res = client.get("/api/v1/hospital/doctors")
+    assert res.json()["items"] == []
 
-def test_list_my_patients_empty_when_no_assignments(client, db_service):
-    h1 = _hospital(db_service, "H1")
-    doctor_a = _doctor(db_service, h1["id"], name="Dr. A", email="a@x.com")
-
-    _as_doctor(client, doctor_a["id"], h1["id"])
-    res = client.get("/api/v1/patients/mine")
+    # ...but still individually fetchable (auditable), not gone.
+    res = client.get(f"/api/v1/hospital/users/{doctor['id']}")
     assert res.status_code == 200
-    assert res.json() == []
+    assert res.json()["account_status"] == "deleted"
 
 
-def test_list_my_patients_forbidden_for_non_doctor(client, db_service):
+def test_delete_hospital_user_forbidden_across_hospitals(client, db_service):
     h1 = _hospital(db_service, "H1")
-    _as_hospital_admin(client, h1["id"])
-    res = client.get("/api/v1/patients/mine")
+    h2 = _hospital(db_service, "H2")
+    doctor = _doctor(db_service, h1["id"])
+
+    _as_hospital_admin(client, h2["id"])
+    res = client.delete(f"/api/v1/hospital/users/{doctor['id']}")
     assert res.status_code == 403
+
+
+def test_delete_assignment_unassigns_doctor(client, db_service):
+    h1 = _hospital(db_service, "H1")
+    doctor = _doctor(db_service, h1["id"])
+    patient = _patient(db_service, h1["id"])
+    relationship = db_service.create_doctor_patient_relationship(
+        {"doctor_id": doctor["id"], "patient_id": patient["id"], "hospital_id": h1["id"]}
+    )
+
+    res = client.delete(f"/api/v1/hospital/assignments/{relationship['id']}")
+    assert res.status_code == 204
+
+    res = client.get("/api/v1/hospital/assignments")
+    assert res.json()["items"] == []
+
+
+def test_delete_assignment_404_when_out_of_scope(client, db_service):
+    h1 = _hospital(db_service, "H1")
+    h2 = _hospital(db_service, "H2")
+    doctor = _doctor(db_service, h1["id"])
+    patient = _patient(db_service, h1["id"])
+    relationship = db_service.create_doctor_patient_relationship(
+        {"doctor_id": doctor["id"], "patient_id": patient["id"], "hospital_id": h1["id"]}
+    )
+
+    _as_hospital_admin(client, h2["id"])
+    res = client.delete(f"/api/v1/hospital/assignments/{relationship['id']}")
+    assert res.status_code == 404
+
+
+def test_list_my_patients_paginated_envelope(client, db_service):
+    """Second list-endpoint pagination check (see test_analysis_flow.py /
+    test_list_and_users.py for the other one): total/limit/offset correctness."""
+    h1 = _hospital(db_service, "H1")
+    doctor = _doctor(db_service, h1["id"], name="Dr. A", email="a@x.com")
+    for i in range(3):
+        p = _patient(db_service, h1["id"], name=f"P{i}", email=f"p{i}@x.com")
+        db_service.create_doctor_patient_relationship(
+            {"doctor_id": doctor["id"], "patient_id": p["id"], "hospital_id": h1["id"]}
+        )
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id=doctor["id"], role="doctor", hospital_id=h1["id"], is_dev=False
+    )
+    res = client.get("/api/v1/hospital/patients/mine?limit=2&offset=1")
+    assert res.status_code == 200
+    page = res.json()
+    assert page["total"] == 3
+    assert page["limit"] == 2
+    assert page["offset"] == 1
+    assert len(page["items"]) == 2

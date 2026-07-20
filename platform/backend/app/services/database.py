@@ -305,15 +305,30 @@ class DatabaseService:
         return created
 
     def list_user_profiles(
-        self, *, hospital_id: str | None = None, role: str | None = None
+        self,
+        *,
+        hospital_id: str | None = None,
+        role: str | None = None,
+        exclude_deleted: bool = False,
     ) -> list[dict]:
+        """List user_profiles rows matching the given equality filters.
+
+        ``exclude_deleted``: directory-style listings (GET /hospital/users,
+        /doctors, /patients) pass True so terminally soft-deleted accounts
+        (account_status="deleted") never show up; admin lookups by id
+        (GET .../{id}) leave it False so a deleted user is still viewable/
+        auditable, just hidden from browse listings.
+        """
         query = self.client.table("user_profiles").select("*")
         if hospital_id:
             query = query.eq("hospital_id", hospital_id)
         if role:
             query = query.eq("role", role)
         res = query.execute()
-        return list(getattr(res, "data", None) or [])
+        rows = list(getattr(res, "data", None) or [])
+        if exclude_deleted:
+            rows = [r for r in rows if r.get("account_status") != "deleted"]
+        return rows
 
     def update_user_profile(self, user_id: str, patch: dict) -> dict | None:
         patch = {**patch, "updated_at": _now()}
@@ -355,6 +370,21 @@ class DatabaseService:
             query = query.eq("hospital_id", hospital_id)
         res = query.execute()
         return list(getattr(res, "data", None) or [])
+
+    def get_doctor_patient_relationship(self, relationship_id: str) -> dict | None:
+        res = (
+            self.client.table("doctor_patient_relationships")
+            .select("*")
+            .eq("id", relationship_id)
+            .maybe_single()
+            .execute()
+        )
+        return _one(res)
+
+    def delete_doctor_patient_relationship(self, relationship_id: str) -> None:
+        self.client.table("doctor_patient_relationships").delete().eq(
+            "id", relationship_id
+        ).execute()
 
     # ---------------------------- audit log ------------------------------- #
 

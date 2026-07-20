@@ -36,6 +36,10 @@ class _TableQuery:
         self._payload = dict(patch)
         return self
 
+    def delete(self) -> "_TableQuery":
+        self._op = "delete"
+        return self
+
     def select(self, *_cols: str) -> "_TableQuery":
         self._op = "select"
         return self
@@ -69,6 +73,11 @@ class _TableQuery:
         if self._op == "update":
             for r in matched:
                 r.update(self._payload or {})
+            return _Result(list(matched))
+
+        if self._op == "delete":
+            remaining = [r for r in rows if not self._matches(r)]
+            self._store[self._table] = remaining
             return _Result(list(matched))
 
         # select

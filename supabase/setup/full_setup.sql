@@ -80,7 +80,9 @@ create table if not exists public.user_profiles (
   address text,
   role varchar not null,
   account_status varchar not null default 'pending'
-    check (account_status in ('pending','active','suspended','inactive')),
+    -- suspended = temporary/reversible (admin action, reactivate to undo);
+    -- deleted = terminal soft-delete, hidden from directories, never reactivated.
+    check (account_status in ('pending','active','suspended','inactive','deleted')),
   auth_provider varchar default 'email',
   created_by_admin uuid references public.user_profiles(id),
   first_login_required boolean default false,

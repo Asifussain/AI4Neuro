@@ -6,6 +6,9 @@ import io
 
 import numpy as np
 
+from app.api.deps import get_current_user
+from app.core.security import Principal
+
 
 def _npy_bytes() -> bytes:
     buf = io.BytesIO()
@@ -98,3 +101,94 @@ def test_result_404_before_processing(client, db_service):
     res = client.get(f"/api/v1/analysis/{session['id']}/result")
     assert res.status_code == 404
     assert res.json()["error"]["code"] == "result_not_ready"
+
+
+def test_cancel_queued_session(client, db_service):
+    # Created directly (bypassing the synchronous test job runner), so it
+    # stays in "queued" and can be cancelled.
+    session = db_service.create_session(
+        modality="eeg",
+        analysis_type="multiclass",
+        original_filename="x.npy",
+        patient_id="11111111-1111-1111-1111-111111111111",
+    )
+    res = client.post(f"/api/v1/analysis/{session['id']}/cancel")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["session_id"] == str(session["id"])
+    assert body["status"] == "cancelled"
+
+    status_res = client.get(f"/api/v1/analysis/{session['id']}")
+    assert status_res.json()["status"] == "cancelled"
+
+
+def test_cancel_conflict_on_completed(client):
+    session_id = _upload(client).json()["session_id"]
+    res = client.post(f"/api/v1/analysis/{session_id}/cancel")
+    assert res.status_code == 409
+    assert res.json()["error"]["code"] == "cancel_not_allowed"
+
+
+def test_cancel_forbidden_for_patient(client, db_service):
+    session = db_service.create_session(
+        modality="eeg",
+        analysis_type="multiclass",
+        original_filename="x.npy",
+        patient_id="p1",
+        hospital_id="h1",
+    )
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id="p1", role="patient", hospital_id="h1", is_dev=False
+    )
+    res = client.post(f"/api/v1/analysis/{session['id']}/cancel")
+    assert res.status_code == 403
+
+
+def test_create_analysis_rejects_hospital_mismatch(client):
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id="d1", role="doctor", hospital_id="h1", is_dev=False
+    )
+    res = client.post(
+        "/api/v1/analysis",
+        data={
+            "modality": "eeg",
+            "analysis_type": "multiclass",
+            "patient_id": "11111111-1111-1111-1111-111111111111",
+            "hospital_id": "some-other-hospital",
+        },
+        files={"file": ("x.npy", _npy_bytes(), "application/octet-stream")},
+    )
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "hospital_mismatch"
+
+
+def test_create_analysis_defaults_hospital_to_own(client):
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id="d1", role="doctor", hospital_id="h1", is_dev=False
+    )
+    res = client.post(
+        "/api/v1/analysis",
+        data={
+            "modality": "eeg",
+            "analysis_type": "multiclass",
+            "patient_id": "11111111-1111-1111-1111-111111111111",
+        },
+        files={"file": ("x.npy", _npy_bytes(), "application/octet-stream")},
+    )
+    assert res.status_code == 202
+
+
+def test_create_analysis_super_admin_may_cross_hospital(client):
+    # super_admin (the dev-bypass default principal) is exempt from the
+    # hospital_id match check.
+    res = client.post(
+        "/api/v1/analysis",
+        data={
+            "modality": "eeg",
+            "analysis_type": "multiclass",
+            "patient_id": "11111111-1111-1111-1111-111111111111",
+            "hospital_id": "some-other-hospital",
+        },
+        files={"file": ("x.npy", _npy_bytes(), "application/octet-stream")},
+    )
+    assert res.status_code == 202

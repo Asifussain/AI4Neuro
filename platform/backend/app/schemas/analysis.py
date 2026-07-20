@@ -129,6 +129,11 @@ class RetryResponse(BaseModel):
     retry_count: int
 
 
+class CancelResponse(BaseModel):
+    session_id: str
+    status: str
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str

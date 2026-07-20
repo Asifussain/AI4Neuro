@@ -14,6 +14,18 @@ from pydantic import BaseModel, Field
 
 
 class Role(str, Enum):
+    """The 5 platform roles.
+
+    NOTE on ``hospital_admin``: its wire/DB value is the string ``"admin"``
+    (kept for backward compatibility with existing rows/JWTs — this is a
+    naming quirk, not a semantic difference). It means a hospital-scoped
+    admin, i.e. an admin whose authority is limited to their own
+    ``hospital_id``. Do not confuse it with ``super_admin``, which is
+    platform-wide and hospital-less. Every other comment in this codebase
+    that re-explains this distinction should point back to this enum instead
+    of repeating it.
+    """
+
     super_admin = "super_admin"
     hospital_admin = "admin"
     doctor = "doctor"
@@ -95,6 +107,21 @@ class UserResponse(BaseModel):
     account_status: str
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # Optional role-detail / auth-claim bag. Populated by /users/me (the
+    # caller's own Principal.profile) so that endpoint is shape-compatible
+    # with /hospital/users/{id}; omitted (None) elsewhere.
+    profile: dict | None = None
+
+
+class UserCreateResult(UserResponse):
+    """Response for endpoints that provision a new login-capable account.
+
+    ``temporary_password`` is returned exactly once, on creation, and must
+    never be logged or persisted anywhere else — see
+    app/services/auth_admin.py.
+    """
+
+    temporary_password: str | None = None
 
 
 class UserUpdate(BaseModel):

@@ -25,12 +25,28 @@ def test_list_returns_all_for_super_admin(client, db_service):
 
     res = client.get("/api/v1/analysis")
     assert res.status_code == 200
-    assert len(res.json()) == 3
+    page = res.json()
+    assert page["total"] == 3
+    assert page["limit"] == 50
+    assert page["offset"] == 0
+    assert len(page["items"]) == 3
 
     res = client.get("/api/v1/analysis?modality=mri")
     assert res.status_code == 200
-    body = res.json()
+    body = res.json()["items"]
     assert len(body) == 1 and body[0]["modality"] == "mri"
+
+
+def test_list_analysis_pagination_limit_offset(client, db_service):
+    for _ in range(5):
+        _seed(db_service, modality="eeg")
+    res = client.get("/api/v1/analysis?limit=2&offset=3")
+    assert res.status_code == 200
+    page = res.json()
+    assert page["total"] == 5
+    assert page["limit"] == 2
+    assert page["offset"] == 3
+    assert len(page["items"]) == 2
 
 
 def test_list_scoped_for_non_admin(client, db_service):
@@ -42,7 +58,7 @@ def test_list_scoped_for_non_admin(client, db_service):
     )
     res = client.get("/api/v1/analysis")
     assert res.status_code == 200
-    ids = [r["id"] for r in res.json()]
+    ids = [r["id"] for r in res.json()["items"]]
     assert ids == [str(mine["id"])]
 
 
@@ -50,5 +66,5 @@ def test_users_me_dev_principal(client):
     res = client.get("/api/v1/users/me")
     assert res.status_code == 200
     body = res.json()
-    assert body["is_dev"] is True
     assert body["role"] == "super_admin"
+    assert body["account_status"] == "active"
