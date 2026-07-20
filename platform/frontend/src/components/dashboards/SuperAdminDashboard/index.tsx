@@ -28,6 +28,7 @@ import {
 } from '@/components/dashboards/shared/primitives';
 import { getNavItems } from '@/lib/navigation';
 import { adminApi, type PlatformAnalytics, type Hospital } from '@/features/admin/api';
+import { CreateUserDialog } from '@/components/dashboards/shared/CreateUserDialog';
 
 const NAV_ITEMS: NavItem[] = getNavItems('super_admin');
 
@@ -35,14 +36,15 @@ export const SuperAdminDashboard: React.FC = () => {
   const [analytics, setAnalytics] = useState<PlatformAnalytics | null>(null);
   const [hospitals, setHospitals] = useState<Hospital[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [createUserOpen, setCreateUserOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([adminApi.platformAnalytics(), adminApi.hospitals()])
+    Promise.all([adminApi.platformAnalytics(), adminApi.hospitals({ limit: 200 })])
       .then(([a, h]) => {
         if (cancelled) return;
         setAnalytics(a);
-        setHospitals(h);
+        setHospitals(h.items);
       })
       .catch((e) => !cancelled && setError((e as Error).message));
     return () => {
@@ -128,6 +130,7 @@ export const SuperAdminDashboard: React.FC = () => {
         <QuickActionsList
           accent="indigo"
           actions={[
+            { label: 'Add User', onClick: () => setCreateUserOpen(true) },
             { label: 'Manage Hospitals', href: '/super-admin/hospitals' },
             { label: 'Manage Hospital Admins', href: '/super-admin/users?role=admin' },
             { label: 'View Doctors', href: '/super-admin/users?role=doctor' },
@@ -136,6 +139,14 @@ export const SuperAdminDashboard: React.FC = () => {
           ]}
         />
       </div>
+
+      <CreateUserDialog
+        open={createUserOpen}
+        onOpenChange={setCreateUserOpen}
+        allowedRoles={['doctor', 'radiologist', 'patient', 'admin', 'super_admin']}
+        hospitals={hospitals ?? []}
+        accent="indigo"
+      />
 
       {/* Hospitals + Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

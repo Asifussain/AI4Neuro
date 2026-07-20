@@ -92,6 +92,11 @@ export interface RetryResponse {
   retry_count: number;
 }
 
+export interface CancelResponse {
+  session_id: string;
+  status: string;
+}
+
 /** Options offered per modality on the upload form. */
 export const ANALYSIS_TYPES: Record<Modality, { value: string; label: string }[]> = {
   eeg: [

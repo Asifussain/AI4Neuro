@@ -4,11 +4,10 @@ import { useEffect, useState, ComponentType } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
-
-type UserRole = 'patient' | 'doctor' | 'radiologist' | 'admin' | 'super_admin';
+import type { Role } from '@/lib/roles';
 
 interface WithAuthOptions {
-  allowedRoles?: UserRole[];
+  allowedRoles?: Role[];
   redirectTo?: string;
 }
 

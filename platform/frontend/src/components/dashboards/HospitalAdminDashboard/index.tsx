@@ -6,14 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,6 +19,7 @@ import {
   type PatientDirectoryEntry,
   type Assignment,
 } from '@/features/admin/api';
+import { CreateUserDialog } from '@/components/dashboards/shared/CreateUserDialog';
 import { analysisApi } from '@/features/analysis/api';
 import type { SessionStatusResponse } from '@/features/analysis/types';
 import {
@@ -430,9 +423,6 @@ type HealthState = 'ok' | 'not_configured' | 'unreachable' | 'checking';
 export const HospitalAdminDashboard: React.FC = () => {
   // Dialog state
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ full_name: '', email: '', role: '', phone: '' });
-  const [createLoading, setCreateLoading] = useState(false);
-  const [createResult, setCreateResult] = useState<{ email: string; password: string; emailSent: boolean } | null>(null);
 
   // Section state
   const [activeSection, setActiveSection] = useState<'users' | 'verify' | 'assign'>('users');
@@ -467,16 +457,19 @@ export const HospitalAdminDashboard: React.FC = () => {
   });
 
   const loadUsers = useCallback(() => {
-    adminApi.users().then(setUsers).catch((e) => setUsersError((e as Error).message));
+    adminApi
+      .users({ limit: 200 })
+      .then((r) => setUsers(r.items))
+      .catch((e) => setUsersError((e as Error).message));
   }, []);
   const loadDoctors = useCallback(() => {
-    adminApi.doctors().then(setDoctors).catch(() => setDoctors([]));
+    adminApi.doctors({ limit: 200 }).then((r) => setDoctors(r.items)).catch(() => setDoctors([]));
   }, []);
   const loadPatients = useCallback(() => {
-    adminApi.patients().then(setPatients).catch(() => setPatients([]));
+    adminApi.patients({ limit: 200 }).then((r) => setPatients(r.items)).catch(() => setPatients([]));
   }, []);
   const loadAssignments = useCallback(() => {
-    adminApi.assignments().then(setAssignments).catch(() => setAssignments([]));
+    adminApi.assignments({ limit: 200 }).then((r) => setAssignments(r.items)).catch(() => setAssignments([]));
   }, []);
 
   useEffect(() => {
@@ -579,47 +572,6 @@ export const HospitalAdminDashboard: React.FC = () => {
     }
   };
 
-  // Create user handler
-  const handleCreateUser = async () => {
-    if (!createForm.full_name || !createForm.email || !createForm.role) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-    setCreateLoading(true);
-    try {
-      const response = await fetch('/api/admin/create-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: createForm.full_name,
-          email: createForm.email,
-          role: createForm.role,
-          phone: createForm.phone || undefined,
-        }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
-
-      setCreateResult({
-        email: createForm.email,
-        password: result.user.temporaryPassword,
-        emailSent: result.emailSent ?? false,
-      });
-      setCreateForm({ full_name: '', email: '', role: '', phone: '' });
-      setIsCreateUserOpen(false);
-      loadUsers();
-      loadDoctors();
-      loadPatients();
-      toast.success(result.emailSent
-        ? 'User created! Credentials sent via email.'
-        : 'User created! Please share credentials manually.');
-    } catch (err) {
-      toast.error((err as Error).message || 'Failed to create user');
-    } finally {
-      setCreateLoading(false);
-    }
-  };
-
   // Assignment handler
   const handleAssignPatient = async () => {
     if (!selectedDoctor || !selectedPatient) return;
@@ -710,136 +662,24 @@ export const HospitalAdminDashboard: React.FC = () => {
       />
 
       <div className="flex justify-end">
-        <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 bg-teal-600 hover:bg-teal-700">
-              <UserPlus className="h-4 w-4" />
-              Create User
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
-              <DialogDescription>
-                Add a new user to the system. A temporary password will be generated and emailed to them.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="fullName">Full Name <span className="text-red-600">*</span></Label>
-                <Input
-                  id="fullName"
-                  placeholder="John Doe"
-                  value={createForm.full_name}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, full_name: e.target.value }))}
-                  disabled={createLoading}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email <span className="text-red-600">*</span></Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={createForm.email}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
-                  disabled={createLoading}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="role">Role <span className="text-red-600">*</span></Label>
-                <Select
-                  value={createForm.role}
-                  onValueChange={(val) => setCreateForm(prev => ({ ...prev, role: val }))}
-                  disabled={createLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="patient">Patient</SelectItem>
-                    <SelectItem value="doctor">Doctor</SelectItem>
-                    <SelectItem value="radiologist">Radiologist</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  placeholder="+1 (555) 000-0000"
-                  value={createForm.phone}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, phone: e.target.value }))}
-                  disabled={createLoading}
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => { setIsCreateUserOpen(false); setCreateForm({ full_name: '', email: '', role: '', phone: '' }); }}
-                disabled={createLoading}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreateUser}
-                disabled={createLoading || !createForm.full_name || !createForm.email || !createForm.role}
-                className="bg-teal-600 hover:bg-teal-700 gap-2"
-              >
-                {createLoading ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />Creating...</>
-                ) : (
-                  <><UserPlus className="h-4 w-4" />Create User</>
-                )}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button className="gap-2 bg-teal-600 hover:bg-teal-700" onClick={() => setIsCreateUserOpen(true)}>
+          <UserPlus className="h-4 w-4" />
+          Create User
+        </Button>
       </div>
 
-      {/* Success Dialog — shows credentials after user creation */}
-      <Dialog open={!!createResult} onOpenChange={(open) => { if (!open) setCreateResult(null); }}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              User Created Successfully
-            </DialogTitle>
-            <DialogDescription>
-              {createResult?.emailSent
-                ? 'Credentials have been sent to the user via email.'
-                : 'Email delivery failed. Please share these credentials manually.'}
-            </DialogDescription>
-          </DialogHeader>
-          {createResult && (
-            <div className="py-4 space-y-4">
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-500">Email</span>
-                  <span className="text-sm font-mono font-medium text-slate-900">{createResult.email}</span>
-                </div>
-                <div className="border-t border-slate-200" />
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-500">Temporary Password</span>
-                  <span className="text-sm font-mono font-bold text-teal-700 tracking-wide">{createResult.password}</span>
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-                <p className="text-xs text-amber-800 leading-relaxed">
-                  <strong>Note:</strong> The user will be required to change their password upon first login.
-                  {!createResult.emailSent && ' Since the email could not be delivered, please share these credentials securely.'}
-                </p>
-              </div>
-            </div>
-          )}
-          <div className="flex justify-end">
-            <Button onClick={() => setCreateResult(null)} className="bg-teal-600 hover:bg-teal-700">
-              Done
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CreateUserDialog
+        open={isCreateUserOpen}
+        onOpenChange={setIsCreateUserOpen}
+        allowedRoles={['doctor', 'radiologist', 'patient']}
+        hideHospitalPicker
+        accent="teal"
+        onCreated={() => {
+          loadUsers();
+          loadDoctors();
+          loadPatients();
+        }}
+      />
 
       {usersError && (
         <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">

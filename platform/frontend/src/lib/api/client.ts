@@ -81,7 +81,7 @@ export const apiClient = {
   },
 
   /** POST JSON or multipart FormData (auto-detected). */
-  async post<T>(path: string, body?: FormData | Record<string, unknown>): Promise<T> {
+  async post<T>(path: string, body?: FormData | object): Promise<T> {
     const headers = await authHeaders();
     const init: RequestInit = { method: 'POST', headers };
     if (body instanceof FormData) {
@@ -91,6 +91,23 @@ export const apiClient = {
       init.body = JSON.stringify(body);
     }
     return parse<T>(await doFetch(path, init));
+  },
+
+  /** PATCH JSON. */
+  async patch<T>(path: string, body?: object): Promise<T> {
+    const headers = await authHeaders();
+    const init: RequestInit = { method: 'PATCH', headers };
+    if (body !== undefined) {
+      init.headers = { ...headers, 'Content-Type': 'application/json' };
+      init.body = JSON.stringify(body);
+    }
+    return parse<T>(await doFetch(path, init));
+  },
+
+  /** DELETE. Tolerates a 204 No Content response. */
+  async delete<T>(path: string): Promise<T> {
+    const headers = await authHeaders();
+    return parse<T>(await doFetch(path, { method: 'DELETE', headers }));
   },
 };
 

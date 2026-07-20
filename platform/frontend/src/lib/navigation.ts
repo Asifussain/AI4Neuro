@@ -21,13 +21,12 @@ import {
 } from 'lucide-react';
 import type { NavItem } from '@/components/dashboards/shared/DashboardShell';
 import type { Accent } from '@/components/dashboards/shared/primitives';
+import { ROLES, ROLE_META as BASE_ROLE_META, type Role } from '@/lib/roles';
 
-export type Role =
-  | 'patient'
-  | 'doctor'
-  | 'radiologist'
-  | 'admin'
-  | 'super_admin';
+// Re-exported for the many existing call sites that do
+// `import { type Role } from '@/lib/navigation'` — `@/lib/roles` is the
+// canonical source, this just avoids touching every import line.
+export type { Role };
 
 interface RoleMeta {
   label: string;
@@ -35,13 +34,16 @@ interface RoleMeta {
   dashboard: string;
 }
 
-const ROLE_META: Record<Role, RoleMeta> = {
-  super_admin: { label: 'Super Admin', accent: 'indigo', dashboard: '/super-admin/dashboard' },
-  admin: { label: 'Hospital Admin', accent: 'teal', dashboard: '/admin/dashboard' },
-  radiologist: { label: 'Radiologist', accent: 'indigo', dashboard: '/radiologist/dashboard' },
-  doctor: { label: 'Doctor', accent: 'blue', dashboard: '/doctor/dashboard' },
-  patient: { label: 'Patient', accent: 'green', dashboard: '/patient/dashboard' },
-};
+const ROLE_META: Record<Role, RoleMeta> = Object.fromEntries(
+  ROLES.map((role) => [
+    role,
+    {
+      label: BASE_ROLE_META[role].label,
+      accent: BASE_ROLE_META[role].accent,
+      dashboard: `/${BASE_ROLE_META[role].routeSegment}/dashboard`,
+    },
+  ])
+) as Record<Role, RoleMeta>;
 
 export function getRoleMeta(role: Role): RoleMeta {
   return ROLE_META[role] ?? ROLE_META.patient;

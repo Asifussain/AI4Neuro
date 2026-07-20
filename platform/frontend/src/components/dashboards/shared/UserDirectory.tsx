@@ -1,9 +1,27 @@
 'use client';
 
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Search, Users } from 'lucide-react';
+import { toast } from 'sonner';
+import { Search, Users, MoreHorizontal, Loader2 } from 'lucide-react';
 import { SectionCard, DashboardPageHeader, StatusBadge, type Accent } from './primitives';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { adminApi, type AdminUser } from '@/features/admin/api';
 
 const ROLE_TITLES: Record<string, { title: string; description: string }> = {
@@ -21,6 +39,177 @@ function initials(name: string) {
     .join('')
     .toUpperCase()
     .slice(0, 2);
+}
+
+// ============================================================================
+// EDIT DIALOG — full_name / phone / address (the fields UserUpdate accepts)
+// ============================================================================
+function EditUserDialog({
+  user,
+  onOpenChange,
+  onSaved,
+}: {
+  user: AdminUser | null;
+  onOpenChange: (open: boolean) => void;
+  onSaved: (updated: AdminUser) => void;
+}) {
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setFullName(user.full_name);
+      setPhone(user.phone ?? '');
+      setAddress('');
+    }
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const updated = await adminApi.updateUser(user.id, {
+        full_name: fullName || undefined,
+        phone: phone || undefined,
+        address: address || undefined,
+      });
+      onSaved(updated);
+      onOpenChange(false);
+      toast.success('User updated');
+    } catch (e) {
+      toast.error((e as Error).message || 'Failed to update user');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!user} onOpenChange={(next) => !saving && onOpenChange(next)}>
+      <DialogContent className="sm:max-w-[440px]">
+        <DialogHeader>
+          <DialogTitle>Edit User</DialogTitle>
+          <DialogDescription>Update {user?.full_name}&rsquo;s details.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-2">
+            <Label htmlFor="edit-full-name">Full Name</Label>
+            <Input id="edit-full-name" value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={saving} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="edit-phone">Phone</Label>
+            <Input id="edit-phone" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={saving} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="edit-address">Address</Label>
+            <Input id="edit-address" value={address} onChange={(e) => setAddress(e.target.value)} disabled={saving} placeholder="Optional" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={saving || !fullName}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Changes'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================================
+// DELETE CONFIRMATION — terminal, soft-delete
+// ============================================================================
+function DeleteUserDialog({
+  user,
+  onOpenChange,
+  onDeleted,
+}: {
+  user: AdminUser | null;
+  onOpenChange: (open: boolean) => void;
+  onDeleted: (id: string) => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!user) return;
+    setDeleting(true);
+    try {
+      await adminApi.deleteUser(user.id);
+      onDeleted(user.id);
+      onOpenChange(false);
+      toast.success('User deleted');
+    } catch (e) {
+      toast.error((e as Error).message || 'Failed to delete user');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!user} onOpenChange={(next) => !deleting && onOpenChange(next)}>
+      <DialogContent className="sm:max-w-[420px]">
+        <DialogHeader>
+          <DialogTitle>Delete {user?.full_name}?</DialogTitle>
+          <DialogDescription>
+            This permanently deactivates the account (terminal — distinct from suspend, and cannot be
+            undone from this screen). The user will lose access immediately.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+            {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete User'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================================
+// ROW ACTIONS MENU
+// ============================================================================
+function RowActions({
+  user,
+  busy,
+  onSuspend,
+  onReactivate,
+  onEdit,
+  onDelete,
+}: {
+  user: AdminUser;
+  busy: boolean;
+  onSuspend: (u: AdminUser) => void;
+  onReactivate: (u: AdminUser) => void;
+  onEdit: (u: AdminUser) => void;
+  onDelete: (u: AdminUser) => void;
+}) {
+  const isDeleted = user.account_status === 'deleted';
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={busy || isDeleted}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {user.account_status === 'active' ? (
+          <DropdownMenuItem onClick={() => onSuspend(user)}>Suspend</DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onClick={() => onReactivate(user)}>Reactivate</DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={() => onEdit(user)}>Edit</DropdownMenuItem>
+        <DropdownMenuItem variant="destructive" onClick={() => onDelete(user)}>
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 function UserDirectoryInner({
@@ -41,17 +230,22 @@ function UserDirectoryInner({
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
+
+  const load = useCallback(() => {
+    adminApi
+      .users({ role, limit: 200 })
+      .then((r) => setUsers(r.items))
+      .catch((e) => setError((e as Error).message));
+  }, [role]);
 
   useEffect(() => {
-    let cancelled = false;
-    adminApi
-      .users(role)
-      .then((u) => !cancelled && setUsers(u))
-      .catch((e) => !cancelled && setError((e as Error).message));
-    return () => {
-      cancelled = true;
-    };
-  }, [role]);
+    setUsers(null);
+    setError(null);
+    load();
+  }, [load]);
 
   const filtered = useMemo(() => {
     const all = users ?? [];
@@ -66,6 +260,39 @@ function UserDirectoryInner({
   }, [users, q]);
 
   const loading = users === null && !error;
+
+  const patchUser = (updated: AdminUser) => {
+    setUsers((prev) => (prev ? prev.map((u) => (u.id === updated.id ? updated : u)) : prev));
+  };
+  const removeUser = (id: string) => {
+    setUsers((prev) => (prev ? prev.filter((u) => u.id !== id) : prev));
+  };
+
+  const handleSuspend = async (u: AdminUser) => {
+    setBusyId(u.id);
+    try {
+      const updated = await adminApi.suspendUser(u.id);
+      patchUser(updated);
+      toast.success(`${u.full_name} suspended`);
+    } catch (e) {
+      toast.error((e as Error).message || 'Failed to suspend user');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleReactivate = async (u: AdminUser) => {
+    setBusyId(u.id);
+    try {
+      const updated = await adminApi.reactivateUser(u.id);
+      patchUser(updated);
+      toast.success(`${u.full_name} reactivated`);
+    } catch (e) {
+      toast.error((e as Error).message || 'Failed to reactivate user');
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   return (
     <>
@@ -116,6 +343,7 @@ function UserDirectoryInner({
                   <th className="py-2.5 pr-4 font-medium hidden md:table-cell">Email</th>
                   {!role && <th className="py-2.5 pr-4 font-medium">Role</th>}
                   <th className="py-2.5 pr-4 font-medium">Status</th>
+                  <th className="py-2.5 pr-4 font-medium w-10" />
                 </tr>
               </thead>
               <tbody>
@@ -139,6 +367,16 @@ function UserDirectoryInner({
                     <td className="py-3 pr-4">
                       <StatusBadge status={u.account_status} />
                     </td>
+                    <td className="py-3 pr-0 text-right">
+                      <RowActions
+                        user={u}
+                        busy={busyId === u.id}
+                        onSuspend={handleSuspend}
+                        onReactivate={handleReactivate}
+                        onEdit={setEditingUser}
+                        onDelete={setDeletingUser}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -146,6 +384,13 @@ function UserDirectoryInner({
           </div>
         )}
       </SectionCard>
+
+      <EditUserDialog user={editingUser} onOpenChange={(open) => !open && setEditingUser(null)} onSaved={patchUser} />
+      <DeleteUserDialog
+        user={deletingUser}
+        onOpenChange={(open) => !open && setDeletingUser(null)}
+        onDeleted={removeUser}
+      />
     </>
   );
 }
@@ -153,7 +398,17 @@ function UserDirectoryInner({
 /**
  * Role-filterable user directory shared by Super Admin (platform-wide) and
  * Hospital Admin (auto-scoped to their own hospital by the backend) — the
- * same GET /users?role= call resolves differently server-side per caller.
+ * same GET /hospital/users?role= call resolves differently server-side per
+ * caller.
+ *
+ * Row actions: Suspend/Reactivate, Edit, Delete are wired against
+ * `GET /hospital/users`'s actual `UserResponse` shape. Verify/Reject are
+ * deliberately NOT included here — `UserResponse` has no
+ * `verification_status` field (only `DoctorDirectoryEntry` /
+ * `PatientDirectoryEntry` carry it), so this directory has no way to know
+ * whether a given row needs verification without fabricating data. Verify/
+ * Reject stay on HospitalAdminDashboard's dedicated Verifications tab, which
+ * is backed by the richer `/hospital/doctors` directory instead.
  */
 export function UserDirectory({
   eyebrow,

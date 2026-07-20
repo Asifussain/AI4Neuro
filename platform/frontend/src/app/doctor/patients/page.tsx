@@ -30,7 +30,7 @@ function MyPatientsPage() {
     let cancelled = false;
     adminApi
       .myPatients()
-      .then((p) => !cancelled && setPatients(p))
+      .then((p) => !cancelled && setPatients(p.items))
       .catch((e) => !cancelled && setError((e as Error).message));
     return () => {
       cancelled = true;

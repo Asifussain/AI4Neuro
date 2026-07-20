@@ -3,6 +3,7 @@
 import { apiClient } from '@/lib/api/client';
 import type {
   AnalysisResultResponse,
+  CancelResponse,
   CreateAnalysisResponse,
   ReportsResponse,
   RetryResponse,
@@ -21,7 +22,9 @@ export const analysisApi = {
   create(form: FormData): Promise<CreateAnalysisResponse> {
     return apiClient.post<CreateAnalysisResponse>('/api/v1/analysis', form);
   },
-  list(params: ListParams = {}): Promise<SessionStatusResponse[]> {
+  /** Backend returns a `{items, total, limit, offset}` envelope; unwrapped
+   * here so every existing caller keeps working against a plain array. */
+  async list(params: ListParams = {}): Promise<SessionStatusResponse[]> {
     const q = new URLSearchParams();
     if (params.modality) q.set('modality', params.modality);
     if (params.status) q.set('status', params.status);
@@ -29,7 +32,10 @@ export const analysisApi = {
     if (params.mine) q.set('mine', 'true');
     if (params.limit) q.set('limit', String(params.limit));
     const qs = q.toString();
-    return apiClient.get<SessionStatusResponse[]>(`/api/v1/analysis${qs ? `?${qs}` : ''}`);
+    const page = await apiClient.get<{ items: SessionStatusResponse[] }>(
+      `/api/v1/analysis${qs ? `?${qs}` : ''}`
+    );
+    return page.items;
   },
   status(sessionId: string): Promise<SessionStatusResponse> {
     return apiClient.get<SessionStatusResponse>(`/api/v1/analysis/${sessionId}`);
@@ -42,5 +48,8 @@ export const analysisApi = {
   },
   retry(sessionId: string): Promise<RetryResponse> {
     return apiClient.post<RetryResponse>(`/api/v1/analysis/${sessionId}/retry`);
+  },
+  cancel(sessionId: string): Promise<CancelResponse> {
+    return apiClient.post<CancelResponse>(`/api/v1/analysis/${sessionId}/cancel`);
   },
 };

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo } 
 import { useRouter } from 'next/navigation';
 import { createClient, resetClient } from '@/lib/supabase/client';
 import { AuthChangeEvent, User, Session } from '@supabase/supabase-js';
+import type { Role } from '@/lib/roles';
 
 interface RoleProfile {
   date_of_birth?: string;
@@ -21,7 +22,7 @@ interface UserProfile {
   id: string;
   full_name: string;
   email: string;
-  role: 'patient' | 'doctor' | 'radiologist' | 'admin' | 'super_admin';
+  role: Role;
   phone?: string;
   account_status: 'active' | 'inactive' | 'suspended';
   roleProfile?: RoleProfile | null;
