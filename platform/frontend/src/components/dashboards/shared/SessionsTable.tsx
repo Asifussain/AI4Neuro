@@ -1,0 +1,117 @@
+'use client';
+
+import Link from 'next/link';
+import { FileText, Waves, Brain } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { StatusBadge, ACCENT_STYLES, type Accent } from './primitives';
+import type { SessionStatusResponse } from '@/features/analysis/types';
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return `${d.toLocaleDateString()} · ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function classLabel(analysisType: string): string {
+  if (analysisType === 'binary') return 'Binary';
+  if (analysisType === 'multiclass') return 'Multiclass';
+  return analysisType;
+}
+
+/**
+ * Organized, tabular replacement for the old flex-row session/report lists —
+ * shared by every dashboard's "Scan Sessions" / "Reports" views so the
+ * column set (Sr No, Patient, Analysis Type, Date & Time, Class, Status,
+ * Report) stays consistent everywhere completed analyses are listed.
+ */
+export function SessionsTable({
+  sessions,
+  accent,
+  patientNameById,
+  showPatientColumn = true,
+  emptyLabel = 'No sessions found.',
+}: {
+  sessions: SessionStatusResponse[];
+  accent: Accent;
+  /** Maps `patient_id` -> display name; omit to show a placeholder instead. */
+  patientNameById?: Record<string, string>;
+  showPatientColumn?: boolean;
+  emptyLabel?: string;
+}) {
+  const styles = ACCENT_STYLES[accent];
+
+  if (sessions.length === 0) {
+    return (
+      <div className="text-center py-12 text-slate-500">
+        <FileText className="h-8 w-8 mx-auto mb-3 text-slate-300" />
+        <p className="text-sm">{emptyLabel}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+            <th className="py-2.5 pr-4 font-medium w-12">Sr No</th>
+            {showPatientColumn && <th className="py-2.5 pr-4 font-medium">Patient</th>}
+            <th className="py-2.5 pr-4 font-medium">Analysis Type</th>
+            <th className="py-2.5 pr-4 font-medium">Date &amp; Time</th>
+            <th className="py-2.5 pr-4 font-medium">Class</th>
+            <th className="py-2.5 pr-4 font-medium">Status</th>
+            <th className="py-2.5 pr-0 font-medium text-right">Report</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sessions.map((s, idx) => {
+            const ModalityIcon = s.modality === 'eeg' ? Waves : Brain;
+            const patientName = s.patient_id ? patientNameById?.[s.patient_id] : undefined;
+            const isCompleted = s.status?.toLowerCase() === 'completed';
+            return (
+              <tr key={s.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                <td className="py-3 pr-4 text-slate-500">{idx + 1}</td>
+                {showPatientColumn && (
+                  <td className="py-3 pr-4 text-slate-700 truncate max-w-[160px]">
+                    {patientName ?? (s.patient_id ? '—' : 'N/A')}
+                  </td>
+                )}
+                <td className="py-3 pr-4">
+                  <span className="inline-flex items-center gap-1.5 font-medium text-slate-900">
+                    <ModalityIcon className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="uppercase">{s.modality}</span>
+                  </span>
+                </td>
+                <td className="py-3 pr-4 text-slate-500 whitespace-nowrap">{formatDateTime(s.created_at)}</td>
+                <td className="py-3 pr-4 text-slate-600">{classLabel(s.analysis_type)}</td>
+                <td className="py-3 pr-4">
+                  <StatusBadge status={s.status} />
+                </td>
+                <td className="py-3 pr-0 text-right">
+                  {isCompleted ? (
+                    <Link
+                      href={`/analysis/${s.id}`}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:brightness-95',
+                        styles.soft,
+                        styles.text
+                      )}
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      View Report
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-50 text-slate-400">
+                      <FileText className="h-3.5 w-3.5" />
+                      N/A
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
