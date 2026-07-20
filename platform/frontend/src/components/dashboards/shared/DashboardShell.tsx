@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { cn } from '@/lib/utils';
+import { BrandLogo } from '@/components/shared/BrandLogo';
 import { ACCENT_STYLES, type Accent } from './primitives';
 import { NotificationBell, ProfileMenu } from './TopbarWidgets';
 
@@ -60,12 +61,18 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
 
   const sidebarContent = (
     <>
-      {/* Logo */}
+      {/* Logo — matches the landing page navbar's logo + wordmark treatment */}
       <div className="flex items-center gap-2 px-5 py-6">
-        <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', styles.solid)}>
-          <Brain className="h-5 w-5 text-white" />
-        </div>
-        {!collapsed && <span className="font-bold text-slate-900 text-lg">AI4Neuro</span>}
+        {collapsed ? (
+          // eslint-disable-next-line @next/next/no-img-element -- matches BrandLogo's own <img> usage for this asset
+          <img
+            src="/landing_homepage/AI4NEuroLOGO copy.png"
+            alt="AI4Neuro Logo"
+            className="h-8 w-auto object-contain"
+          />
+        ) : (
+          <BrandLogo markHeight={32} textHeight={16} />
+        )}
       </div>
 
       {/* Nav */}

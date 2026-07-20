@@ -7,6 +7,7 @@ import { Eye, EyeOff, Loader2, Brain, Waves, ScanLine, ArrowLeft } from 'lucide-
 import { createClient } from '@/lib/supabase/client';
 import { BrandLogo } from '@/components/shared/BrandLogo';
 import { toast } from 'sonner';
+import Swal from 'sweetalert2';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -75,6 +76,38 @@ export default function LoginPage() {
       }
 
       if (data.user) {
+        // Strict check: a suspended/inactive account must never reach a
+        // dashboard, even for a moment. Check the real DB status before any
+        // redirect, sign the session back out, and block with a clear
+        // SweetAlert instead of letting the user in and failing later on
+        // the first API call ("Failed to load analyses: Account is not
+        // active").
+        try {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('account_status')
+            .eq('id', data.user.id)
+            .single();
+
+          if (profile && profile.account_status !== 'active') {
+            await supabase.auth.signOut();
+            setLoading(false);
+            await Swal.fire({
+              icon: 'error',
+              title: 'Account Suspended',
+              text: 'Your account has been suspended. This may be due to a policy violation or administrative action. Please contact your administrator or support team for assistance.',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#dc2626',
+            });
+            return;
+          }
+        } catch (profileError) {
+          // Best-effort: if the status check itself fails (e.g. transient
+          // network error), don't lock an active user out of login — the
+          // backend's own account_status guard remains the fallback.
+          console.log('Account status check error:', profileError);
+        }
+
         // First login — force password change before accessing dashboard
         if (data.user.user_metadata?.first_login === true) {
           toast.info('Please set a new password for your account');
