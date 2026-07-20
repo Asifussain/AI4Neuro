@@ -1,16 +1,12 @@
 'use client';
 
 import React, { Suspense, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Brain, ScanLine, Waves } from 'lucide-react';
 import { RoleShell } from '@/components/dashboards/shared/RoleShell';
-import {
-  SectionCard,
-  DashboardPageHeader,
-  StatusBadge,
-} from '@/components/dashboards/shared/primitives';
+import { SectionCard, DashboardPageHeader } from '@/components/dashboards/shared/primitives';
+import { SessionsTable } from '@/components/dashboards/shared/SessionsTable';
 import { analysisApi } from '@/features/analysis/api';
+import { adminApi } from '@/features/admin/api';
 import type { SessionStatusResponse } from '@/features/analysis/types';
 import { withAuth } from '@/lib/withAuth';
 import { cn } from '@/lib/utils';
@@ -27,6 +23,7 @@ function SessionsInner() {
   const [sessions, setSessions] = useState<SessionStatusResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | undefined>(statusParam);
+  const [patientNameById, setPatientNameById] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +35,20 @@ function SessionsInner() {
       cancelled = true;
     };
   }, [statusFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+    adminApi
+      .patients({ limit: 200 })
+      .then((r) => {
+        if (cancelled) return;
+        setPatientNameById(Object.fromEntries(r.items.map((p) => [p.id, p.full_name])));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loading = sessions === null && !error;
   const rows = sessions ?? [];
@@ -90,39 +101,8 @@ function SessionsInner() {
           <div className="space-y-2">
             {[1, 2, 3, 4].map((i) => <div key={i} className="h-14 rounded-xl bg-slate-100 animate-pulse" />)}
           </div>
-        ) : rows.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            <ScanLine className="h-8 w-8 mx-auto mb-3 text-slate-300" />
-            <p className="text-sm">No sessions found.</p>
-          </div>
         ) : (
-          <div className="space-y-2">
-            {rows.map((s) => {
-              const ModalityIcon = s.modality === 'eeg' ? Waves : Brain;
-              return (
-                <Link
-                  key={s.id}
-                  href={`/analysis/${s.id}`}
-                  className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2 rounded-lg bg-slate-50 shrink-0">
-                      <ModalityIcon className="h-5 w-5 text-slate-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
-                        <span className="uppercase">{s.modality}</span> · {s.analysis_type}
-                      </p>
-                      <p className="text-xs text-slate-400 truncate">
-                        {s.created_at ? new Date(s.created_at).toLocaleDateString() : '—'}
-                      </p>
-                    </div>
-                  </div>
-                  <StatusBadge status={s.status} />
-                </Link>
-              );
-            })}
-          </div>
+          <SessionsTable sessions={rows} accent="teal" patientNameById={patientNameById} />
         )}
       </SectionCard>
     </>
