@@ -4,19 +4,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Activity,
-  Brain,
-  Waves,
   CheckCircle2,
   Clock,
   Upload,
-  AlertCircle,
-  Loader2,
-  FileText,
   CalendarDays,
 } from 'lucide-react';
 
 import { useAuth } from '@/components/providers/AuthProvider';
 import { analysisApi } from '@/features/analysis/api';
+import { adminApi } from '@/features/admin/api';
 import { isActive, type SessionStatusResponse } from '@/features/analysis/types';
 import { getRoleMeta, type Role } from '@/lib/navigation';
 import {
@@ -27,8 +23,8 @@ import {
   MiniBarChart,
   DonutStat,
   DonutLegend,
-  StatusBadge,
 } from '@/components/dashboards/shared/primitives';
+import { SessionsTable } from '@/components/dashboards/shared/SessionsTable';
 import { ActivityCalendar } from '@/components/dashboards/shared/ActivityCalendar';
 
 const ROLE_COPY: Record<Role, { eyebrow: string; title: string; description: string }> = {
@@ -80,6 +76,7 @@ export function AnalysisDashboard() {
   const [sessions, setSessions] = useState<SessionStatusResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [patientNameById, setPatientNameById] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +88,26 @@ export function AnalysisDashboard() {
       cancelled = true;
     };
   }, []);
+
+  // Best-effort patient-name lookup for the Recent Analyses table. The patient
+  // role only sees their own analyses (no patient column), so skip the fetch;
+  // doctors use their assigned-patients endpoint, other staff the hospital
+  // directory. Any permission/network failure just falls back to a placeholder.
+  useEffect(() => {
+    if (role === 'patient') return;
+    let cancelled = false;
+    const fetchPatients =
+      role === 'doctor' ? adminApi.myPatients({ limit: 200 }) : adminApi.patients({ limit: 200 });
+    fetchPatients
+      .then((r) => {
+        if (cancelled) return;
+        setPatientNameById(Object.fromEntries(r.items.map((p) => [p.id, p.full_name])));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
 
   const stats = useMemo(() => {
     const all = sessions ?? [];
@@ -238,52 +255,14 @@ export function AnalysisDashboard() {
               <div key={i} className="h-14 rounded-xl bg-slate-100 animate-pulse" />
             ))}
           </div>
-        ) : recent.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="p-4 rounded-full bg-slate-100 w-fit mx-auto mb-4">
-              <Brain className="h-8 w-8 text-slate-400" />
-            </div>
-            <p className="text-slate-900 font-medium mb-1">No analyses found</p>
-            <p className="text-sm text-slate-500">
-              {canCreate ? 'Upload a new scan to get started.' : 'Your reports will appear here once available.'}
-            </p>
-          </div>
         ) : (
-          <div className="space-y-2">
-            {recent.map((s) => {
-              const ModalityIcon = s.modality === 'eeg' ? Waves : Brain;
-              const active = isActive(s.status);
-              const failed = s.status === 'failed' || s.status === 'cancelled';
-              return (
-                <Link
-                  key={s.id}
-                  href={`/analysis/${s.id}`}
-                  className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2 rounded-lg bg-slate-50 shrink-0">
-                      <ModalityIcon className="h-5 w-5 text-slate-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
-                        <span className="uppercase">{s.modality}</span> · {s.analysis_type}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {s.created_at ? new Date(s.created_at).toLocaleDateString() : '—'}
-                        {s.current_stage ? ` · ${s.current_stage.replace(/_/g, ' ')}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {active && <Loader2 className="h-3.5 w-3.5 text-amber-500 animate-spin" />}
-                    {failed && <AlertCircle className="h-3.5 w-3.5 text-red-500" />}
-                    {s.status === 'completed' && <FileText className="h-3.5 w-3.5 text-emerald-600" />}
-                    <StatusBadge status={s.status} />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+          <SessionsTable
+            sessions={recent}
+            accent={meta.accent}
+            patientNameById={patientNameById}
+            showPatientColumn={role !== 'patient'}
+            emptyLabel={canCreate ? 'No analyses found. Upload a new scan to get started.' : 'Your reports will appear here once available.'}
+          />
         )}
       </SectionCard>
 
