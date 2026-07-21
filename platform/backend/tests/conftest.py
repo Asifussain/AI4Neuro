@@ -6,6 +6,17 @@ POST /analysis has finished processing by the time the test polls status.
 
 from __future__ import annotations
 
+import os
+
+# The test client fixture below doesn't override the auth dependency, so it
+# relies on the dev-bypass principal — explicitly opt into exactly the one
+# combination that enables it (APP_ENV=development is the test suite's own
+# environment anyway), rather than depending on either value's default.
+# Must run before any app module (which calls get_settings(), lru_cached on
+# first call) is imported.
+os.environ.setdefault("APP_ENV", "development")
+os.environ.setdefault("AUTH_DEV_BYPASS", "true")
+
 import uuid
 
 import pytest
