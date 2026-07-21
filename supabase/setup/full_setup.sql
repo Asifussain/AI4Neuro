@@ -91,12 +91,14 @@ create table if not exists public.user_profiles (
   updated_at timestamptz not null default now()
 );
 
--- Multi-tenant role set: super_admin (platform-wide, no hospital) and
--- hospital_admin (single-hospital admin, was "admin"). technician is removed.
+-- Multi-tenant role set: super_admin (platform-wide, no hospital) and admin
+-- (single-hospital admin — displayed as "Hospital Admin" in the frontend, but
+-- the stored/wire value is 'admin', matching the app layer; see migration
+-- 0009 for why). technician is removed.
 alter table public.user_profiles drop constraint if exists user_profiles_role_check;
 alter table public.user_profiles
   add constraint user_profiles_role_check
-  check (role in ('super_admin','hospital_admin','doctor','radiologist','patient'));
+  check (role in ('super_admin','admin','doctor','radiologist','patient'));
 
 -- Tenancy invariant: only super_admin may have a NULL hospital_id; every other
 -- role must belong to exactly one hospital.

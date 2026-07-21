@@ -60,7 +60,10 @@ def run_eeg_pipeline(context: AnalysisContext) -> PipelineResult:
 
     # --- 0) Preprocess: one raw load, then align/resample/pad to spec ---
     metadata = preprocessing.parse_eeg_metadata(context.options.get("eeg_metadata"))
-    raw = np.load(input_path, allow_pickle=True)
+    # allow_pickle intentionally False: input_path is a user-uploaded file,
+    # and numpy's pickle-based object loading is a known arbitrary-code-
+    # execution vector on untrusted .npy input.
+    raw = np.load(input_path, allow_pickle=False)
     prepared = preprocessing.preprocess_eeg(
         raw, metadata, spec, apply_zscore=settings.eeg_apply_zscore
     )

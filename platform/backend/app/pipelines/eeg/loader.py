@@ -39,5 +39,7 @@ def first_trial_2d(arr: np.ndarray) -> np.ndarray:
 
 def load_eeg_2d(npy_path: str) -> np.ndarray:
     """Load an EEG .npy and normalize to a 2D ``(samples, channels)`` float array."""
-    eeg = np.load(npy_path, allow_pickle=True)
+    # allow_pickle intentionally False — see runner.py's load of the same
+    # upload for why (untrusted-input RCE vector, not needed for plain arrays).
+    eeg = np.load(npy_path, allow_pickle=False)
     return first_trial_2d(eeg)

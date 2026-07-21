@@ -103,8 +103,10 @@ def get_current_principal(
             if not settings.auth_dev_bypass:
                 raise _unauthorized("Invalid or expired token.") from exc
 
-    # No/failed token below this point.
-    if settings.auth_dev_bypass and not settings.is_production:
+    # No/failed token below this point. Explicit allow-list (must be exactly
+    # "development"), not a deny-list of "production" — Settings itself
+    # additionally refuses to start at all if this combination is misconfigured.
+    if settings.auth_dev_bypass and settings.is_development:
         return Principal(user_id=DEV_PRINCIPAL_ID, role="super_admin", is_dev=True)
 
     raise _unauthorized("Authentication required.")

@@ -75,7 +75,9 @@ def load_and_prepare_eeg(file_path, file_desc):
             return None
 
     try:
-        data = np.load(file_path, allow_pickle=True)
+        # allow_pickle intentionally False — see runner.py's load of the same
+        # upload for why (untrusted-input RCE vector, not needed for plain arrays).
+        data = np.load(file_path, allow_pickle=False)
         print(f"Loaded {file_desc} data. Original shape: {data.shape}")
 
         if data.ndim == 3:

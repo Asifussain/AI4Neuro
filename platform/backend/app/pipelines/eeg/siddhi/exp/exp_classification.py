@@ -172,7 +172,10 @@ class Exp_Classification(Exp_Basic):
         # Load input data
         try:
             print(f"Loading input EEG data from: {npy_file_path}")
-            X_orig = np.load(npy_file_path, allow_pickle=True)
+            # allow_pickle intentionally False — this loads a file derived from
+            # a user upload; pickle-based object loading is an RCE vector on
+            # untrusted .npy input and plain numeric arrays never need it.
+            X_orig = np.load(npy_file_path, allow_pickle=False)
             print(f"Original input data shape: {X_orig.shape}")
         except Exception as e:
             print(f"Error loading .npy file {npy_file_path}: {e}")

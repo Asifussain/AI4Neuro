@@ -1,0 +1,13 @@
+# Anything directly under platform/ (not backend/ or frontend/, which have
+# their own .gitignore) was previously untracked-by-omission — this is why
+# platform/.env and platform/model-sync.env ended up committed with real
+# credentials. See the git history purge follow-up for scrubbing those blobs.
+.env
+.env.*
+!*.env.example
+model-sync.env
+
+__pycache__/
+*.py[cod]
+
+.DS_Store

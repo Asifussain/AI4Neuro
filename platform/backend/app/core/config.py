@@ -14,7 +14,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ---- Derived default paths -------------------------------------------------- #
@@ -75,10 +75,12 @@ class Settings(BaseSettings):
     max_upload_mb: int = Field(default=512, alias="MAX_UPLOAD_MB")
 
     # ---- Auth ----
-    # When true, the JWT guard accepts requests without a valid token and injects a
-    # dev principal. Lets the foundation run before Phase 5 (full auth) lands.
-    # MUST be false in production.
-    auth_dev_bypass: bool = Field(default=True, alias="AUTH_DEV_BYPASS")
+    # When true AND app_env is exactly "development", the JWT guard accepts
+    # requests without a valid token and injects a dev principal. Defaults to
+    # false: an unset/misspelled APP_ENV must never silently enable this.
+    # The app refuses to start if this is true outside development (see
+    # Settings.__init__ below) — see security.py:get_current_principal.
+    auth_dev_bypass: bool = Field(default=False, alias="AUTH_DEV_BYPASS")
 
     # ---- EEG pipeline (Phase 2) ----
     eeg_siddhi_dir: str = Field(
@@ -128,6 +130,25 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env in {"production", "prod"}
+
+    @property
+    def is_development(self) -> bool:
+        return self.app_env == "development"
+
+    @model_validator(mode="after")
+    def _guard_dev_bypass(self) -> "Settings":
+        # Fail fast/loud rather than silently granting super_admin access on
+        # any environment where APP_ENV is unset, misspelled, or set to
+        # something like "staging"/"uat" while AUTH_DEV_BYPASS is left on.
+        if self.auth_dev_bypass and not self.is_development:
+            raise ValueError(
+                "AUTH_DEV_BYPASS is true but APP_ENV is "
+                f"'{self.app_env}', not 'development'. Refusing to start: "
+                "this combination would bypass authentication in a "
+                "non-development environment. Set AUTH_DEV_BYPASS=false or "
+                "APP_ENV=development."
+            )
+        return self
 
     @property
     def max_upload_bytes(self) -> int:

@@ -53,13 +53,9 @@ export const analysisApi = {
     return apiClient.post<CancelResponse>(`/api/v1/analysis/${sessionId}/cancel`);
   },
   async delete(sessionId: string): Promise<void> {
-    try {
-      await apiClient.delete<void>(`/api/v1/analysis/${sessionId}`);
-    } catch {
-      // Fallback via sessionsApi if backend endpoint is not active
-      const { sessionsApi } = await import('@/lib/api/sessions');
-      const res = await sessionsApi.deleteSession(sessionId);
-      if (res.error) throw new Error(res.error);
-    }
+    // No direct-Supabase fallback here on purpose: a fallback that bypasses
+    // the backend's permission checks on failure is a bigger risk than
+    // surfacing the real error to the caller.
+    await apiClient.delete<void>(`/api/v1/analysis/${sessionId}`);
   },
 };
