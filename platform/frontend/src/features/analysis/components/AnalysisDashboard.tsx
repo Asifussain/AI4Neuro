@@ -261,6 +261,7 @@ export function AnalysisDashboard() {
             accent={meta.accent}
             patientNameById={patientNameById}
             showPatientColumn={role !== 'patient'}
+            showDeleteAction={role !== 'patient'}
             emptyLabel={canCreate ? 'No analyses found. Upload a new scan to get started.' : 'Your reports will appear here once available.'}
           />
         )}

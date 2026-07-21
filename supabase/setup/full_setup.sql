@@ -78,6 +78,7 @@ create table if not exists public.user_profiles (
   phone varchar not null,
   date_of_birth date,
   address text,
+  avatar_url text,
   role varchar not null,
   account_status varchar not null default 'pending'
     -- suspended = temporary/reversible (admin action, reactivate to undo);
