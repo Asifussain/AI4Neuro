@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, Query, status
 from app.api.deps import get_auth_admin, get_current_user, get_database, require_role
 from app.api.v1._common import forbid, paginate, require_hospital
 from app.core.security import Principal
+from app.schemas.audit import AuditLogEntry
 from app.schemas.common import PaginatedResponse
 from app.schemas.users import (
     HospitalCreate,
@@ -219,6 +220,26 @@ def list_users(
     page, total = paginate(rows, limit=limit, offset=offset)
     return PaginatedResponse(
         items=[UserResponse(**r) for r in page], total=total, limit=limit, offset=offset
+    )
+
+
+@router.get("/audit-log", response_model=PaginatedResponse[AuditLogEntry])
+def list_audit_log(
+    hospital_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> PaginatedResponse[AuditLogEntry]:
+    """Read-only trail of every hospital/user management action on the
+    platform — insert_audit_log() already writes to this table from the
+    mutating routes above; this is the first route that reads it back."""
+    if not permissions.can_view_platform_analytics(principal.role):
+        raise forbid("Only Super Admins may view the audit log.")
+    rows = db.list_audit_log(hospital_id=hospital_id)
+    page, total = paginate(rows, limit=limit, offset=offset)
+    return PaginatedResponse(
+        items=[AuditLogEntry(**r) for r in page], total=total, limit=limit, offset=offset
     )
 
 

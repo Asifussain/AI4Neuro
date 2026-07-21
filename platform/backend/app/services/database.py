@@ -414,6 +414,18 @@ class DatabaseService:
         except Exception as exc:  # audit logging is best-effort, never fatal
             logger.warning("Failed to write audit_log entry for %s: %s", action, exc)
 
+    def list_audit_log(self, *, hospital_id: str | None = None) -> list[dict]:
+        """Most-recent-first, matching the existing fetch-then-filter DB pattern
+        (see list_hospitals/list_user_profiles) — sorting/pagination happen in
+        Python via app.api.v1._common.paginate() rather than at the query."""
+        query = self.client.table("audit_log").select("*")
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        res = query.execute()
+        rows = list(getattr(res, "data", None) or [])
+        rows.sort(key=lambda r: r.get("created_at") or "", reverse=True)
+        return rows
+
     # ---------------------------- job events ---------------------------- #
 
     def insert_job_event(

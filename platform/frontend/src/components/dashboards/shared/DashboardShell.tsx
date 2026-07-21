@@ -106,6 +106,9 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
 
   // Patients cannot create analyses, so the modality shortcuts are read-only for them.
   const canCreate = userProfile?.role !== 'patient';
+  // Super Admins operate platform-wide and never run analyses themselves — the
+  // clinical modality shortcuts below are noise in their sidebar.
+  const showServices = userProfile?.role !== 'super_admin';
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +146,7 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
       </nav>
 
       {/* Services block */}
-      {!collapsed && (
+      {!collapsed && showServices && (
         <div className="px-4 py-3">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-400 px-1 mb-2">
             AI4Neuro Services
@@ -214,7 +217,7 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
   );
 
   return (
-    <div className="min-h-screen bg-[#f5f8fb] flex">
+    <div className="min-h-screen bg-slate-50 flex">
       {/* Desktop sidebar */}
       <aside
         className={cn(
@@ -225,6 +228,7 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
         {sidebarContent}
         <button
           onClick={() => setCollapsed((c) => !c)}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           className="absolute -right-3 top-8 w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 shadow-sm"
         >
           {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
@@ -238,6 +242,7 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
           <aside className="absolute left-0 top-0 h-full w-64 bg-white flex flex-col overflow-y-auto">
             <button
               onClick={() => setMobileOpen(false)}
+              aria-label="Close navigation menu"
               className="absolute right-3 top-4 text-slate-400"
             >
               <X className="h-5 w-5" />
@@ -250,14 +255,22 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
       {/* Main column */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Topbar */}
-        <header className="sticky top-0 z-30 bg-[#f5f8fb]/90 backdrop-blur px-4 md:px-6 py-4 flex items-center gap-3">
-          <button className="md:hidden text-slate-500" onClick={() => setMobileOpen(true)}>
+        <header className="sticky top-0 z-30 bg-slate-50/90 backdrop-blur px-4 md:px-6 py-4 flex items-center gap-3">
+          <button
+            className="md:hidden text-slate-500"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open navigation menu"
+          >
             <Menu className="h-5 w-5" />
           </button>
 
           <form onSubmit={submitSearch} className="relative flex-1 max-w-xl">
+            <label htmlFor="dashboard-global-search" className="sr-only">
+              Search analyses
+            </label>
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
+              id="dashboard-global-search"
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
