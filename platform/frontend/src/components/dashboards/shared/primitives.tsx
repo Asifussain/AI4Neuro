@@ -1,6 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   BarChart,
@@ -51,6 +53,28 @@ export const ACCENT_STYLES: Record<
   },
 };
 
+/** Real hex values for the same accents, for contexts (Recharts SVG fills)
+ * that need an actual color rather than a Tailwind class. Keeps chart colors
+ * in sync with ACCENT_STYLES instead of scattering hex literals per-dashboard. */
+export const ACCENT_HEX: Record<Accent, string> = {
+  green: '#059669',
+  indigo: '#4f46e5',
+  blue: '#2563eb',
+  teal: '#0d9488',
+};
+
+export const NEUTRAL_CHART_HEX = '#94a3b8';
+
+/** "hospital.create" -> "Hospital → Create" — used by the audit log page and
+ * the Super Admin dashboard's Recent Activity widget. */
+export function formatAuditAction(action: string): string {
+  return action
+    .split('.')
+    .map((part) => part.replace(/_/g, ' '))
+    .join(' → ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 // ============================================================================
 // SECTION CARD — light replacement for SpotlightCard
 // ============================================================================
@@ -74,6 +98,32 @@ export function SectionCard({
 }
 
 // ============================================================================
+// COUNT-UP — animates a numeric stat toward its latest value
+// ============================================================================
+function useCountUp(value: number, duration = 600): number {
+  const [display, setDisplay] = useState(value);
+  const fromRef = useRef(value);
+
+  useEffect(() => {
+    const from = fromRef.current;
+    if (from === value) return;
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(Math.round(from + (value - from) * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else fromRef.current = value;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+
+  return display;
+}
+
+// ============================================================================
 // STAT CARD
 // ============================================================================
 export function StatCard({
@@ -84,6 +134,7 @@ export function StatCard({
   accent = 'blue',
   isLoading = false,
   onClick,
+  size = 'default',
 }: {
   label: string;
   value: string | number;
@@ -92,8 +143,12 @@ export function StatCard({
   accent?: Accent;
   isLoading?: boolean;
   onClick?: () => void;
+  size?: 'default' | 'lg';
 }) {
   const styles = ACCENT_STYLES[accent];
+  const numericValue = typeof value === 'number' ? value : null;
+  const animatedValue = useCountUp(numericValue ?? 0);
+  const displayValue = numericValue !== null ? animatedValue : value;
   const content = (
     <>
       <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center mb-4', styles.solid)}>
@@ -101,9 +156,11 @@ export function StatCard({
       </div>
       <p className="text-sm text-slate-500">{label}</p>
       {isLoading ? (
-        <div className="h-8 w-16 mt-1 bg-slate-100 rounded animate-pulse" />
+        <div className={cn('mt-1 bg-slate-100 rounded animate-pulse', size === 'lg' ? 'h-10 w-20' : 'h-8 w-16')} />
       ) : (
-        <p className="text-3xl font-bold text-slate-900 mt-0.5">{value}</p>
+        <p className={cn('font-bold text-slate-900 mt-0.5', size === 'lg' ? 'text-4xl' : 'text-3xl')}>
+          {displayValue}
+        </p>
       )}
       {sublabel && <p className={cn('text-sm font-medium mt-1', styles.text)}>{sublabel}</p>}
     </>
@@ -249,24 +306,32 @@ export function AlertList({
 export function MiniBarChart({
   data,
   dataKey = 'value',
-  color = '#0d9488',
+  color = ACCENT_HEX.teal,
+  isLoading = false,
 }: {
   data: { name: string; value: number }[];
   dataKey?: string;
   color?: string;
+  isLoading?: boolean;
 }) {
+  if (isLoading) {
+    return <div className="h-[220px] rounded-xl bg-slate-100 animate-pulse" />;
+  }
+  const summary = `Bar chart: ${data.map((d) => `${d.name} ${d.value}`).join(', ')}`;
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} barSize={18}>
-        <XAxis
-          dataKey="name"
-          tickLine={false}
-          axisLine={false}
-          tick={{ fill: '#64748b', fontSize: 12 }}
-        />
-        <Bar dataKey={dataKey} fill={color} radius={[6, 6, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
+    <div role="img" aria-label={summary}>
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={data} barSize={18}>
+          <XAxis
+            dataKey="name"
+            tickLine={false}
+            axisLine={false}
+            tick={{ fill: '#64748b', fontSize: 12 }}
+          />
+          <Bar dataKey={dataKey} fill={color} radius={[6, 6, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -276,12 +341,18 @@ export function MiniBarChart({
 export function DonutStat({
   centerLabel = 'AI',
   segments,
+  isLoading = false,
 }: {
   centerLabel?: string;
   segments: { name: string; value: number; color: string }[];
+  isLoading?: boolean;
 }) {
+  if (isLoading) {
+    return <div className="h-[180px] rounded-full bg-slate-100 animate-pulse mx-auto max-w-[180px]" />;
+  }
+  const summary = `Donut chart: ${segments.map((s) => `${s.name} ${s.value}`).join(', ')}`;
   return (
-    <div className="relative flex items-center justify-center">
+    <div className="relative flex items-center justify-center" role="img" aria-label={summary}>
       <ResponsiveContainer width="100%" height={180}>
         <PieChart>
           <Pie
@@ -353,4 +424,121 @@ export function DashboardPageHeader({
       </div>
     </SectionCard>
   );
+}
+
+// ============================================================================
+// FADE IN — subtle mount transition for dashboard sections
+// ============================================================================
+export function FadeIn({
+  children,
+  delay = 0,
+  className,
+}: {
+  children: React.ReactNode;
+  delay?: number;
+  className?: string;
+}) {
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay, ease: 'easeOut' }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// ============================================================================
+// PAGINATION — shared by admin tables (e.g. the Audit Log page)
+// ============================================================================
+export function Pagination({
+  currentPage,
+  totalPages,
+  totalItems,
+  pageSize,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  const from = (currentPage - 1) * pageSize + 1;
+  const to = Math.min(currentPage * pageSize, totalItems);
+
+  const pages: (number | string)[] = [];
+  for (let p = 1; p <= totalPages; p++) {
+    if (p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)) {
+      pages.push(p);
+    } else if (pages[pages.length - 1] !== '...') {
+      pages.push('...');
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between pt-4">
+      <span className="text-sm text-slate-500">
+        Showing {from}-{to} of {totalItems}
+      </span>
+      <div className="flex items-center gap-1">
+        <button
+          aria-label="Previous page"
+          disabled={currentPage === 1}
+          onClick={() => onPageChange(currentPage - 1)}
+          className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        {pages.map((p, i) =>
+          typeof p === 'string' ? (
+            <span key={`dots-${i}`} className="px-1 text-slate-400 text-sm">
+              ...
+            </span>
+          ) : (
+            <button
+              key={p}
+              aria-label={`Page ${p}`}
+              aria-current={p === currentPage ? 'page' : undefined}
+              onClick={() => onPageChange(p)}
+              className={cn(
+                'h-8 w-8 rounded-lg text-xs font-medium transition-colors',
+                p === currentPage ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+              )}
+            >
+              {p}
+            </button>
+          )
+        )}
+        <button
+          aria-label="Next page"
+          disabled={currentPage === totalPages}
+          onClick={() => onPageChange(currentPage + 1)}
+          className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Slices `items` into a page, clamping the current page when the list shrinks
+ * (e.g. after a filter narrows the results) and exposing a `resetPage` to call
+ * whenever a filter/search/sort input changes upstream. */
+export function usePaginatedList<T>(items: T[], pageSize: number) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paginated = items.slice((safePage - 1) * pageSize, safePage * pageSize);
+  return {
+    page: safePage,
+    setPage,
+    totalPages,
+    paginated,
+    resetPage: () => setPage(1),
+  };
 }

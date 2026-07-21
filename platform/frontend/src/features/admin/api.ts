@@ -156,6 +156,18 @@ export interface HealthStatus {
   configured?: boolean;
 }
 
+export interface AuditLogEntry {
+  id: string;
+  actor_id?: string | null;
+  actor_role?: string | null;
+  hospital_id?: string | null;
+  action: string;
+  target_table?: string | null;
+  target_id?: string | null;
+  metadata: Record<string, unknown>;
+  created_at?: string | null;
+}
+
 function qs(params: Record<string, string | number | boolean | undefined>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -228,6 +240,16 @@ export const adminApi = {
     return apiClient.get<Paginated<AdminUser>>(
       `/api/v1/platform/users${qs({
         role: params.role,
+        hospital_id: params.hospitalId,
+        limit: params.limit,
+        offset: params.offset,
+      })}`
+    );
+  },
+  /** Read-only trail of hospital/user management actions — super_admin only. */
+  auditLog(params: { hospitalId?: string } & ListParams = {}): Promise<Paginated<AuditLogEntry>> {
+    return apiClient.get<Paginated<AuditLogEntry>>(
+      `/api/v1/platform/audit-log${qs({
         hospital_id: params.hospitalId,
         limit: params.limit,
         offset: params.offset,
