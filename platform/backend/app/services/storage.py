@@ -19,6 +19,22 @@ from app.services.supabase_client import get_service_client, require_client
 
 logger = get_logger(__name__)
 
+_UNSAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]")
+
+
+def _sanitize_filename(filename: str) -> str:
+    """Reduce a client-supplied filename to a safe storage-path segment.
+
+    Normalizes backslashes first: on a POSIX host, os.path.basename only
+    treats "/" as a separator, so a Windows-style traversal string like
+    "..\\..\\etc\\passwd" would otherwise survive basename unchanged.
+    """
+    name = (filename or "upload").replace("\\", "/")
+    name = os.path.basename(name) or "upload"
+    name = _UNSAFE_FILENAME_CHARS.sub("_", name)
+    name = name.lstrip(".") or "upload"
+    return name[:200]
+
 
 class StorageService:
     def __init__(self, client: Any | None = None) -> None:
@@ -32,7 +48,7 @@ class StorageService:
     # ------------------------------ raw files ------------------------------ #
 
     def raw_file_path(self, modality: str, session_id: str, filename: str) -> str:
-        return f"{modality}/{session_id}/{filename}"
+        return f"{modality}/{session_id}/{_sanitize_filename(filename)}"
 
     def upload_raw_file(
         self, *, modality: str, session_id: str, filename: str, data: bytes

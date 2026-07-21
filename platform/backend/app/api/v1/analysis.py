@@ -65,6 +65,59 @@ def _validate_upload(modality: str, filename: str) -> None:
         )
 
 
+_UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB
+
+
+async def _read_upload_within_limit(file: UploadFile, max_bytes: int, max_mb: int) -> bytes:
+    """Read an upload in chunks, aborting as soon as the limit is crossed.
+
+    Reading the whole body first and checking its length afterwards (the
+    prior approach) means an oversized upload is fully buffered in memory
+    before being rejected — the check runs too late to prevent the memory
+    spike it's meant to guard against.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(_UPLOAD_CHUNK_SIZE)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail={
+                    "code": "file_too_large",
+                    "message": f"File exceeds {max_mb} MB limit.",
+                },
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _validate_role_assignment(
+    db: DatabaseService, user_id: str | None, *, role: str, hospital_id: str | None, field: str
+) -> None:
+    """Confirm a client-supplied doctor_id/radiologist_id is real and in-scope.
+
+    Without this, permissions.can_read_session grants read access to whoever
+    is named doctor_id/radiologist_id on a session row, so an uploader could
+    otherwise name an arbitrary user to grant them access to someone else's
+    session.
+    """
+    if not user_id:
+        return
+    user = db.get_user_profile(user_id)
+    if not user or user.get("role") != role or str(user.get("hospital_id")) != str(hospital_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": f"invalid_{field}",
+                "message": f"{field} must be an active {role} in the target hospital.",
+            },
+        )
+
+
 def _normalize_analysis_type(modality: str, analysis_type: str) -> str:
     value = (analysis_type or "").strip().lower()
     if modality == Modality.mri.value:
@@ -127,15 +180,7 @@ async def create_analysis(
     if not permissions.can_create_analysis(principal.role, modality):
         raise _forbid(f"Your role may not create {modality} analyses.")
 
-    data = await file.read()
-    if len(data) > settings.max_upload_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail={
-                "code": "file_too_large",
-                "message": f"File exceeds {settings.max_upload_mb} MB limit.",
-            },
-        )
+    data = await _read_upload_within_limit(file, settings.max_upload_bytes, settings.max_upload_mb)
 
     pipeline_options = _build_pipeline_options(
         modality, channel_index, scan_metadata_json, eeg_metadata_json
@@ -160,21 +205,26 @@ async def create_analysis(
     else:
         hospital_id = hospital_id or principal.hospital_id
 
+    # Track whether these came from the client before self-assign defaulting
+    # kicks in: a self-assigned id is just the caller's own already-verified
+    # identity (principal.user_id/.role/.hospital_id, freshly loaded from
+    # user_profiles by get_current_user) — re-validating it against the DB
+    # would be redundant. Only a client-*supplied* id is the actual gap: it
+    # names someone else, and can_read_session trusts whoever is named here.
+    doctor_id_client_supplied = bool(doctor_id)
+    radiologist_id_client_supplied = bool(radiologist_id)
+
     if principal.role == "radiologist" and not radiologist_id:
         radiologist_id = principal.user_id
     if principal.role == "doctor" and not doctor_id:
         doctor_id = principal.user_id
 
-    # TODO(security): doctor_id/radiologist_id supplied on the form are
-    # currently trusted as-is (beyond the self-assign defaults above).
-    # permissions.can_read_session grants read access to whoever is named as
-    # doctor_id/radiologist_id on a session row, so a malicious uploader could
-    # currently name themselves (or anyone) as doctor_id/radiologist_id on
-    # someone else's session to gain read access. This should verify (via a
-    # user_profiles lookup) that the named user actually belongs to
-    # hospital_id and holds the corresponding role before accepting it,
-    # mirroring the hospital_id check above. Deferred here to keep this pass
-    # focused — the hospital_id check (the required fix) is in place above.
+    if doctor_id_client_supplied:
+        _validate_role_assignment(db, doctor_id, role="doctor", hospital_id=hospital_id, field="doctor_id")
+    if radiologist_id_client_supplied:
+        _validate_role_assignment(
+            db, radiologist_id, role="radiologist", hospital_id=hospital_id, field="radiologist_id"
+        )
 
     # 1) Create the session row (queued).
     try:

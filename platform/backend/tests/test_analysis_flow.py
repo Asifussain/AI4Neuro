@@ -17,22 +17,48 @@ def _npy_bytes() -> bytes:
     return buf.getvalue()
 
 
-def _upload(client, *, modality="eeg", analysis_type="multiclass", filename="input.npy", data=None):
+def _seeded_doctor_id(db_service) -> str:
+    """A real doctor_profiles row, since create_analysis now validates that a
+    client-supplied doctor_id actually exists with the matching role."""
+    user = db_service.create_user_profile(
+        {
+            "hospital_id": None,
+            "unique_identifier": "DOC-UPLOAD-TEST",
+            "full_name": "Dr. Upload Test",
+            "email": "doctor.upload.test@example.com",
+            "phone": "555-0100",
+            "role": "doctor",
+            "account_status": "active",
+        }
+    )
+    db_service.create_role_profile(
+        "doctor_profiles",
+        {
+            "user_id": user["id"],
+            "medical_license": "LIC-UPLOAD-TEST",
+            "specialization": "Neurology",
+            "experience_years": 5,
+        },
+    )
+    return user["id"]
+
+
+def _upload(client, db_service, *, modality="eeg", analysis_type="multiclass", filename="input.npy", data=None):
     return client.post(
         "/api/v1/analysis",
         data={
             "modality": modality,
             "analysis_type": analysis_type,
             "patient_id": "11111111-1111-1111-1111-111111111111",
-            "doctor_id": "22222222-2222-2222-2222-222222222222",
+            "doctor_id": _seeded_doctor_id(db_service),
             "uploaded_by_role": "doctor",
         },
         files={"file": (filename, data if data is not None else _npy_bytes(), "application/octet-stream")},
     )
 
 
-def test_eeg_upload_runs_to_completion(client):
-    res = _upload(client)
+def test_eeg_upload_runs_to_completion(client, db_service):
+    res = _upload(client, db_service)
     assert res.status_code == 202
     body = res.json()
     session_id = body["session_id"]
@@ -55,8 +81,8 @@ def test_eeg_upload_runs_to_completion(client):
     assert reports["session_id"] == session_id  # empty urls in foundation
 
 
-def test_mri_multiclass_shape(client):
-    res = _upload(client, modality="mri", analysis_type="multiclass", filename="scan.nii.gz")
+def test_mri_multiclass_shape(client, db_service):
+    res = _upload(client, db_service, modality="mri", analysis_type="multiclass", filename="scan.nii.gz")
     assert res.status_code == 202
     session_id = res.json()["session_id"]
     result = client.get(f"/api/v1/analysis/{session_id}/result").json()
@@ -64,14 +90,14 @@ def test_mri_multiclass_shape(client):
     assert set(result["probabilities"].keys()) == {"CN", "MCI", "AD"}
 
 
-def test_rejects_wrong_extension(client):
-    res = _upload(client, modality="eeg", filename="scan.nii.gz")
+def test_rejects_wrong_extension(client, db_service):
+    res = _upload(client, db_service, modality="eeg", filename="scan.nii.gz")
     assert res.status_code == 400
     assert res.json()["error"]["code"] == "invalid_file_type"
 
 
-def test_rejects_unknown_modality(client):
-    res = _upload(client, modality="pet", filename="x.npy")
+def test_rejects_unknown_modality(client, db_service):
+    res = _upload(client, db_service, modality="pet", filename="x.npy")
     assert res.status_code == 400
     assert res.json()["error"]["code"] == "invalid_modality"
 
@@ -82,8 +108,8 @@ def test_status_404_for_unknown_session(client):
     assert res.json()["error"]["code"] == "session_not_found"
 
 
-def test_retry_conflict_on_completed(client):
-    session_id = _upload(client).json()["session_id"]
+def test_retry_conflict_on_completed(client, db_service):
+    session_id = _upload(client, db_service).json()["session_id"]
     # Session is completed; retry should be rejected.
     res = client.post(f"/api/v1/analysis/{session_id}/retry")
     assert res.status_code == 409
@@ -122,8 +148,8 @@ def test_cancel_queued_session(client, db_service):
     assert status_res.json()["status"] == "cancelled"
 
 
-def test_cancel_conflict_on_completed(client):
-    session_id = _upload(client).json()["session_id"]
+def test_cancel_conflict_on_completed(client, db_service):
+    session_id = _upload(client, db_service).json()["session_id"]
     res = client.post(f"/api/v1/analysis/{session_id}/cancel")
     assert res.status_code == 409
     assert res.json()["error"]["code"] == "cancel_not_allowed"
