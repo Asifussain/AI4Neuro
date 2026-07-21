@@ -12,8 +12,9 @@ from typing import Any
 
 
 class _Result:
-    def __init__(self, data: Any) -> None:
+    def __init__(self, data: Any, count: int | None = None) -> None:
         self.data = data
+        self.count = count
 
 
 class _TableQuery:
@@ -22,8 +23,11 @@ class _TableQuery:
         self._table = table
         self._op: str | None = None
         self._payload: dict | None = None
-        self._filters: list[tuple[str, Any]] = []
+        self._filters: list[tuple[str, str, Any]] = []
         self._single = False
+        self._count_mode: str | None = None
+        self._order: tuple[str, bool] | None = None
+        self._range: tuple[int, int] | None = None
 
     # ---- terminal-ish builders ----
     def insert(self, row: dict) -> "_TableQuery":
@@ -40,12 +44,30 @@ class _TableQuery:
         self._op = "delete"
         return self
 
-    def select(self, *_cols: str) -> "_TableQuery":
+    def select(self, *_cols: str, count: str | None = None) -> "_TableQuery":
         self._op = "select"
+        self._count_mode = count
         return self
 
     def eq(self, col: str, val: Any) -> "_TableQuery":
-        self._filters.append((col, val))
+        self._filters.append(("eq", col, val))
+        return self
+
+    def in_(self, col: str, values: Any) -> "_TableQuery":
+        self._filters.append(("in", col, set(values)))
+        return self
+
+    def lt(self, col: str, val: Any) -> "_TableQuery":
+        self._filters.append(("lt", col, val))
+        return self
+
+    def order(self, column: str, *, desc: bool = False, **_kwargs: Any) -> "_TableQuery":
+        self._order = (column, desc)
+        return self
+
+    def range(self, start: int, end: int) -> "_TableQuery":
+        # postgrest semantics: end is inclusive.
+        self._range = (start, end)
         return self
 
     def maybe_single(self) -> "_TableQuery":
@@ -81,12 +103,31 @@ class _TableQuery:
             return _Result(list(matched))
 
         # select
+        total = len(matched) if self._count_mode == "exact" else None
+
+        if self._order is not None:
+            column, desc = self._order
+            matched = sorted(matched, key=lambda r: (r.get(column) is None, r.get(column)), reverse=desc)
+
+        if self._range is not None:
+            start, end = self._range
+            matched = matched[start : end + 1]
+
         if self._single:
-            return _Result(matched[0] if matched else None)
-        return _Result(list(matched))
+            return _Result(matched[0] if matched else None, count=total)
+        return _Result(list(matched), count=total)
 
     def _matches(self, row: dict) -> bool:
-        return all(row.get(col) == val for col, val in self._filters)
+        for op, col, val in self._filters:
+            if op == "eq" and row.get(col) != val:
+                return False
+            if op == "in" and row.get(col) not in val:
+                return False
+            if op == "lt":
+                row_val = row.get(col)
+                if row_val is None or not (row_val < val):
+                    return False
+        return True
 
 
 class _BucketOps:
