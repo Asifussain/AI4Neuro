@@ -110,6 +110,11 @@ alter table public.user_profiles
     or (role <> 'super_admin' and hospital_id is not null)
   );
 
+-- Every RLS policy and directory/list query filters on these.
+create index if not exists idx_user_profiles_hospital_id on public.user_profiles(hospital_id);
+create index if not exists idx_user_profiles_role on public.user_profiles(role);
+create index if not exists idx_user_profiles_account_status on public.user_profiles(account_status);
+
 -- Hospital lifecycle audit field (added here, once user_profiles exists, to
 -- avoid a circular FK at table-creation time).
 alter table public.hospitals add column if not exists created_by uuid references public.user_profiles(id);
@@ -123,7 +128,10 @@ create table if not exists public.patient_profiles (
   medical_history text,
   current_medications text,
   allergies text,
-  assigned_doctor_id uuid,
+  -- Not currently written by any code path (the real doctor<->patient link
+  -- is doctor_patient_relationships) — FK kept correct for its declared
+  -- purpose regardless.
+  assigned_doctor_id uuid references public.user_profiles(id),
   verification_status varchar default 'pending'
     check (verification_status in ('pending','verified','rejected')),
   created_at timestamptz not null default now(),
@@ -456,6 +464,8 @@ create table if not exists public.audit_log (
 );
 create index if not exists idx_audit_log_hospital on public.audit_log(hospital_id);
 create index if not exists idx_audit_log_actor on public.audit_log(actor_id);
+-- Supports ORDER BY created_at DESC pagination on the audit log.
+create index if not exists idx_audit_log_created_at on public.audit_log(created_at);
 
 alter table public.platform_settings enable row level security;
 alter table public.audit_log enable row level security;
