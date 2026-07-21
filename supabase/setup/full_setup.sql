@@ -433,12 +433,38 @@ drop trigger if exists trg_analysis_sessions_updated_at on public.analysis_sessi
 create trigger trg_analysis_sessions_updated_at before update on public.analysis_sessions
   for each row execute function public.update_updated_at_column();
 
--- Analysis data is read via the backend API (service role), so RLS is
--- fail-closed here (no permissive policies) — the backend bypasses it.
+-- Analysis data is read via the backend API (service role), which bypasses
+-- RLS entirely — these hospital-scoped read policies are defense-in-depth
+-- for the day something reads with a user's own JWT instead (e.g. a future
+-- realtime status subscription), not something the backend depends on.
 alter table public.analysis_sessions enable row level security;
 alter table public.analysis_results  enable row level security;
 alter table public.analysis_reports  enable row level security;
 alter table public.job_events         enable row level security;
+
+drop policy if exists "hospital_scoped_read" on public.analysis_sessions;
+create policy "hospital_scoped_read" on public.analysis_sessions
+  for select using (public.is_super_admin() or hospital_id = public.my_hospital_id());
+
+create or replace function public.session_hospital_id(p_session_id uuid)
+returns uuid language sql stable as $$
+  select hospital_id from public.analysis_sessions where id = p_session_id;
+$$;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['analysis_results', 'analysis_reports', 'job_events']
+  loop
+    execute format('drop policy if exists "hospital_scoped_read" on public.%I', t);
+    execute format(
+      'create policy "hospital_scoped_read" on public.%I for select using ('
+      || 'public.is_super_admin()'
+      || ' or public.session_hospital_id(session_id) = public.my_hospital_id()'
+      || ')', t
+    );
+  end loop;
+end $$;
 
 -- ---------------------------------------------------------------------
 -- 5b. Platform settings + audit log (Super Admin only)
