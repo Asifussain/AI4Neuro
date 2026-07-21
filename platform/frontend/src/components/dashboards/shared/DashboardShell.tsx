@@ -106,9 +106,6 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
 
   // Patients cannot create analyses, so the modality shortcuts are read-only for them.
   const canCreate = userProfile?.role !== 'patient';
-  // Super Admins operate platform-wide and never run analyses themselves — the
-  // clinical modality shortcuts below are noise in their sidebar.
-  const showServices = userProfile?.role !== 'super_admin';
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,7 +143,7 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
       </nav>
 
       {/* Services block */}
-      {!collapsed && showServices && (
+      {!collapsed && (
         <div className="px-4 py-3">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-400 px-1 mb-2">
             AI4Neuro Services

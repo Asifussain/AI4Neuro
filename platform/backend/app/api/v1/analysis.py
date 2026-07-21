@@ -255,6 +255,9 @@ def list_analyses(
     modality: str | None = Query(default=None),
     status_filter: str | None = Query(default=None, alias="status"),
     patient_id: str | None = Query(default=None),
+    doctor_id: str | None = Query(default=None),
+    radiologist_id: str | None = Query(default=None),
+    hospital_id: str | None = Query(default=None),
     mine: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -263,15 +266,18 @@ def list_analyses(
 ) -> PaginatedResponse[SessionStatusResponse]:
     """Role-scoped list of analysis sessions the caller may see (doc 8.5).
 
-    super_admin sees across all hospitals; every other role is pre-filtered to
-    their own hospital, then each row is checked with the same per-session
-    permission used for reads.
+    super_admin sees across all hospitals by default, or may narrow to one
+    hospital via ``hospital_id``; every other role is pinned to their own
+    hospital regardless of what (if anything) they pass. Every row is then
+    checked with the same per-session permission used for reads.
     """
-    hospital = None if principal.role == "super_admin" else principal.hospital_id
+    hospital = hospital_id if principal.role == "super_admin" else principal.hospital_id
     rows = db.list_sessions(
         modality=modality,
         status=status_filter,
         patient_id=patient_id,
+        doctor_id=doctor_id,
+        radiologist_id=radiologist_id,
         hospital_id=hospital,
     )
     visible = [

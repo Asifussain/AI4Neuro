@@ -71,12 +71,16 @@ export const NEUTRAL_CHART_HEX = '#94a3b8';
 export function SectionCard({
   className,
   children,
+  id,
 }: {
   className?: string;
   children: React.ReactNode;
+  /** For anchor-jump targets (e.g. "View Reports" scrolling to this card). */
+  id?: string;
 }) {
   return (
     <div
+      id={id}
       className={cn(
         'rounded-2xl bg-white border border-slate-200/80 shadow-[0_8px_24px_rgba(15,23,42,0.05)]',
         className
