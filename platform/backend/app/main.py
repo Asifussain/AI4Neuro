@@ -7,6 +7,7 @@ pipeline registry → API routers. Nothing modality-specific lives here.
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, FastAPI, Request
@@ -24,7 +25,9 @@ from app.api.v1 import users as users_routes
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.pipelines import register_default_pipelines
+from app.services.database import DatabaseService
 from app.services.jobs import JobService, set_job_service
+from app.services.supabase_client import SupabaseNotConfiguredError
 from app.workers.local_executor import LocalJobService
 
 logger = get_logger(__name__)
@@ -39,6 +42,39 @@ def _build_job_service() -> JobService:
     return LocalJobService(max_workers=settings.local_job_max_workers)
 
 
+def _reconcile_stale_sessions() -> None:
+    """Fail any session left stuck in-flight by a crash/restart.
+
+    The local job runner (ThreadPoolExecutor) has no persistence: a session
+    an in-process worker was handling when the process died never reaches a
+    terminal state on its own. This only catches staleness across a process
+    restart — a hung thread in an otherwise-live process isn't covered, and
+    isn't meant to be; a real durable queue is the eventual fix for that.
+    """
+    settings = get_settings()
+    try:
+        db = DatabaseService()
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(minutes=settings.stale_job_threshold_minutes)
+        ).isoformat()
+        stale = db.list_stale_sessions(older_than_iso=cutoff)
+        for row in stale:
+            db.mark_failed(
+                row["id"],
+                "Marked failed on startup: no progress since last update — "
+                "likely a server restart or crash while processing.",
+            )
+            db.insert_job_event(
+                row["id"], message="Marked failed by startup reconciliation sweep.", level="warning"
+            )
+        if stale:
+            logger.warning("Startup reconciliation: marked %d stale session(s) as failed.", len(stale))
+    except SupabaseNotConfiguredError:
+        logger.info("Skipping startup reconciliation sweep: Supabase not configured.")
+    except Exception:
+        logger.exception("Startup reconciliation sweep failed; continuing boot.")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -46,6 +82,7 @@ async def lifespan(app: FastAPI):
     register_default_pipelines()
     job_service = _build_job_service()
     set_job_service(job_service)
+    _reconcile_stale_sessions()
     logger.info(
         "Backend started (env=%s, job_backend=%s, workers=%s)",
         settings.app_env, settings.job_backend, settings.local_job_max_workers,

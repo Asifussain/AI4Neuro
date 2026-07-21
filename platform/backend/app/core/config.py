@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     # ---- Jobs / background execution (doc 4.2) ----
     job_backend: str = Field(default="local", alias="JOB_BACKEND")  # local | (celery later)
     local_job_max_workers: int = Field(default=2, alias="LOCAL_JOB_MAX_WORKERS")
+    # A session still non-terminal with no update since this long ago is
+    # assumed abandoned by a crashed/restarted process (the local job runner
+    # has no persistence) and is marked failed on the next startup. Comfortably
+    # above the longest known single-stage timeout (EEG subprocess: 10 min).
+    stale_job_threshold_minutes: int = Field(default=30, alias="STALE_JOB_THRESHOLD_MINUTES")
 
     # ---- Uploads ----
     local_tmp_dir: str = Field(default="/tmp/neuro-platform", alias="LOCAL_TMP_DIR")

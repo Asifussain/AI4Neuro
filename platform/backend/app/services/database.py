@@ -18,7 +18,7 @@ from typing import Any
 
 from app.core.logging import get_logger
 from app.pipelines.base import PipelineResult
-from app.schemas.analysis import SessionStatus
+from app.schemas.analysis import ACTIVE_STATUSES, SessionStatus
 from app.services.supabase_client import get_service_client, require_client
 
 logger = get_logger(__name__)
@@ -198,6 +198,23 @@ class DatabaseService:
                 "updated_at": _now(),
             },
         )
+
+    def list_stale_sessions(self, *, older_than_iso: str) -> list[dict]:
+        """Sessions still non-terminal whose updated_at predates the cutoff.
+
+        Used by the startup reconciliation sweep (app/main.py) to catch jobs
+        left stuck in-flight by a process crash/restart — the ThreadPoolExecutor
+        job runner has no persistence, so a session an in-process worker was
+        handling when the process died otherwise never reaches a terminal state.
+        """
+        res = (
+            self.client.table(SESSIONS_TABLE)
+            .select("id,status,updated_at")
+            .in_("status", list(ACTIVE_STATUSES))
+            .lt("updated_at", older_than_iso)
+            .execute()
+        )
+        return list(getattr(res, "data", None) or [])
 
     def increment_retry(self, session_id: str) -> int:
         session = self.get_session(session_id) or {}
