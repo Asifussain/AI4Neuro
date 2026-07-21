@@ -7,10 +7,10 @@ accounts within them.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class Role(str, Enum):
@@ -85,14 +85,18 @@ class HospitalResponse(BaseModel):
 
 class UserCreate(BaseModel):
     full_name: str
-    email: str
-    phone: str
+    email: EmailStr
+    phone: str = Field(pattern=r"^\+?[0-9\s().-]{6,20}$")
     role: Role
-    unique_identifier: str
+    # Optional: generated server-side (with a collision-safe retry) when not
+    # supplied — see user_provisioning.create_user_account. Still accepted
+    # from the caller for backward compatibility with anything that already
+    # generates its own.
+    unique_identifier: str | None = None
     # Required for super_admin creating into a specific hospital; ignored (and
     # forced to the caller's own hospital) for hospital_admin callers.
     hospital_id: str | None = None
-    date_of_birth: str | None = None
+    date_of_birth: date | None = None
     address: str | None = None
     qualification: str | None = None
 

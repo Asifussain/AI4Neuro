@@ -98,7 +98,8 @@ export interface UserCreatePayload {
   email: string;
   phone: string;
   role: Role;
-  unique_identifier: string;
+  /** Optional — generated server-side (with a collision-safe retry) when omitted. */
+  unique_identifier?: string;
   hospital_id?: string | null;
   date_of_birth?: string;
   address?: string;

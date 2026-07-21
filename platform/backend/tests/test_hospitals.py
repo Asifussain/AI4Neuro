@@ -89,6 +89,59 @@ def test_hospital_admin_creates_doctor_in_own_hospital(client, db_service):
     assert body["temporary_password"]
 
 
+def test_create_user_without_unique_identifier_generates_one(client, db_service):
+    h1 = db_service.create_hospital(_hospital_payload("H1"))
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id="ha1", role="admin", hospital_id=h1["id"], is_dev=False
+    )
+    res = client.post(
+        "/api/v1/hospital/users",
+        json={
+            "full_name": "Dr. Jones",
+            "email": "jones@example.com",
+            "phone": "555-0102",
+            "role": "doctor",
+        },
+    )
+    assert res.status_code == 201
+    assert res.json()["unique_identifier"]
+
+
+def test_create_user_retries_on_generated_id_collision(client, db_service, monkeypatch):
+    from postgrest import APIError
+
+    h1 = db_service.create_hospital(_hospital_payload("H1"))
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id="ha1", role="admin", hospital_id=h1["id"], is_dev=False
+    )
+
+    real_create = db_service.create_user_profile
+    calls = {"count": 0}
+
+    def flaky_create(row):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise APIError(
+                {"code": "23505", "message": "duplicate key value", "details": "Key (unique_identifier)", "hint": None}
+            )
+        return real_create(row)
+
+    monkeypatch.setattr(db_service, "create_user_profile", flaky_create)
+
+    res = client.post(
+        "/api/v1/hospital/users",
+        json={
+            "full_name": "Dr. Retry",
+            "email": "retry@example.com",
+            "phone": "555-0103",
+            "role": "doctor",
+        },
+    )
+    assert res.status_code == 201
+    assert calls["count"] == 2
+    assert res.json()["unique_identifier"]
+
+
 def test_hospital_admin_cannot_create_super_admin(client, db_service):
     h1 = db_service.create_hospital(_hospital_payload("H1"))
     client.app.dependency_overrides[get_current_user] = lambda: Principal(

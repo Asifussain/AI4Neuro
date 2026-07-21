@@ -36,18 +36,6 @@ const ACCENT_CLASSES: Record<'teal' | 'indigo', string> = {
   indigo: 'bg-indigo-600 hover:bg-indigo-700',
 };
 
-/** Mirrors the unique_identifier codes the old Next.js route used to
- * auto-generate server-side (e.g. "DO482913") — generated client-side now
- * since the real backend requires the caller to supply one. */
-function generateUniqueIdentifier(role: Role): string {
-  const prefix = role.slice(0, 2).toUpperCase();
-  const timestamp = Date.now().toString().slice(-6);
-  const random = Math.floor(Math.random() * 1000)
-    .toString()
-    .padStart(3, '0');
-  return `${prefix}${timestamp}${random}`;
-}
-
 interface CreateUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -124,7 +112,8 @@ export function CreateUserDialog({
         phone: form.phone,
         qualification: form.qualification || undefined,
         role,
-        unique_identifier: generateUniqueIdentifier(role),
+        // unique_identifier is generated server-side now (with a
+        // collision-safe retry) — see user_provisioning.py.
         hospital_id: role === 'super_admin' ? undefined : hospitalId || form.hospital_id || undefined,
       });
       setResult(created);

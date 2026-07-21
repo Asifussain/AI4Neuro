@@ -14,7 +14,10 @@ rollback already done by the Next.js route.
 
 from __future__ import annotations
 
+import random
+
 from fastapi import HTTPException, status
+from postgrest import APIError
 
 from app.api.v1._common import ROLE_PROFILE_TABLE
 from app.core.security import Principal
@@ -22,6 +25,29 @@ from app.schemas.users import UserCreate
 from app.services import permissions
 from app.services.auth_admin import AuthAdminService, AuthProvisioningError
 from app.services.database import DatabaseService
+
+_UNIQUE_ID_MAX_ATTEMPTS = 5
+
+
+def _generate_unique_identifier(role: str) -> str:
+    prefix = (role or "usr")[:2].upper()
+    suffix = "".join(random.choices("0123456789", k=6))
+    return f"{prefix}{suffix}"
+
+
+def _is_generated_id_collision(exc: Exception) -> bool:
+    """True only for a Postgres unique-violation on unique_identifier itself.
+
+    Deliberately narrow: any other error (including a collision on a
+    caller-supplied identifier, or an email collision) must still surface as
+    a real failure rather than being silently retried away.
+    """
+    if not isinstance(exc, APIError):
+        return False
+    if getattr(exc, "code", None) != "23505":
+        return False
+    haystack = " ".join(filter(None, [exc.details, exc.message])).lower()
+    return "unique_identifier" in haystack
 
 
 def create_user_account(
@@ -78,21 +104,36 @@ def create_user_account(
     # 2) Create the user_profiles + role-detail rows, rolling back the Auth
     #    user on any failure so we never leave an orphaned login-capable
     #    account with no matching profile.
+    base_row = {
+        "id": user_id,
+        "hospital_id": target_hospital_id,
+        "full_name": payload.full_name,
+        "email": payload.email,
+        "phone": payload.phone,
+        "date_of_birth": payload.date_of_birth.isoformat() if payload.date_of_birth else None,
+        "address": payload.address,
+        "role": target_role,
+        "account_status": "active",
+        "created_by_admin": None if principal.is_dev else principal.user_id,
+    }
+
+    user: dict | None = None
     try:
-        row = {
-            "id": user_id,
-            "hospital_id": target_hospital_id,
-            "unique_identifier": payload.unique_identifier,
-            "full_name": payload.full_name,
-            "email": payload.email,
-            "phone": payload.phone,
-            "date_of_birth": payload.date_of_birth,
-            "address": payload.address,
-            "role": target_role,
-            "account_status": "active",
-            "created_by_admin": None if principal.is_dev else principal.user_id,
-        }
-        user = db.create_user_profile(row)
+        for attempt in range(_UNIQUE_ID_MAX_ATTEMPTS):
+            unique_identifier = payload.unique_identifier or _generate_unique_identifier(target_role)
+            try:
+                user = db.create_user_profile({**base_row, "unique_identifier": unique_identifier})
+                break
+            except Exception as exc:
+                # Only retry a collision on an identifier *we* generated —
+                # a caller-supplied identifier, or any other error (including
+                # an email collision), must fail hard on the first attempt.
+                if payload.unique_identifier or not _is_generated_id_collision(exc):
+                    raise
+        if user is None:
+            raise RuntimeError(
+                f"Could not generate a unique identifier after {_UNIQUE_ID_MAX_ATTEMPTS} attempts."
+            )
 
         profile_table = ROLE_PROFILE_TABLE.get(target_role)
         if profile_table:
