@@ -202,6 +202,7 @@ function DeleteUserDialog({
 function RowActions({
   user,
   busy,
+  profileHref,
   onSuspend,
   onReactivate,
   onEdit,
@@ -209,6 +210,8 @@ function RowActions({
 }: {
   user: AdminUser;
   busy: boolean;
+  /** Super Admin drill-down profile page, when one exists for this role. */
+  profileHref?: string | null;
   onSuspend: (u: AdminUser) => void;
   onReactivate: (u: AdminUser) => void;
   onEdit: (u: AdminUser) => void;
@@ -223,6 +226,11 @@ function RowActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {profileHref && (
+          <DropdownMenuItem asChild>
+            <Link href={profileHref}>View Full Profile</Link>
+          </DropdownMenuItem>
+        )}
         {user.account_status === 'active' ? (
           <DropdownMenuItem onClick={() => onSuspend(user)}>Suspend</DropdownMenuItem>
         ) : (
@@ -494,6 +502,7 @@ function UserDirectoryInner({
                       <RowActions
                         user={u}
                         busy={busyId === u.id}
+                        profileHref={profileHref}
                         onSuspend={handleSuspend}
                         onReactivate={handleReactivate}
                         onEdit={setEditingUser}
