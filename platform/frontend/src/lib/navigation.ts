@@ -18,7 +18,6 @@ import {
   FileText,
   Landmark,
   ScanLine,
-  History,
 } from 'lucide-react';
 import type { NavItem } from '@/components/dashboards/shared/DashboardShell';
 import type { Accent } from '@/components/dashboards/shared/primitives';
@@ -59,7 +58,6 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Doctors', href: '/super-admin/users?role=doctor', icon: Stethoscope },
     { label: 'Radiologists', href: '/super-admin/users?role=radiologist', icon: Brain },
     { label: 'Patients', href: '/super-admin/users?role=patient', icon: Users },
-    { label: 'Audit Log', href: '/super-admin/audit-log', icon: History },
     { label: 'Settings', href: '/profile', icon: Settings },
   ],
   admin: [

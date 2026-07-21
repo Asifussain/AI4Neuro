@@ -65,16 +65,6 @@ export const ACCENT_HEX: Record<Accent, string> = {
 
 export const NEUTRAL_CHART_HEX = '#94a3b8';
 
-/** "hospital.create" -> "Hospital → Create" — used by the audit log page and
- * the Super Admin dashboard's Recent Activity widget. */
-export function formatAuditAction(action: string): string {
-  return action
-    .split('.')
-    .map((part) => part.replace(/_/g, ' '))
-    .join(' → ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 // ============================================================================
 // SECTION CARD — light replacement for SpotlightCard
 // ============================================================================

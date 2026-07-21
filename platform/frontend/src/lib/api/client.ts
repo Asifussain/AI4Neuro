@@ -8,8 +8,29 @@
 
 import { createClient } from '@/lib/supabase/client';
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') || 'http://localhost:8000';
+// NEXT_PUBLIC_API_BASE_URL is inlined at build time and, when unset, has
+// silently defaulted to localhost:8000 on every deployed environment
+// (Vercel, staging, ...) where the frontend and backend obviously aren't on
+// the same machine — surfacing as "Cannot reach the API server at
+// http://localhost:8000" on every CRUD action. If the build genuinely didn't
+// get the env var AND we're not actually running locally, fall back to the
+// documented production backend (see docs/PRODUCTION_HOSTING_DNS_REFERENCE.md)
+// instead of a URL that can never work outside a developer's machine. Setting
+// NEXT_PUBLIC_API_BASE_URL explicitly always wins over this fallback.
+function resolveApiBase(): string {
+  const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
+  if (configured) return configured;
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+    if (!isLocal) return 'https://api.ai4neuro.in';
+  }
+
+  return 'http://localhost:8000';
+}
+
+const API_BASE = resolveApiBase();
 
 export interface ApiErrorShape {
   code: string;

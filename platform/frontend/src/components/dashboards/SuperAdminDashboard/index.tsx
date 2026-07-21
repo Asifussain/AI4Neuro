@@ -29,11 +29,10 @@ import {
   FadeIn,
   ACCENT_HEX,
   NEUTRAL_CHART_HEX,
-  formatAuditAction,
 } from '@/components/dashboards/shared/primitives';
 import { Button } from '@/components/ui/button';
 import { getNavItems } from '@/lib/navigation';
-import { adminApi, type PlatformAnalytics, type Hospital, type AuditLogEntry } from '@/features/admin/api';
+import { adminApi, type PlatformAnalytics, type Hospital } from '@/features/admin/api';
 import { CreateUserDialog } from '@/components/dashboards/shared/CreateUserDialog';
 
 const NAV_ITEMS: NavItem[] = getNavItems('super_admin');
@@ -57,7 +56,6 @@ function healthLabel(state: HealthState) {
 export const SuperAdminDashboard: React.FC = () => {
   const [analytics, setAnalytics] = useState<PlatformAnalytics | null>(null);
   const [hospitals, setHospitals] = useState<Hospital[] | null>(null);
-  const [auditLog, setAuditLog] = useState<AuditLogEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createUserOpen, setCreateUserOpen] = useState(false);
   const [health, setHealth] = useState<{ api: HealthState; database: HealthState; storage: HealthState }>({
@@ -74,11 +72,6 @@ export const SuperAdminDashboard: React.FC = () => {
         setError(null);
       })
       .catch((e) => setError((e as Error).message));
-
-    adminApi
-      .auditLog({ limit: 6 })
-      .then((r) => setAuditLog(r.items))
-      .catch(() => setAuditLog([]));
 
     adminApi
       .health()
@@ -200,7 +193,6 @@ export const SuperAdminDashboard: React.FC = () => {
                 { label: 'View Doctors', href: '/super-admin/users?role=doctor' },
                 { label: 'View Radiologists', href: '/super-admin/users?role=radiologist' },
                 { label: 'View Patients', href: '/super-admin/users?role=patient' },
-                { label: 'Audit Log', href: '/super-admin/audit-log' },
               ]}
             />
           </div>
@@ -279,37 +271,6 @@ export const SuperAdminDashboard: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              </SectionCard>
-
-              {/* Recent Activity — real audit_log entries */}
-              <SectionCard className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-slate-900">Recent Activity</h3>
-                  <Link href="/super-admin/audit-log" className="text-xs font-medium text-indigo-700">
-                    View All
-                  </Link>
-                </div>
-                {auditLog === null ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-8 rounded-lg bg-slate-100 animate-pulse" />
-                    ))}
-                  </div>
-                ) : auditLog.length === 0 ? (
-                  <p className="text-sm text-slate-400 py-4 text-center">No activity recorded yet.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {auditLog.map((entry) => (
-                      <div key={entry.id} className="px-3 py-2 rounded-lg bg-slate-50">
-                        <p className="text-xs font-medium text-slate-800">{formatAuditAction(entry.action)}</p>
-                        <p className="text-[11px] text-slate-400">
-                          {entry.actor_role ?? 'system'}
-                          {entry.created_at ? ` · ${new Date(entry.created_at).toLocaleString()}` : ''}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </SectionCard>
             </div>
           </div>
