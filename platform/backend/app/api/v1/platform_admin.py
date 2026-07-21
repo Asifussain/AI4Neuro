@@ -247,8 +247,7 @@ def list_users(
     """Unscoped user search/list across every hospital (super_admin only)."""
     if principal.role != "super_admin":
         raise forbid("Only Super Admins may search the platform-wide user directory.")
-    rows = db.list_user_profiles(hospital_id=hospital_id, role=role)
-    page, total = paginate(rows, limit=limit, offset=offset)
+    page, total = db.list_user_profiles_page(hospital_id=hospital_id, role=role, limit=limit, offset=offset)
     return PaginatedResponse(
         items=[UserResponse(**r) for r in page], total=total, limit=limit, offset=offset
     )
@@ -267,8 +266,7 @@ def list_audit_log(
     mutating routes above; this is the first route that reads it back."""
     if not permissions.can_view_platform_analytics(principal.role):
         raise forbid("Only Super Admins may view the audit log.")
-    rows = db.list_audit_log(hospital_id=hospital_id)
-    page, total = paginate(rows, limit=limit, offset=offset)
+    page, total = db.list_audit_log(hospital_id=hospital_id, limit=limit, offset=offset)
     return PaginatedResponse(
         items=[AuditLogEntry(**r) for r in page], total=total, limit=limit, offset=offset
     )

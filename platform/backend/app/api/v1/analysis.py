@@ -322,6 +322,26 @@ def list_analyses(
     checked with the same per-session permission used for reads.
     """
     hospital = hospital_id if principal.role == "super_admin" else principal.hospital_id
+
+    if principal.role in {"super_admin", "admin"}:
+        # can_read_session's rule for these two roles *is* exactly this
+        # hospital_id filter (super_admin: none; admin: same-hospital), with
+        # no further per-row check — safe to paginate at the query.
+        rows, total = db.list_sessions_page(
+            modality=modality,
+            status=status_filter,
+            patient_id=patient_id,
+            doctor_id=doctor_id,
+            radiologist_id=radiologist_id,
+            hospital_id=hospital,
+            uploaded_by=principal.user_id if mine else None,
+            limit=limit,
+            offset=offset,
+        )
+        return PaginatedResponse(
+            items=[_to_status(r) for r in rows], total=total, limit=limit, offset=offset
+        )
+
     rows = db.list_sessions(
         modality=modality,
         status=status_filter,

@@ -142,6 +142,51 @@ class DatabaseService:
         data = getattr(res, "data", None) or []
         return list(data)
 
+    def list_sessions_page(
+        self,
+        *,
+        modality: str | None = None,
+        status: str | None = None,
+        patient_id: str | None = None,
+        doctor_id: str | None = None,
+        radiologist_id: str | None = None,
+        hospital_id: str | None = None,
+        uploaded_by: str | None = None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[dict], int]:
+        """DB-side paginated sibling of list_sessions(), used only for the
+        super_admin/admin (hospital-wide or platform-wide) callers of
+        GET /analysis. can_read_session()'s rule for those two roles *is*
+        exactly this hospital_id filter, so no further Python-side
+        permission filtering is needed afterward — pushing pagination to
+        the query is a lossless equivalent for them. Every other role's
+        visibility is a Python-side OR across uploaded_by/doctor_id/
+        radiologist_id/patient_id (see analysis.py), which stays on the
+        existing fetch-all path since it isn't expressible this way without
+        also teaching the query builder an OR filter.
+        """
+        query = self.client.table(SESSIONS_TABLE).select("*", count="exact")
+        if modality:
+            query = query.eq("modality", modality)
+        if status:
+            query = query.eq("status", status)
+        if patient_id:
+            query = query.eq("patient_id", patient_id)
+        if doctor_id:
+            query = query.eq("doctor_id", doctor_id)
+        if radiologist_id:
+            query = query.eq("radiologist_id", radiologist_id)
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        if uploaded_by:
+            query = query.eq("uploaded_by", uploaded_by)
+        query = query.order("created_at", desc=True).range(offset, offset + limit - 1)
+        res = query.execute()
+        rows = list(getattr(res, "data", None) or [])
+        total = res.count if getattr(res, "count", None) is not None else len(rows)
+        return rows, total
+
     # ----------------------------- profiles ----------------------------- #
 
     def get_user_profile(self, user_id: str) -> dict | None:
@@ -373,6 +418,26 @@ class DatabaseService:
             rows = [r for r in rows if r.get("account_status") != "deleted"]
         return rows
 
+    def list_user_profiles_page(
+        self, *, hospital_id: str | None = None, role: str | None = None, limit: int, offset: int
+    ) -> tuple[list[dict], int]:
+        """DB-side paginated sibling of list_user_profiles(), used only by the
+        platform-wide (super_admin-only) user directory — that route applies
+        no further per-row filtering, so pushing pagination to the query is
+        lossless there. list_user_profiles() itself is left untouched: its
+        other 10+ callers fetch the full matching set to merge in Python
+        against role-profile tables, which this variant doesn't support."""
+        query = self.client.table("user_profiles").select("*", count="exact")
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        if role:
+            query = query.eq("role", role)
+        query = query.order("created_at", desc=True).range(offset, offset + limit - 1)
+        res = query.execute()
+        rows = list(getattr(res, "data", None) or [])
+        total = res.count if getattr(res, "count", None) is not None else len(rows)
+        return rows, total
+
     def update_user_profile(self, user_id: str, patch: dict) -> dict | None:
         patch = {**patch, "updated_at": _now()}
         self.client.table("user_profiles").update(patch).eq("id", user_id).execute()
@@ -472,17 +537,23 @@ class DatabaseService:
         except Exception as exc:  # audit logging is best-effort, never fatal
             logger.warning("Failed to write audit_log entry for %s: %s", action, exc)
 
-    def list_audit_log(self, *, hospital_id: str | None = None) -> list[dict]:
-        """Most-recent-first, matching the existing fetch-then-filter DB pattern
-        (see list_hospitals/list_user_profiles) — sorting/pagination happen in
-        Python via app.api.v1._common.paginate() rather than at the query."""
-        query = self.client.table("audit_log").select("*")
+    def list_audit_log(
+        self, *, hospital_id: str | None = None, limit: int, offset: int
+    ) -> tuple[list[dict], int]:
+        """Most-recent-first, ordered/paginated/counted at the query rather
+        than fetching every row and slicing in Python — this table only
+        grows, and the only caller is the platform-wide (super_admin-only)
+        audit-log view with no further per-row filtering applied afterward,
+        so pushing this to the DB is a lossless equivalent of the old
+        fetch-then-paginate() behavior."""
+        query = self.client.table("audit_log").select("*", count="exact")
         if hospital_id:
             query = query.eq("hospital_id", hospital_id)
+        query = query.order("created_at", desc=True).range(offset, offset + limit - 1)
         res = query.execute()
         rows = list(getattr(res, "data", None) or [])
-        rows.sort(key=lambda r: r.get("created_at") or "", reverse=True)
-        return rows
+        total = res.count if getattr(res, "count", None) is not None else len(rows)
+        return rows, total
 
     # ---------------------------- job events ---------------------------- #
 
