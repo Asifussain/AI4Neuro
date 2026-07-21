@@ -84,6 +84,11 @@ class HospitalResponse(BaseModel):
 
 
 class UserCreate(BaseModel):
+    """Role-specific fields below mirror `UserUpdate` (same role-agnostic
+    names, resolved to real per-table columns via `ROLE_FIELD_MAP` in
+    `api/v1/_common.py`) — see `user_provisioning.create_user_account`, which
+    is the only place that maps these onto the actual role-detail insert."""
+
     full_name: str
     email: str
     phone: str
@@ -94,7 +99,20 @@ class UserCreate(BaseModel):
     hospital_id: str | None = None
     date_of_birth: str | None = None
     address: str | None = None
-    qualification: str | None = None
+    # doctor_profiles / radiologist_profiles
+    license_number: str | None = None
+    qualification_id: int | None = None
+    experience_years: int | None = None
+    specialization: str | None = None  # doctor_profiles only
+    imaging_expertise: str | None = None  # radiologist_profiles only (NOT NULL there)
+    certifications: str | None = None  # radiologist_profiles only
+    # patient_profiles
+    emergency_contact_name: str | None = None
+    emergency_contact_phone: str | None = None
+    blood_group_id: int | None = None
+    # hospital_admin_profiles
+    employee_id: str | None = None
+    department: str | None = None
 
 
 class UserResponse(BaseModel):

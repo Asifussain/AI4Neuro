@@ -13,42 +13,10 @@ from app.schemas.users import (
     UserUpdate,
 )
 from app.services.database import DatabaseService
+from app.api.v1._common import ROLE_FIELD_MAP as _ROLE_FIELD_MAP
 from app.api.v1._common import ROLE_PROFILE_TABLE
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-# Real DB column names differ per role table even for the same concept (e.g.
-# "license number"), and some columns only exist on one of the two tables —
-# see supabase/setup/full_setup.sql. This maps UserUpdate's role-agnostic
-# field names to each role's actual column names so update_me() never sends
-# a column that doesn't exist (which previously made the whole upsert fail
-# silently from the frontend's perspective — see git history on this file).
-_ROLE_FIELD_MAP: dict[str, dict[str, str]] = {
-    "doctor": {
-        "license_number": "medical_license",
-        "qualification_id": "qualification_id",
-        "experience_years": "experience_years",
-        "specialization": "specialization",
-    },
-    "radiologist": {
-        "license_number": "radiologist_license",
-        "qualification_id": "qualification_id",
-        "experience_years": "experience_years",
-        "imaging_expertise": "imaging_expertise",
-        "certifications": "certifications",
-    },
-    "patient": {
-        "date_of_birth": "date_of_birth",
-        "emergency_contact_name": "emergency_contact_name",
-        "emergency_contact_phone": "emergency_contact_phone",
-        "blood_group_id": "blood_group_id",
-    },
-    "admin": {
-        "employee_id": "employee_id",
-        "department": "department",
-    },
-    # super_admin_profiles has no user-editable columns today.
-}
 
 
 @router.get("/blood-groups", response_model=list[BloodGroupResponse])
