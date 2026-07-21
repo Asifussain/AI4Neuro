@@ -72,6 +72,15 @@ export function AnalysisDashboard() {
   const meta = getRoleMeta(role);
   const copy = ROLE_COPY[role] ?? ROLE_COPY.patient;
   const canCreate = role !== 'patient';
+  // Each role's real "all sessions" list page — distinct from /analysis/new,
+  // which only starts a fresh analysis and has nothing to do with viewing
+  // existing ones.
+  const ALL_ANALYSES_HREF: Partial<Record<Role, string>> = {
+    admin: '/admin/sessions',
+    doctor: '/doctor/sessions',
+    radiologist: '/radiologist/sessions',
+  };
+  const allAnalysesHref = ALL_ANALYSES_HREF[role] ?? '/search';
 
   const [sessions, setSessions] = useState<SessionStatusResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -224,7 +233,7 @@ export function AnalysisDashboard() {
               ? [
                   { label: 'New MRI Analysis', href: '/analysis/new?modality=mri' },
                   { label: 'New EEG Analysis', href: '/analysis/new?modality=eeg' },
-                  { label: 'View All Analyses', href: '/analysis/new' },
+                  { label: 'View All Analyses', href: allAnalysesHref },
                 ]
               : [{ label: 'View My Reports', href: '/patient/dashboard' }]
           }
