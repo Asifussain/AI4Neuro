@@ -91,12 +91,15 @@ create table if not exists public.user_profiles (
   updated_at timestamptz not null default now()
 );
 
--- Multi-tenant role set: super_admin (platform-wide, no hospital) and
--- hospital_admin (single-hospital admin, was "admin"). technician is removed.
+-- Multi-tenant role set. The hospital-admin role VALUE is `admin` (this is
+-- the canonical wire/DB value the whole app writes and reads — see
+-- app/schemas/users.py's Role enum and frontend/src/lib/roles.ts; the
+-- role-detail TABLE is separately named hospital_admin_profiles). super_admin
+-- is platform-wide (no hospital); technician has been removed.
 alter table public.user_profiles drop constraint if exists user_profiles_role_check;
 alter table public.user_profiles
   add constraint user_profiles_role_check
-  check (role in ('super_admin','hospital_admin','doctor','radiologist','patient'));
+  check (role in ('super_admin','admin','doctor','radiologist','patient'));
 
 -- Tenancy invariant: only super_admin may have a NULL hospital_id; every other
 -- role must belong to exactly one hospital.
@@ -468,6 +471,14 @@ insert into storage.buckets (id, name, public) values
   ('reports', 'reports', false),
   ('viewer-slices', 'viewer-slices', false)
 on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------------
+-- 7. Reload the PostgREST schema cache so every table/column created above
+--    is immediately visible to the Supabase REST API (otherwise the first
+--    calls can fail with "Could not find the '<col>' column ... in the schema
+--    cache" until the periodic reload catches up).
+-- ---------------------------------------------------------------------
+notify pgrst, 'reload schema';
 
 -- =====================================================================
 -- DONE. Verify in the Table Editor that these tables exist:
