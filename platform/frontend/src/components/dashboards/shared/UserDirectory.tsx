@@ -434,8 +434,12 @@ function UserDirectoryInner({
                     <td className="py-3 pr-4 text-slate-500">{idx + 1}</td>
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-semibold flex items-center justify-center shrink-0">
-                          {initials(u.full_name)}
+                        <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-semibold flex items-center justify-center shrink-0 overflow-hidden border border-slate-200">
+                          {(u as any).avatar_url ? (
+                            <img src={(u as any).avatar_url} alt={u.full_name} className="w-full h-full object-cover" />
+                          ) : (
+                            initials(u.full_name)
+                          )}
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium text-slate-900 truncate">{u.full_name}</p>

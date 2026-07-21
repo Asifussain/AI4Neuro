@@ -415,6 +415,21 @@ def cancel_analysis(
     return CancelResponse(session_id=session_id, status=SessionStatus.cancelled.value)
 
 
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+def delete_analysis(
+    session_id: str,
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> None:
+    """Delete an analysis session (Care team & admins)."""
+    session = _require_session(db, session_id)
+    if not permissions.can_retry_session(
+        principal.user_id, principal.role, principal.hospital_id, session
+    ):
+        raise _forbid("You may not delete this analysis session.")
+    db.delete_session(session_id)
+
+
 def _build_pipeline_options(
     modality: str,
     channel_index: int | None,

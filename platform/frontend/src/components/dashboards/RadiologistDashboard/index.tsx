@@ -34,22 +34,16 @@ import {
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
-import { DashboardShell, type NavItem } from '@/components/dashboards/shared/DashboardShell';
+import { DashboardShell } from '@/components/dashboards/shared/DashboardShell';
 import {
   SectionCard,
   StatCard as SharedStatCard,
   QuickActionsList,
   DashboardPageHeader,
 } from '@/components/dashboards/shared/primitives';
+import { getNavItems } from '@/lib/navigation';
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/radiologist/dashboard', icon: LayoutGrid },
-  { label: 'Upload Scans', href: '/radiologist/upload', icon: Upload },
-  { label: 'Reports', href: '/radiologist/dashboard', icon: FileText },
-  { label: 'Processed Cases', href: '/radiologist/dashboard', icon: ScanLine },
-  { label: 'Patients', href: '/radiologist/dashboard', icon: Users },
-  { label: 'Settings', href: '/profile', icon: Settings },
-];
+const NAV_ITEMS = getNavItems('radiologist');
 
 // ============================================================================
 // SESSION ROW (List View)

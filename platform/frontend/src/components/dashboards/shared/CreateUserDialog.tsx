@@ -72,6 +72,7 @@ const EMPTY_FORM = {
   full_name: '',
   email: '',
   phone: '',
+  qualification: '',
   role: '' as Role | '',
   hospital_id: '',
 };
@@ -121,6 +122,7 @@ export function CreateUserDialog({
         full_name: form.full_name,
         email: form.email,
         phone: form.phone,
+        qualification: form.qualification || undefined,
         role,
         unique_identifier: generateUniqueIdentifier(role),
         hospital_id: role === 'super_admin' ? undefined : hospitalId || form.hospital_id || undefined,
@@ -234,6 +236,18 @@ export function CreateUserDialog({
                 disabled={loading}
               />
             </div>
+            {(form.role === 'doctor' || form.role === 'radiologist') && (
+              <div className="grid gap-2">
+                <Label htmlFor="qualification">Qualification (Optional)</Label>
+                <Input
+                  id="qualification"
+                  placeholder="e.g. MBBS, MD, DNB (Radiology)"
+                  value={form.qualification}
+                  onChange={(e) => setForm((prev) => ({ ...prev, qualification: e.target.value }))}
+                  disabled={loading}
+                />
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => handleClose(false)} disabled={loading}>

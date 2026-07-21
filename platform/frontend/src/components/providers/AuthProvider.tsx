@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient, resetClient } from '@/lib/supabase/client';
 import { AuthChangeEvent, User, Session } from '@supabase/supabase-js';
 import type { Role } from '@/lib/roles';
+import { apiClient } from '@/lib/api/client';
 
 interface RoleProfile {
   date_of_birth?: string;
@@ -24,6 +25,7 @@ interface UserProfile {
   email: string;
   role: Role;
   phone?: string;
+  avatar_url?: string;
   account_status: 'active' | 'inactive' | 'suspended';
   roleProfile?: RoleProfile | null;
 }
@@ -78,30 +80,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, []);
 
-  // Fetch full profile from DB (background, non-blocking)
+  // Fetch full profile from DB / backend
   const fetchFullProfile = useCallback(async (currentUser: User): Promise<UserProfile | null> => {
     try {
-      // Create AbortController for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      // 1. Try FastAPI backend /users/me first (bypasses RLS restrictions)
+      try {
+        const backendUser = await apiClient.get<any>('/api/v1/users/me');
+        if (backendUser && backendUser.id) {
+          const profileBag = backendUser.profile || {};
+          return {
+            id: backendUser.id,
+            full_name: backendUser.full_name || profileBag.full_name || 'User',
+            email: backendUser.email || currentUser.email || '',
+            role: (backendUser.role || profileBag.role || 'patient') as Role,
+            phone: backendUser.phone || profileBag.phone || '',
+            avatar_url: backendUser.avatar_url || profileBag.avatar_url || '',
+            account_status: backendUser.account_status || 'active',
+            roleProfile: profileBag.roleProfile || null,
+          };
+        }
+      } catch (err) {
+        console.log('FastAPI /users/me fetch error, falling back to Supabase:', err);
+      }
 
-      const { data: profile, error } = await supabase
+      // 2. Fallback to Supabase direct query
+      const { data: profile } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', currentUser.id)
-        .abortSignal(controller.signal)
         .single();
 
-      clearTimeout(timeoutId);
-
-      if (error) {
-        console.log('DB profile fetch failed:', error.message);
-        return null;
-      }
-
       if (profile) {
-        console.log('DB profile loaded:', profile.role);
-        return { ...profile, roleProfile: null };
+        let roleProfile = null;
+        try {
+          const role = profile.role;
+          if (role === 'doctor') {
+            const { data } = await supabase.from('doctor_profiles').select('*, hospitals(name)').eq('user_id', currentUser.id).single();
+            roleProfile = data;
+          } else if (role === 'radiologist') {
+            const { data } = await supabase.from('radiologist_profiles').select('*, hospitals(name)').eq('user_id', currentUser.id).single();
+            roleProfile = data;
+          } else if (role === 'patient') {
+            const { data } = await supabase.from('patient_profiles').select('*, blood_groups(blood_group)').eq('user_id', currentUser.id).single();
+            roleProfile = data;
+          } else if (role === 'admin') {
+            const { data } = await supabase.from('hospital_admins').select('*, hospitals(name)').eq('user_id', currentUser.id).single();
+            roleProfile = data;
+          }
+        } catch {
+          // Keep null if role-specific table fetch fails
+        }
+        return { ...profile, roleProfile };
       }
 
       return null;

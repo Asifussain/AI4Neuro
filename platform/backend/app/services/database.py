@@ -98,6 +98,18 @@ class DatabaseService:
         )
         return _one(res)
 
+    def delete_session(self, session_id: str) -> None:
+        """Delete an analysis_sessions row and related results/reports/events."""
+        self.client.table(RESULTS_TABLE).delete().eq("session_id", session_id).execute()
+        self.client.table(REPORTS_TABLE).delete().eq("session_id", session_id).execute()
+        self.client.table(EVENTS_TABLE).delete().eq("session_id", session_id).execute()
+        self.client.table(SESSIONS_TABLE).delete().eq("id", session_id).execute()
+        try:
+            self.client.table("mri_predictions").delete().eq("session_id", session_id).execute()
+            self.client.table("mri_sessions").delete().eq("id", session_id).execute()
+        except Exception:
+            pass
+
     def list_sessions(
         self,
         *,
@@ -351,6 +363,11 @@ class DatabaseService:
 
     def update_role_profile(self, table: str, user_id: str, patch: dict) -> dict | None:
         self.client.table(table).update(patch).eq("user_id", user_id).execute()
+
+    def upsert_role_profile(self, table: str, user_id: str, patch: dict) -> dict:
+        row = {"user_id": user_id, **patch, "updated_at": _now()}
+        res = self.client.table(table).upsert(row, on_conflict="user_id").execute()
+        return _one(res) or {}
         res = (
             self.client.table(table)
             .select("*")

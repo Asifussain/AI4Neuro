@@ -1073,22 +1073,6 @@ export const HospitalAdminDashboard: React.FC = () => {
               { label: 'View Scan Sessions', href: '/admin/sessions' },
             ]}
           />
-
-          {/* Reports */}
-          <SectionCard className="p-4">
-            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-3">
-              <FileText className="h-4 w-4 text-violet-600" />
-              Reports
-            </h3>
-            <div className="space-y-2">
-              <Button variant="outline" size="sm" asChild className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200">
-                <a href="/admin/sessions?status=completed"><Activity className="h-3.5 w-3.5" />Completed Reports</a>
-              </Button>
-              <Button variant="outline" size="sm" asChild className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-200">
-                <a href="/admin/users"><Users className="h-3.5 w-3.5" />User Statistics</a>
-              </Button>
-            </div>
-          </SectionCard>
         </div>
       </div>
     </DashboardShell>

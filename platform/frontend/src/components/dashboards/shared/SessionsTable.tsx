@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { FileText, Loader2, Waves, Brain } from 'lucide-react';
+import Swal from 'sweetalert2';
+import { FileText, Loader2, Waves, Brain, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StatusBadge, ACCENT_STYLES, type Accent } from './primitives';
 import { analysisApi } from '@/features/analysis/api';
@@ -24,7 +25,7 @@ function classLabel(analysisType: string): string {
  * Organized, tabular replacement for the old flex-row session/report lists —
  * shared by every dashboard's "Scan Sessions" / "Reports" views so the
  * column set (Sr No, Patient, Analysis Type, Date & Time, Class, Status,
- * Report) stays consistent everywhere completed analyses are listed.
+ * Report, Actions) stays consistent everywhere completed analyses are listed.
  */
 export function SessionsTable({
   sessions,
@@ -32,6 +33,7 @@ export function SessionsTable({
   patientNameById,
   showPatientColumn = true,
   emptyLabel = 'No sessions found.',
+  onSessionDeleted,
 }: {
   sessions: SessionStatusResponse[];
   accent: Accent;
@@ -39,9 +41,11 @@ export function SessionsTable({
   patientNameById?: Record<string, string>;
   showPatientColumn?: boolean;
   emptyLabel?: string;
+  onSessionDeleted?: (sessionId: string) => void;
 }) {
   const styles = ACCENT_STYLES[accent];
   const [loadingReportId, setLoadingReportId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Opens the session's actual generated report PDF in a new tab, rather
   // than sending the user to the full /analysis/{id} status+result page.
@@ -67,6 +71,31 @@ export function SessionsTable({
     }
   };
 
+  const handleDelete = async (sessionId: string) => {
+    const res = await Swal.fire({
+      title: 'Delete Scan Session?',
+      text: 'Are you sure you want to delete this session? This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      confirmButtonText: 'Yes, delete',
+      cancelButtonText: 'Cancel',
+    });
+
+    if (!res.isConfirmed) return;
+
+    setDeletingId(sessionId);
+    try {
+      await analysisApi.delete(sessionId);
+      toast.success('Session deleted successfully');
+      onSessionDeleted?.(sessionId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete session');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (sessions.length === 0) {
     return (
       <div className="text-center py-12 text-slate-500">
@@ -87,7 +116,8 @@ export function SessionsTable({
             <th className="py-2.5 pr-4 font-medium">Date &amp; Time</th>
             <th className="py-2.5 pr-4 font-medium">Class</th>
             <th className="py-2.5 pr-4 font-medium">Status</th>
-            <th className="py-2.5 pr-0 font-medium text-right">Report</th>
+            <th className="py-2.5 pr-4 font-medium text-right">Report</th>
+            <th className="py-2.5 pr-0 font-medium text-center w-12">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -96,6 +126,7 @@ export function SessionsTable({
             const patientName = s.patient_id ? patientNameById?.[s.patient_id] : undefined;
             const isCompleted = s.status?.toLowerCase() === 'completed';
             const isLoadingReport = loadingReportId === s.id;
+            const isDeleting = deletingId === s.id;
             return (
               <tr key={s.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
                 <td className="py-3 pr-4 text-slate-500">{idx + 1}</td>
@@ -115,7 +146,7 @@ export function SessionsTable({
                 <td className="py-3 pr-4">
                   <StatusBadge status={s.status} />
                 </td>
-                <td className="py-3 pr-0 text-right">
+                <td className="py-3 pr-4 text-right">
                   {isCompleted ? (
                     <button
                       type="button"
@@ -140,6 +171,17 @@ export function SessionsTable({
                       N/A
                     </span>
                   )}
+                </td>
+                <td className="py-3 pr-0 text-center">
+                  <button
+                    type="button"
+                    title="Delete scan session"
+                    onClick={() => handleDelete(s.id)}
+                    disabled={isDeleting}
+                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  </button>
                 </td>
               </tr>
             );

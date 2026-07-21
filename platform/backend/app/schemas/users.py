@@ -94,6 +94,7 @@ class UserCreate(BaseModel):
     hospital_id: str | None = None
     date_of_birth: str | None = None
     address: str | None = None
+    qualification: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -103,6 +104,7 @@ class UserResponse(BaseModel):
     full_name: str
     email: str
     phone: str
+    avatar_url: str | None = None
     role: str
     account_status: str
     created_at: datetime | None = None
@@ -128,6 +130,13 @@ class UserUpdate(BaseModel):
     full_name: str | None = None
     phone: str | None = None
     address: str | None = None
+    avatar_url: str | None = None
+    qualification: str | None = None
+    license_number: str | None = None
+    specialization: str | None = None
+    experience_years: int | None = None
+    date_of_birth: str | None = None
+    emergency_contact: str | None = None
 
 
 class AssignDoctorRequest(BaseModel):

@@ -87,6 +87,7 @@ export interface UserUpdatePayload {
   full_name?: string;
   phone?: string;
   address?: string;
+  qualification?: string;
 }
 
 /** Body for both `POST /platform/users` and `POST /hospital/users` — caller
@@ -100,6 +101,7 @@ export interface UserCreatePayload {
   hospital_id?: string | null;
   date_of_birth?: string;
   address?: string;
+  qualification?: string;
 }
 
 /** `UserCreateResult` — same shape as `AdminUser` plus a one-time temporary

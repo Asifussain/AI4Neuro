@@ -17,7 +17,7 @@ const STATUS_FILTERS = [
   { value: 'failed', label: 'Failed' },
 ] as const;
 
-function SessionsInner() {
+function RadiologistSessionsInner() {
   const statusParam = useSearchParams().get('status') || undefined;
 
   const [sessions, setSessions] = useState<SessionStatusResponse[] | null>(null);
@@ -50,22 +50,20 @@ function SessionsInner() {
     };
   }, []);
 
+  const handleSessionDeleted = (deletedId: string) => {
+    setSessions((prev) => (prev ? prev.filter((s) => s.id !== deletedId) : null));
+  };
+
   const loading = sessions === null && !error;
   const rows = sessions ?? [];
-
-  const isReportsView = statusParam === 'completed';
 
   return (
     <>
       <DashboardPageHeader
-        eyebrow="Hospital Admin"
-        title={isReportsView ? 'Reports' : 'Scan Sessions'}
-        description={
-          isReportsView
-            ? 'Completed EEG and MRI analyses with generated reports.'
-            : 'All EEG and MRI analysis sessions for your hospital.'
-        }
-        accent="teal"
+        eyebrow="Radiologist"
+        title="Scan Sessions"
+        description="All EEG and MRI analysis sessions for your hospital."
+        accent="indigo"
       />
 
       {error && (
@@ -87,7 +85,7 @@ function SessionsInner() {
                 className={cn(
                   'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
                   statusFilter === value
-                    ? 'bg-teal-50 text-teal-700'
+                    ? 'bg-indigo-50 text-indigo-700'
                     : 'text-slate-500 hover:text-slate-800 hover:bg-white'
                 )}
               >
@@ -104,9 +102,9 @@ function SessionsInner() {
         ) : (
           <SessionsTable
             sessions={rows}
-            accent="teal"
+            accent="indigo"
             patientNameById={patientNameById}
-            onSessionDeleted={(id) => setSessions((prev) => (prev ? prev.filter((s) => s.id !== id) : null))}
+            onSessionDeleted={handleSessionDeleted}
           />
         )}
       </SectionCard>
@@ -114,14 +112,14 @@ function SessionsInner() {
   );
 }
 
-function SessionsPage() {
+function RadiologistSessionsPage() {
   return (
     <RoleShell>
       <Suspense fallback={<div className="h-40" />}>
-        <SessionsInner />
+        <RadiologistSessionsInner />
       </Suspense>
     </RoleShell>
   );
 }
 
-export default withAuth(SessionsPage, { allowedRoles: ['admin'] });
+export default withAuth(RadiologistSessionsPage, { allowedRoles: ['radiologist', 'admin'] });

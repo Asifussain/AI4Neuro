@@ -180,6 +180,7 @@ export function ProfileMenu({ accent }: { accent: Accent }) {
 
   const displayName = userProfile?.full_name || user?.email || 'User';
   const initials = getInitials(displayName);
+  const avatarUrl = userProfile?.avatar_url || (userProfile as any)?.avatar_url;
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -195,12 +196,16 @@ export function ProfileMenu({ accent }: { accent: Accent }) {
         onClick={() => setOpen((o) => !o)}
         aria-label="Account menu"
         className={cn(
-          'w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0',
-          styles.solid
+          'w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0 overflow-hidden border border-slate-200 shadow-sm',
+          !avatarUrl && styles.solid
         )}
         title={displayName}
       >
-        {initials}
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+        ) : (
+          initials
+        )}
       </button>
 
       {open && (

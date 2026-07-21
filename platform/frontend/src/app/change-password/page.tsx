@@ -10,6 +10,7 @@ import { getRoleMeta, type Role } from '@/lib/navigation';
 import type { Accent } from '@/components/dashboards/shared/primitives';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { BrandLogo } from '@/components/shared/BrandLogo';
 
 // Fully-literal per-accent classes (Tailwind's JIT scanner needs complete
 // class strings in source, not ones built by concatenating a variant prefix
@@ -180,10 +181,7 @@ export default function ChangePasswordPage() {
         {/* Logo Header */}
         <div className="p-8 flex items-center justify-between gap-4">
           <Link href="/landing" className="flex items-center gap-2.5 group">
-            <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center', t.solid)}>
-              <Brain className="w-6 h-6 text-white" />
-            </div>
-            <span className={cn('text-xl font-bold text-slate-900 transition-colors', t.textHover)}>AI4Neuro</span>
+            <BrandLogo markHeight={36} textHeight={18} />
           </Link>
           <Link
             href={dashboardHref}
