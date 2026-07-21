@@ -8,7 +8,7 @@
  * the chosen role) instead of the old `/api/admin/create-user` Next.js route.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { CheckCircle2, Loader2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -28,8 +28,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { apiClient } from '@/lib/api/client';
 import { adminApi, type Hospital, type UserCreateResult } from '@/features/admin/api';
 import { ROLE_META, type Role } from '@/lib/roles';
+
+interface BloodGroup {
+  id: number;
+  blood_type: string;
+}
+
+interface Qualification {
+  id: number;
+  qualification_name: string;
+}
 
 const ACCENT_CLASSES: Record<'teal' | 'indigo', string> = {
   teal: 'bg-teal-600 hover:bg-teal-700',
@@ -72,9 +83,19 @@ const EMPTY_FORM = {
   full_name: '',
   email: '',
   phone: '',
-  qualification: '',
   role: '' as Role | '',
   hospital_id: '',
+  license_number: '',
+  qualification_id: '',
+  specialization: '',
+  experience_years: '',
+  imaging_expertise: '',
+  certifications: '',
+  employee_id: '',
+  department: '',
+  emergency_contact_name: '',
+  emergency_contact_phone: '',
+  blood_group_id: '',
 };
 
 export function CreateUserDialog({
@@ -90,7 +111,29 @@ export function CreateUserDialog({
   const [form, setForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<UserCreateResult | null>(null);
+  const [qualifications, setQualifications] = useState<Qualification[]>([]);
+  const [bloodGroups, setBloodGroups] = useState<BloodGroup[]>([]);
   const btnClass = ACCENT_CLASSES[accent];
+
+  const isDoctorOrRadiologist = form.role === 'doctor' || form.role === 'radiologist';
+  const isPatient = form.role === 'patient';
+  const isHospitalAdmin = form.role === 'admin';
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    apiClient
+      .get<Qualification[]>('/api/v1/users/qualifications')
+      .then((rows) => !cancelled && setQualifications(rows))
+      .catch(() => {});
+    apiClient
+      .get<BloodGroup[]>('/api/v1/users/blood-groups')
+      .then((rows) => !cancelled && setBloodGroups(rows))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   const needsHospitalPicker =
     !hospitalId && !hideHospitalPicker && form.role !== 'super_admin' && form.role !== '';
@@ -99,7 +142,9 @@ export function CreateUserDialog({
     !!form.full_name &&
     !!form.email &&
     !!form.role &&
-    (hospitalId || hideHospitalPicker || form.role === 'super_admin' || !!form.hospital_id);
+    (hospitalId || hideHospitalPicker || form.role === 'super_admin' || !!form.hospital_id) &&
+    (!isDoctorOrRadiologist || !!form.license_number) &&
+    (form.role !== 'radiologist' || !!form.imaging_expertise);
 
   const reset = () => setForm(EMPTY_FORM);
 
@@ -122,10 +167,20 @@ export function CreateUserDialog({
         full_name: form.full_name,
         email: form.email,
         phone: form.phone,
-        qualification: form.qualification || undefined,
         role,
         unique_identifier: generateUniqueIdentifier(role),
         hospital_id: role === 'super_admin' ? undefined : hospitalId || form.hospital_id || undefined,
+        license_number: isDoctorOrRadiologist ? form.license_number || undefined : undefined,
+        qualification_id: isDoctorOrRadiologist && form.qualification_id ? parseInt(form.qualification_id, 10) : undefined,
+        specialization: role === 'doctor' ? form.specialization || undefined : undefined,
+        experience_years: isDoctorOrRadiologist && form.experience_years ? parseInt(form.experience_years, 10) : undefined,
+        imaging_expertise: role === 'radiologist' ? form.imaging_expertise || undefined : undefined,
+        certifications: role === 'radiologist' ? form.certifications || undefined : undefined,
+        employee_id: isHospitalAdmin ? form.employee_id || undefined : undefined,
+        department: isHospitalAdmin ? form.department || undefined : undefined,
+        emergency_contact_name: isPatient ? form.emergency_contact_name || undefined : undefined,
+        emergency_contact_phone: isPatient ? form.emergency_contact_phone || undefined : undefined,
+        blood_group_id: isPatient && form.blood_group_id ? parseInt(form.blood_group_id, 10) : undefined,
       });
       setResult(created);
       reset();
@@ -236,17 +291,151 @@ export function CreateUserDialog({
                 disabled={loading}
               />
             </div>
-            {(form.role === 'doctor' || form.role === 'radiologist') && (
+            {isDoctorOrRadiologist && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="license_number">
+                    License Number <span className="text-red-600">*</span>
+                  </Label>
+                  <Input
+                    id="license_number"
+                    placeholder={form.role === 'radiologist' ? 'e.g. RL-2024-0001' : 'e.g. ML-2024-0001'}
+                    value={form.license_number}
+                    onChange={(e) => setForm((prev) => ({ ...prev, license_number: e.target.value }))}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="qualification">Qualification (Optional)</Label>
+                  <Select
+                    value={form.qualification_id}
+                    onValueChange={(val) => setForm((prev) => ({ ...prev, qualification_id: val }))}
+                    disabled={loading}
+                  >
+                    <SelectTrigger id="qualification">
+                      <SelectValue placeholder="Select qualification" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {qualifications.map((q) => (
+                        <SelectItem key={q.id} value={String(q.id)}>
+                          {q.qualification_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="experience_years">Experience (Years, Optional)</Label>
+                  <Input
+                    id="experience_years"
+                    type="number"
+                    min={0}
+                    value={form.experience_years}
+                    onChange={(e) => setForm((prev) => ({ ...prev, experience_years: e.target.value }))}
+                    disabled={loading}
+                  />
+                </div>
+              </>
+            )}
+            {form.role === 'doctor' && (
               <div className="grid gap-2">
-                <Label htmlFor="qualification">Qualification (Optional)</Label>
+                <Label htmlFor="specialization">Specialization (Optional)</Label>
                 <Input
-                  id="qualification"
-                  placeholder="e.g. MBBS, MD, DNB (Radiology)"
-                  value={form.qualification}
-                  onChange={(e) => setForm((prev) => ({ ...prev, qualification: e.target.value }))}
+                  id="specialization"
+                  placeholder="e.g. Neurology"
+                  value={form.specialization}
+                  onChange={(e) => setForm((prev) => ({ ...prev, specialization: e.target.value }))}
                   disabled={loading}
                 />
               </div>
+            )}
+            {form.role === 'radiologist' && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="imaging_expertise">
+                    Imaging Expertise <span className="text-red-600">*</span>
+                  </Label>
+                  <Input
+                    id="imaging_expertise"
+                    placeholder="e.g. MRI, CT, EEG"
+                    value={form.imaging_expertise}
+                    onChange={(e) => setForm((prev) => ({ ...prev, imaging_expertise: e.target.value }))}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="certifications">Certifications (Optional)</Label>
+                  <Input
+                    id="certifications"
+                    value={form.certifications}
+                    onChange={(e) => setForm((prev) => ({ ...prev, certifications: e.target.value }))}
+                    disabled={loading}
+                  />
+                </div>
+              </>
+            )}
+            {isHospitalAdmin && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="employee_id">Employee ID (Optional)</Label>
+                  <Input
+                    id="employee_id"
+                    value={form.employee_id}
+                    onChange={(e) => setForm((prev) => ({ ...prev, employee_id: e.target.value }))}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="department">Department (Optional)</Label>
+                  <Input
+                    id="department"
+                    value={form.department}
+                    onChange={(e) => setForm((prev) => ({ ...prev, department: e.target.value }))}
+                    disabled={loading}
+                  />
+                </div>
+              </>
+            )}
+            {isPatient && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="emergency_contact_name">Emergency Contact Name (Optional)</Label>
+                  <Input
+                    id="emergency_contact_name"
+                    value={form.emergency_contact_name}
+                    onChange={(e) => setForm((prev) => ({ ...prev, emergency_contact_name: e.target.value }))}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="emergency_contact_phone">Emergency Contact Phone (Optional)</Label>
+                  <Input
+                    id="emergency_contact_phone"
+                    value={form.emergency_contact_phone}
+                    onChange={(e) => setForm((prev) => ({ ...prev, emergency_contact_phone: e.target.value }))}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="blood_group">Blood Group (Optional)</Label>
+                  <Select
+                    value={form.blood_group_id}
+                    onValueChange={(val) => setForm((prev) => ({ ...prev, blood_group_id: val }))}
+                    disabled={loading}
+                  >
+                    <SelectTrigger id="blood_group">
+                      <SelectValue placeholder="Select blood group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bloodGroups.map((bg) => (
+                        <SelectItem key={bg.id} value={String(bg.id)}>
+                          {bg.blood_type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
             )}
           </div>
           <div className="flex justify-end gap-2">

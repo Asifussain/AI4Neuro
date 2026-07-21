@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from fastapi import HTTPException, status
 
-from app.api.v1._common import ROLE_PROFILE_TABLE
+from app.api.v1._common import ROLE_FIELD_MAP, ROLE_PROFILE_NOT_NULL_DEFAULTS, ROLE_PROFILE_TABLE
 from app.core.security import Principal
 from app.schemas.users import UserCreate
 from app.services import permissions
@@ -96,7 +96,20 @@ def create_user_account(
 
         profile_table = ROLE_PROFILE_TABLE.get(target_role)
         if profile_table:
-            db.create_role_profile(profile_table, {"user_id": user["id"]})
+            payload_data = payload.model_dump(exclude_unset=True)
+            field_map = ROLE_FIELD_MAP.get(target_role, {})
+            role_row = {
+                column: payload_data[field]
+                for field, column in field_map.items()
+                if payload_data.get(field) is not None
+            }
+            # Columns that are NOT NULL in the DB but have no value supplied
+            # at creation time (e.g. license number not yet on hand) — fall
+            # back to "" so the insert never fails a NOT NULL constraint; the
+            # real value can be filled in later via the profile-edit flow.
+            for column, default in ROLE_PROFILE_NOT_NULL_DEFAULTS.get(target_role, {}).items():
+                role_row.setdefault(column, default)
+            db.create_role_profile(profile_table, {"user_id": user["id"], **role_row})
 
         db.insert_audit_log(
             actor_id=principal.user_id,

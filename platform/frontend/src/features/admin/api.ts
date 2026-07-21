@@ -92,7 +92,10 @@ export interface UserUpdatePayload {
 }
 
 /** Body for both `POST /platform/users` and `POST /hospital/users` — caller
- * picks the target route based on `role` (see `adminApi.createUser`). */
+ * picks the target route based on `role` (see `adminApi.createUser`). Role-
+ * specific fields mirror `UserUpdatePayload`'s naming (real per-role column
+ * names are resolved server-side — see `ROLE_FIELD_MAP` in the backend's
+ * `api/v1/_common.py`). */
 export interface UserCreatePayload {
   full_name: string;
   email: string;
@@ -102,7 +105,20 @@ export interface UserCreatePayload {
   hospital_id?: string | null;
   date_of_birth?: string;
   address?: string;
-  qualification?: string;
+  // doctor_profiles / radiologist_profiles
+  license_number?: string;
+  qualification_id?: number;
+  experience_years?: number;
+  specialization?: string; // doctor only
+  imaging_expertise?: string; // radiologist only (NOT NULL there)
+  certifications?: string; // radiologist only
+  // patient_profiles
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  blood_group_id?: number;
+  // hospital_admin_profiles
+  employee_id?: string;
+  department?: string;
 }
 
 /** `UserCreateResult` — same shape as `AdminUser` plus a one-time temporary
