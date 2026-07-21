@@ -1,9 +1,11 @@
 'use client';
 
-import Link from 'next/link';
-import { FileText, Waves, Brain } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { FileText, Loader2, Waves, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StatusBadge, ACCENT_STYLES, type Accent } from './primitives';
+import { analysisApi } from '@/features/analysis/api';
 import type { SessionStatusResponse } from '@/features/analysis/types';
 
 function formatDateTime(iso: string | null): string {
@@ -39,6 +41,31 @@ export function SessionsTable({
   emptyLabel?: string;
 }) {
   const styles = ACCENT_STYLES[accent];
+  const [loadingReportId, setLoadingReportId] = useState<string | null>(null);
+
+  // Opens the session's actual generated report PDF in a new tab, rather
+  // than sending the user to the full /analysis/{id} status+result page.
+  // The tab is opened synchronously (before the await) so it stays inside
+  // the click's user-gesture window and isn't blocked as a popup.
+  const openReport = async (sessionId: string) => {
+    const win = window.open('', '_blank');
+    setLoadingReportId(sessionId);
+    try {
+      const { report_urls } = await analysisApi.reports(sessionId);
+      const url = report_urls.patient ?? report_urls.clinician ?? report_urls.technical ?? null;
+      if (url && win) {
+        win.location.href = url;
+      } else {
+        win?.close();
+        toast.error('Report is not available yet for this session.');
+      }
+    } catch (err) {
+      win?.close();
+      toast.error(err instanceof Error ? err.message : 'Failed to load report.');
+    } finally {
+      setLoadingReportId(null);
+    }
+  };
 
   if (sessions.length === 0) {
     return (
@@ -68,6 +95,7 @@ export function SessionsTable({
             const ModalityIcon = s.modality === 'eeg' ? Waves : Brain;
             const patientName = s.patient_id ? patientNameById?.[s.patient_id] : undefined;
             const isCompleted = s.status?.toLowerCase() === 'completed';
+            const isLoadingReport = loadingReportId === s.id;
             return (
               <tr key={s.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
                 <td className="py-3 pr-4 text-slate-500">{idx + 1}</td>
@@ -89,17 +117,23 @@ export function SessionsTable({
                 </td>
                 <td className="py-3 pr-0 text-right">
                   {isCompleted ? (
-                    <Link
-                      href={`/analysis/${s.id}`}
+                    <button
+                      type="button"
+                      onClick={() => openReport(s.id)}
+                      disabled={isLoadingReport}
                       className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:brightness-95',
+                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:brightness-95 disabled:opacity-60',
                         styles.soft,
                         styles.text
                       )}
                     >
-                      <FileText className="h-3.5 w-3.5" />
+                      {isLoadingReport ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <FileText className="h-3.5 w-3.5" />
+                      )}
                       View Report
-                    </Link>
+                    </button>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-50 text-slate-400">
                       <FileText className="h-3.5 w-3.5" />

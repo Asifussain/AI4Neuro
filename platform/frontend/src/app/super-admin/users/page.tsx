@@ -33,6 +33,8 @@ function UsersPageInner() {
         accent="indigo"
         fallbackDescription="Complete user directory across every hospital on the platform."
         onAddUser={() => setCreateOpen(true)}
+        hospitals={hospitals}
+        showHospitalColumn
       />
 
       <CreateUserDialog

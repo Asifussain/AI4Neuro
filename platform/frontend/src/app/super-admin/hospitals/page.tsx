@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import Swal from 'sweetalert2';
 import { Search, Building2, Plus, MoreHorizontal, Loader2 } from 'lucide-react';
 import { RoleShell } from '@/components/dashboards/shared/RoleShell';
 import {
@@ -86,7 +87,7 @@ function CreateHospitalDialog({
       });
       onCreated(created);
       handleClose(false);
-      toast.success('Hospital created');
+      Swal.fire({ icon: 'success', title: 'Hospital created', text: `${created.name} has been onboarded.`, timer: 2500, showConfirmButton: false });
     } catch (e) {
       toast.error((e as Error).message || 'Failed to create hospital');
     } finally {
@@ -378,11 +379,25 @@ function HospitalsPage() {
   };
 
   const runStatusAction = async (h: Hospital, action: (id: string) => Promise<Hospital>, label: string) => {
+    const isSuspend = label === 'suspended';
+    const confirm = await Swal.fire({
+      icon: isSuspend ? 'warning' : 'question',
+      title: `${label === 'activated' ? 'Activate' : label === 'deactivated' ? 'Deactivate' : 'Suspend'} ${h.name}?`,
+      text: isSuspend
+        ? 'Every doctor, radiologist, and patient under this hospital will be blocked from logging in.'
+        : `This will mark the hospital as ${label}.`,
+      showCancelButton: true,
+      confirmButtonText: label === 'activated' ? 'Activate' : label === 'deactivated' ? 'Deactivate' : 'Suspend',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: isSuspend ? '#dc2626' : '#4f46e5',
+    });
+    if (!confirm.isConfirmed) return;
+
     setBusyId(h.id);
     try {
       const updated = await action(h.id);
       patchHospital(updated);
-      toast.success(`${h.name} ${label}`);
+      Swal.fire({ icon: 'success', title: `${h.name} ${label}`, timer: 2500, showConfirmButton: false });
     } catch (e) {
       toast.error((e as Error).message || `Failed to ${label} hospital`);
     } finally {
