@@ -235,11 +235,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(currentSession);
         setUser(currentSession.user);
 
+        // FAST: show the bare JWT-metadata profile immediately (no
+        // avatar_url/phone/roleProfile — those only live in the DB).
         const metadataProfile = getProfileFromMetadata(currentSession.user);
         if (metadataProfile) {
           setUserProfile(metadataProfile);
         }
         setLoading(false);
+
+        // BACKGROUND: replace it with the real saved profile. Without this,
+        // every fresh login (as opposed to a page reload, which goes
+        // through initAuth below) would show stale/default field values
+        // even though the previous edit was persisted correctly — looking
+        // exactly like "my changes got lost after logout/login".
+        fetchFullProfile(currentSession.user).then((dbProfile) => {
+          if (mounted && dbProfile) {
+            setUserProfile(dbProfile);
+          }
+        });
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
         setUser(null);
