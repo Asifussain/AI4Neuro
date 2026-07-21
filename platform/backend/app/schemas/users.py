@@ -127,24 +127,47 @@ class UserCreateResult(UserResponse):
 
 
 class UserUpdate(BaseModel):
+    """Every field here is optional and the caller's role decides which
+    role-table columns (if any) it maps to — see `update_me` in
+    `api/v1/users.py`. Field names are the real DB column names except
+    `license_number`, which is a role-agnostic alias the caller resolves to
+    `doctor_profiles.medical_license` or `radiologist_profiles.
+    radiologist_license` (those tables use different column names for the
+    same concept, but the frontend shows one "License Number" input).
+    """
+
     full_name: str | None = None
     phone: str | None = None
     address: str | None = None
     avatar_url: str | None = None
-    qualification: str | None = None
+    # doctor_profiles / radiologist_profiles
     license_number: str | None = None
-    specialization: str | None = None
+    qualification_id: int | None = None
     experience_years: int | None = None
+    specialization: str | None = None  # doctor_profiles only
+    imaging_expertise: str | None = None  # radiologist_profiles only (NOT NULL there)
+    certifications: str | None = None  # radiologist_profiles only
+    # patient_profiles
     date_of_birth: str | None = None
-    emergency_contact: str | None = None
+    emergency_contact_name: str | None = None
+    emergency_contact_phone: str | None = None
     # Patient-only, editable (unlike assigned_doctor_id/hospital_id, which are
     # care-team-managed and never patient-writable). FK -> blood_groups.id.
     blood_group_id: int | None = None
+    # hospital_admin_profiles
+    employee_id: str | None = None
+    department: str | None = None
 
 
 class BloodGroupResponse(BaseModel):
     id: int
     blood_type: str
+
+
+class QualificationResponse(BaseModel):
+    id: int
+    qualification_name: str
+    specialization: str | None = None
 
 
 class AssignDoctorRequest(BaseModel):

@@ -320,7 +320,7 @@ export default function ChangePasswordPage() {
         {/* Footer */}
         <div className="p-8 text-center">
           <p className="text-xs text-slate-400">
-            &copy; 2026 AI4Neuro. HIPAA Compliant. All rights reserved.
+            &copy; 2026 AI4Neuro. All rights reserved.
           </p>
         </div>
       </div>
@@ -358,7 +358,7 @@ export default function ChangePasswordPage() {
               <span className={cn("block", t.text)}>Account</span>
             </h2>
             <p className="text-slate-500 text-lg mb-8">
-              Your security is our priority. Strong passwords protect patient data and maintain HIPAA compliance.
+              Your security is our priority. Strong passwords protect patient data.
             </p>
 
             {/* Security Features */}
@@ -368,12 +368,6 @@ export default function ChangePasswordPage() {
                   <Lock className={cn("w-6 h-6", t.text)} />
                 </div>
                 <div className="text-xs text-slate-500">Encrypted</div>
-              </div>
-              <div className="text-center">
-                <div className="w-12 h-12 mx-auto mb-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center">
-                  <ShieldCheck className={cn("w-6 h-6", t.text)} />
-                </div>
-                <div className="text-xs text-slate-500">HIPAA</div>
               </div>
               <div className="text-center">
                 <div className="w-12 h-12 mx-auto mb-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center">

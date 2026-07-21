@@ -137,12 +137,13 @@ create table if not exists public.doctor_profiles (
   verification_status varchar default 'pending'
     check (verification_status in ('pending','verified','rejected')),
   is_active boolean default true,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.radiologist_profiles (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references public.user_profiles(id) on delete cascade,
+  user_id uuid references public.user_profiles(id) on delete cascade unique,
   radiologist_license varchar not null,
   qualification_id integer references public.qualifications(id),
   imaging_expertise text not null,
@@ -160,7 +161,8 @@ create table if not exists public.hospital_admin_profiles (
   department varchar,
   permissions jsonb default
     '{"manage_doctors": true, "manage_patients": true, "view_all_reports": true}'::jsonb,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 -- super_admin has no clinical/employee fields of its own, but keeps the "every
@@ -169,7 +171,8 @@ create table if not exists public.hospital_admin_profiles (
 create table if not exists public.super_admin_profiles (
   user_id uuid primary key references public.user_profiles(id) on delete cascade,
   notes text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.doctor_patient_relationships (
@@ -206,6 +209,18 @@ create trigger trg_dpr_updated_at before update on public.doctor_patient_relatio
 
 drop trigger if exists trg_user_profiles_updated_at on public.user_profiles;
 create trigger trg_user_profiles_updated_at before update on public.user_profiles
+  for each row execute function public.update_updated_at_column();
+
+drop trigger if exists trg_doctor_profiles_updated_at on public.doctor_profiles;
+create trigger trg_doctor_profiles_updated_at before update on public.doctor_profiles
+  for each row execute function public.update_updated_at_column();
+
+drop trigger if exists trg_hospital_admin_profiles_updated_at on public.hospital_admin_profiles;
+create trigger trg_hospital_admin_profiles_updated_at before update on public.hospital_admin_profiles
+  for each row execute function public.update_updated_at_column();
+
+drop trigger if exists trg_super_admin_profiles_updated_at on public.super_admin_profiles;
+create trigger trg_super_admin_profiles_updated_at before update on public.super_admin_profiles
   for each row execute function public.update_updated_at_column();
 
 -- Helper functions used by legacy dashboards (harmless to keep).
