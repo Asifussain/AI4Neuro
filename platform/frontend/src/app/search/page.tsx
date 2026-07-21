@@ -94,6 +94,7 @@ function SearchInner() {
             accent="indigo"
             patientNameById={patientNameById}
             showPatientColumn={role !== 'patient'}
+            showDeleteAction={role !== 'patient'}
             emptyLabel="No analyses match your search."
           />
         )}

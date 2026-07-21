@@ -299,6 +299,10 @@ class DatabaseService:
         res = self.client.table("hospitals").select("*").execute()
         return list(getattr(res, "data", None) or [])
 
+    def list_blood_groups(self) -> list[dict]:
+        res = self.client.table("blood_groups").select("*").order("id").execute()
+        return list(getattr(res, "data", None) or [])
+
     def update_hospital(self, hospital_id: str, patch: dict) -> dict | None:
         patch = {**patch, "updated_at": _now()}
         self.client.table("hospitals").update(patch).eq("id", hospital_id).execute()

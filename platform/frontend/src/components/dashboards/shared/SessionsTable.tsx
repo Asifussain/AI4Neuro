@@ -34,6 +34,7 @@ export function SessionsTable({
   showPatientColumn = true,
   emptyLabel = 'No sessions found.',
   onSessionDeleted,
+  showDeleteAction = true,
 }: {
   sessions: SessionStatusResponse[];
   accent: Accent;
@@ -42,6 +43,10 @@ export function SessionsTable({
   showPatientColumn?: boolean;
   emptyLabel?: string;
   onSessionDeleted?: (sessionId: string) => void;
+  /** Patients may never delete a scan session (backend rejects it anyway) —
+   * pass false to hide the column entirely rather than show a button that
+   * always 403s. */
+  showDeleteAction?: boolean;
 }) {
   const styles = ACCENT_STYLES[accent];
   const [loadingReportId, setLoadingReportId] = useState<string | null>(null);
@@ -117,7 +122,7 @@ export function SessionsTable({
             <th className="py-2.5 pr-4 font-medium">Class</th>
             <th className="py-2.5 pr-4 font-medium">Status</th>
             <th className="py-2.5 pr-4 font-medium text-right">Report</th>
-            <th className="py-2.5 pr-0 font-medium text-center w-12">Action</th>
+            {showDeleteAction && <th className="py-2.5 pr-0 font-medium text-center w-12">Action</th>}
           </tr>
         </thead>
         <tbody>
@@ -172,17 +177,19 @@ export function SessionsTable({
                     </span>
                   )}
                 </td>
-                <td className="py-3 pr-0 text-center">
-                  <button
-                    type="button"
-                    title="Delete scan session"
-                    onClick={() => handleDelete(s.id)}
-                    disabled={isDeleting}
-                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                  </button>
-                </td>
+                {showDeleteAction && (
+                  <td className="py-3 pr-0 text-center">
+                    <button
+                      type="button"
+                      title="Delete scan session"
+                      onClick={() => handleDelete(s.id)}
+                      disabled={isDeleting}
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    </button>
+                  </td>
+                )}
               </tr>
             );
           })}

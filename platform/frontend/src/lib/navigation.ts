@@ -86,6 +86,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
   ],
   patient: [
     { label: 'Dashboard', href: '/patient/dashboard', icon: LayoutGrid },
+    { label: 'My Reports', href: '/patient/sessions', icon: FileText },
     { label: 'Settings', href: '/profile', icon: Settings },
   ],
 };

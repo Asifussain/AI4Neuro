@@ -14,6 +14,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -24,6 +31,11 @@ import {
 import { adminApi, type Hospital } from '@/features/admin/api';
 import { apiClient } from '@/lib/api/client';
 import { createClient } from '@/lib/supabase/client';
+
+interface BloodGroup {
+  id: number;
+  blood_type: string;
+}
 
 // Cover-photo gradients per accent — lighter than ACCENT_STYLES.gradient (which
 // is tuned for opaque badges/buttons, too dark for a large background panel).
@@ -146,12 +158,18 @@ function ProfilePage() {
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  // Display-only label for a picked file — kept separate from editAvatarUrl
+  // (which holds the actual data: URI / URL value) so the raw base64 string
+  // never ends up rendered into a text input.
+  const [editAvatarFileName, setEditAvatarFileName] = useState('');
   const [editQualification, setEditQualification] = useState('');
   const [editLicense, setEditLicense] = useState('');
   const [editSpecialization, setEditSpecialization] = useState('');
   const [editExperience, setEditExperience] = useState('');
   const [editDob, setEditDob] = useState('');
   const [editEmergency, setEditEmergency] = useState('');
+  const [editBloodGroupId, setEditBloodGroupId] = useState('');
+  const [bloodGroups, setBloodGroups] = useState<BloodGroup[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [hospitalName, setHospitalName] = useState<string>('');
 
@@ -179,6 +197,8 @@ function ProfilePage() {
       setEditName(userProfile.full_name || '');
       setEditPhone(userProfile.phone || '');
       setEditAvatarUrl((userProfile as any)?.avatar_url || roleProfile?.avatar_url || (userProfile as any)?.profile?.avatar_url || '');
+      setEditAvatarFileName('');
+      setEditBloodGroupId(roleProfile?.blood_group_id ? String(roleProfile.blood_group_id) : '');
       setEditQualification(roleProfile?.qualification || (userProfile as any)?.qualification || '');
       setEditLicense(roleProfile?.license_number || roleProfile?.medical_license || '');
       setEditSpecialization(roleProfile?.specialization || '');
@@ -193,6 +213,18 @@ function ProfilePage() {
       setEditEmergency(roleProfile?.emergency_contact || '');
     }
   }, [userProfile]);
+
+  useEffect(() => {
+    if (role !== 'patient') return;
+    let cancelled = false;
+    apiClient
+      .get<BloodGroup[]>('/api/v1/users/blood-groups')
+      .then((rows) => !cancelled && setBloodGroups(rows))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
 
   useEffect(() => {
     let cancelled = false;
@@ -249,6 +281,7 @@ function ProfilePage() {
           years_of_experience: editExperience ? parseInt(editExperience, 10) : null,
           date_of_birth: editDob || null,
           emergency_contact: editEmergency || null,
+          blood_group_id: editBloodGroupId ? parseInt(editBloodGroupId, 10) : null,
         });
         backendSuccess = true;
       } catch (err) {
@@ -302,6 +335,7 @@ function ProfilePage() {
               user_id: userProfile.id,
               date_of_birth: editDob || null,
               emergency_contact: editEmergency || null,
+              blood_group_id: editBloodGroupId ? parseInt(editBloodGroupId, 10) : null,
             },
             { onConflict: 'user_id' }
           );
@@ -348,8 +382,31 @@ function ProfilePage() {
   // Role-specific info
   const getRoleSpecificInfo = () => {
     switch (role) {
-      case 'patient':
+      case 'patient': {
+        const assignedDoctorName = roleProfile?.assigned_doctor_name
+          ? (String(roleProfile.assigned_doctor_name).startsWith('Dr.')
+              ? roleProfile.assigned_doctor_name
+              : `Dr. ${roleProfile.assigned_doctor_name}`)
+          : '';
         return [
+          {
+            label: 'Assigned Doctor',
+            value: assignedDoctorName,
+            icon: (
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Associated Hospital',
+            value: roleProfile?.hospitals?.name || hospitalName || '',
+            icon: (
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            ),
+          },
           {
             label: 'Date of Birth',
             value: roleProfile?.date_of_birth ? new Date(roleProfile.date_of_birth).toLocaleDateString() : '',
@@ -361,7 +418,7 @@ function ProfilePage() {
           },
           {
             label: 'Blood Group',
-            value: roleProfile?.blood_groups?.blood_group || '',
+            value: roleProfile?.blood_type || roleProfile?.blood_groups?.blood_type || '',
             icon: (
               <svg viewBox="0 0 24 24" className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
@@ -378,6 +435,7 @@ function ProfilePage() {
             ),
           },
         ];
+      }
       case 'doctor':
       case 'radiologist':
         return [
@@ -513,7 +571,13 @@ function ProfilePage() {
                 {/* User Info */}
                 <div className="flex-1 text-center sm:text-left">
                   <h1 className="text-2xl font-bold text-slate-900 mb-1">{displayName}</h1>
-                  <p className="text-slate-500 mb-3">{email}</p>
+                  <p className="text-slate-500 mb-3">
+                    {role === 'patient'
+                      ? (roleProfile?.assigned_doctor_name
+                          ? `Assigned Doctor - ${String(roleProfile.assigned_doctor_name).startsWith('Dr.') ? roleProfile.assigned_doctor_name : `Dr. ${roleProfile.assigned_doctor_name}`}`
+                          : 'No assigned doctor yet')
+                      : email}
+                  </p>
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                     <span className={cn('inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border', styles.soft, styles.text, ACCENT_BORDER[accent])}>
                       <span className={cn('w-1.5 h-1.5 rounded-full', styles.solid)}></span>
@@ -693,6 +757,7 @@ function ProfilePage() {
                           reader.onload = (event) => {
                             if (event.target?.result) {
                               setEditAvatarUrl(event.target.result as string);
+                              setEditAvatarFileName(file.name);
                             }
                           };
                           reader.readAsDataURL(file);
@@ -706,13 +771,30 @@ function ProfilePage() {
                       Upload JPG/PNG Image
                     </label>
                   </div>
-                  <Input
-                    placeholder="Or paste image URL..."
-                    value={editAvatarUrl}
-                    onChange={(e) => setEditAvatarUrl(e.target.value)}
-                    disabled={isSaving}
-                    className="text-xs"
-                  />
+                  {editAvatarFileName ? (
+                    <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-600">
+                      <span className="truncate">Selected: {editAvatarFileName}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditAvatarFileName('');
+                          setEditAvatarUrl('');
+                        }}
+                        disabled={isSaving}
+                        className="shrink-0 text-slate-400 hover:text-red-600 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <Input
+                      placeholder="Or paste image URL..."
+                      value={editAvatarUrl}
+                      onChange={(e) => setEditAvatarUrl(e.target.value)}
+                      disabled={isSaving}
+                      className="text-xs"
+                    />
+                  )}
                 </div>
               </div>
               <p className="text-[11px] text-slate-500">Choose a preset avatar:</p>
@@ -721,7 +803,10 @@ function ProfilePage() {
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => setEditAvatarUrl(url)}
+                    onClick={() => {
+                      setEditAvatarUrl(url);
+                      setEditAvatarFileName('');
+                    }}
                     className={cn(
                       'w-10 h-10 rounded-lg overflow-hidden border-2 transition-all shrink-0',
                       editAvatarUrl === url ? 'border-indigo-600 scale-105' : 'border-transparent opacity-80 hover:opacity-100'
@@ -823,6 +908,21 @@ function ProfilePage() {
                     onChange={(e) => setEditEmergency(e.target.value)}
                     disabled={isSaving}
                   />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-blood-group">Blood Group</Label>
+                  <Select value={editBloodGroupId} onValueChange={setEditBloodGroupId} disabled={isSaving}>
+                    <SelectTrigger id="edit-blood-group">
+                      <SelectValue placeholder="Select blood group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bloodGroups.map((bg) => (
+                        <SelectItem key={bg.id} value={String(bg.id)}>
+                          {bg.blood_type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </>
             )}

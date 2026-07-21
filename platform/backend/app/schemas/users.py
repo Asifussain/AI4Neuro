@@ -137,6 +137,14 @@ class UserUpdate(BaseModel):
     experience_years: int | None = None
     date_of_birth: str | None = None
     emergency_contact: str | None = None
+    # Patient-only, editable (unlike assigned_doctor_id/hospital_id, which are
+    # care-team-managed and never patient-writable). FK -> blood_groups.id.
+    blood_group_id: int | None = None
+
+
+class BloodGroupResponse(BaseModel):
+    id: int
+    blood_type: str
 
 
 class AssignDoctorRequest(BaseModel):

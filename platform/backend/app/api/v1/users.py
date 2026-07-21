@@ -6,11 +6,43 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_user, get_database
 from app.core.security import Principal
-from app.schemas.users import UserResponse, UserUpdate
+from app.schemas.users import BloodGroupResponse, UserResponse, UserUpdate
 from app.services.database import DatabaseService
 from app.api.v1._common import ROLE_PROFILE_TABLE
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/blood-groups", response_model=list[BloodGroupResponse])
+def list_blood_groups(
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> list[BloodGroupResponse]:
+    """Lookup list for the patient profile's blood-group picker."""
+    return [BloodGroupResponse(**row) for row in db.list_blood_groups()]
+
+
+def _patient_care_team_detail(db: DatabaseService, patient_user_id: str, hospital_id: str | None) -> dict:
+    """Best-effort assigned-doctor name for a patient's own profile.
+
+    ``patient_profiles.assigned_doctor_id`` is never actually written by the
+    assignment flow (``POST /hospital/assignments`` only inserts into
+    ``doctor_patient_relationships``), so it can't be trusted — this reads
+    the real source of truth instead and resolves the doctor's display name.
+    """
+    relationships = db.list_doctor_patient_relationships(hospital_id=hospital_id)
+    mine = [
+        r
+        for r in relationships
+        if str(r.get("patient_id")) == str(patient_user_id) and r.get("relationship_status") == "active"
+    ]
+    if not mine:
+        return {}
+    mine.sort(key=lambda r: str(r.get("assigned_at") or ""), reverse=True)
+    doctor = db.get_user_profile(str(mine[0]["doctor_id"]))
+    if not doctor:
+        return {}
+    return {"assigned_doctor_id": doctor["id"], "assigned_doctor_name": doctor.get("full_name")}
 
 
 @router.get("/me", response_model=UserResponse)
@@ -25,6 +57,16 @@ def get_me(
     if role_table:
         res = db.client.table(role_table).select("*").eq("user_id", principal.user_id).maybe_single().execute()
         role_detail = getattr(res, "data", None) or {}
+
+    if principal.role == "patient":
+        role_detail = {**role_detail, **_patient_care_team_detail(db, principal.user_id, principal.hospital_id)}
+        blood_group_id = role_detail.get("blood_group_id")
+        if blood_group_id is not None:
+            blood_group = next(
+                (g for g in db.list_blood_groups() if g["id"] == blood_group_id), None
+            )
+            if blood_group:
+                role_detail["blood_type"] = blood_group["blood_type"]
 
     merged_profile = {**profile, "roleProfile": role_detail}
     return UserResponse(
