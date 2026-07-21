@@ -116,6 +116,8 @@ class DatabaseService:
         modality: str | None = None,
         status: str | None = None,
         patient_id: str | None = None,
+        doctor_id: str | None = None,
+        radiologist_id: str | None = None,
         hospital_id: str | None = None,
     ) -> list[dict]:
         """Fetch sessions matching the provided equality filters.
@@ -130,6 +132,10 @@ class DatabaseService:
             query = query.eq("status", status)
         if patient_id:
             query = query.eq("patient_id", patient_id)
+        if doctor_id:
+            query = query.eq("doctor_id", doctor_id)
+        if radiologist_id:
+            query = query.eq("radiologist_id", radiologist_id)
         if hospital_id:
             query = query.eq("hospital_id", hospital_id)
         res = query.execute()
@@ -389,10 +395,20 @@ class DatabaseService:
         res = self.client.table("doctor_patient_relationships").insert(row).execute()
         return _one(res) or {}
 
-    def list_doctor_patient_relationships(self, *, hospital_id: str | None = None) -> list[dict]:
+    def list_doctor_patient_relationships(
+        self,
+        *,
+        hospital_id: str | None = None,
+        doctor_id: str | None = None,
+        patient_id: str | None = None,
+    ) -> list[dict]:
         query = self.client.table("doctor_patient_relationships").select("*")
         if hospital_id:
             query = query.eq("hospital_id", hospital_id)
+        if doctor_id:
+            query = query.eq("doctor_id", doctor_id)
+        if patient_id:
+            query = query.eq("patient_id", patient_id)
         res = query.execute()
         return list(getattr(res, "data", None) or [])
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import Swal from 'sweetalert2';
@@ -46,6 +47,15 @@ function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString();
 }
+
+// Super Admin drill-down profile pages — one per role that has a detail
+// endpoint. super_admin accounts have no such page (nothing to drill into).
+const PROFILE_ROUTE: Record<string, string> = {
+  doctor: '/super-admin/doctors',
+  radiologist: '/super-admin/radiologists',
+  patient: '/super-admin/patients',
+  admin: '/super-admin/hospital-admins',
+};
 
 function initials(name: string) {
   return name
@@ -429,23 +439,41 @@ function UserDirectoryInner({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((u, idx) => (
+                {filtered.map((u, idx) => {
+                  const profileBase = showHospitalColumn ? PROFILE_ROUTE[u.role] : undefined;
+                  const profileHref = profileBase ? `${profileBase}/${u.id}` : null;
+                  const avatar = (
+                    <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-semibold flex items-center justify-center shrink-0 overflow-hidden border border-slate-200">
+                      {(u as any).avatar_url ? (
+                        <img src={(u as any).avatar_url} alt={u.full_name} className="w-full h-full object-cover" />
+                      ) : (
+                        initials(u.full_name)
+                      )}
+                    </div>
+                  );
+                  const nameBlock = (
+                    <div className="min-w-0">
+                      <p className={cn('font-medium truncate', profileHref ? 'text-indigo-700 hover:underline' : 'text-slate-900')}>
+                        {u.full_name}
+                      </p>
+                      <p className="text-xs text-slate-400 font-mono truncate md:hidden">{u.email}</p>
+                    </div>
+                  );
+                  return (
                   <tr key={u.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
                     <td className="py-3 pr-4 text-slate-500">{idx + 1}</td>
                     <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-semibold flex items-center justify-center shrink-0 overflow-hidden border border-slate-200">
-                          {(u as any).avatar_url ? (
-                            <img src={(u as any).avatar_url} alt={u.full_name} className="w-full h-full object-cover" />
-                          ) : (
-                            initials(u.full_name)
-                          )}
+                      {profileHref ? (
+                        <Link href={profileHref} className="flex items-center gap-2.5" title={`View ${u.full_name}'s full profile`}>
+                          {avatar}
+                          {nameBlock}
+                        </Link>
+                      ) : (
+                        <div className="flex items-center gap-2.5">
+                          {avatar}
+                          {nameBlock}
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-slate-900 truncate">{u.full_name}</p>
-                          <p className="text-xs text-slate-400 font-mono truncate md:hidden">{u.email}</p>
-                        </div>
-                      </div>
+                      )}
                     </td>
                     <td className="py-3 pr-4 hidden md:table-cell text-slate-600 truncate">{u.email}</td>
                     {!role && (
@@ -473,7 +501,8 @@ function UserDirectoryInner({
                       />
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

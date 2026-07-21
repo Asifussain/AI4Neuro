@@ -8,6 +8,7 @@
 
 import { apiClient } from '@/lib/api/client';
 import type { Role } from '@/lib/roles';
+import type { SessionStatusResponse } from '@/features/analysis/types';
 
 /** Uniform pagination envelope returned by every list endpoint. */
 export interface Paginated<T> {
@@ -173,6 +174,114 @@ function isPlatformRole(role: Role): boolean {
   return role === 'admin' || role === 'super_admin';
 }
 
+// -- Super Admin drill-down profile detail (GET /platform/{role}/{id}) ----- //
+// Each of these is a single "everything about this one person" read model —
+// see app/schemas/admin_detail.py on the backend for the source of truth.
+
+export interface PatientBrief {
+  id: string;
+  full_name: string;
+  email: string;
+  patient_code?: string | null;
+  account_status: string;
+}
+
+export interface DoctorProfileDetail {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  avatar_url?: string | null;
+  account_status: string;
+  created_at?: string | null;
+  hospital_id?: string | null;
+  hospital_name?: string | null;
+  hospital_admin_name?: string | null;
+  medical_license?: string | null;
+  specialization?: string | null;
+  qualification_name?: string | null;
+  experience_years?: number | null;
+  verification_status?: string | null;
+  patient_count: number;
+  patients: PatientBrief[];
+  mri_count: number;
+  eeg_count: number;
+  pending_reports: number;
+  completed_reports: number;
+  recent_sessions: SessionStatusResponse[];
+}
+
+export interface RadiologistProfileDetail {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  avatar_url?: string | null;
+  account_status: string;
+  created_at?: string | null;
+  hospital_id?: string | null;
+  hospital_name?: string | null;
+  radiologist_license?: string | null;
+  imaging_expertise?: string | null;
+  certifications?: string | null;
+  qualification_name?: string | null;
+  experience_years?: number | null;
+  verification_status?: string | null;
+  mri_count: number;
+  eeg_count: number;
+  pending_reports: number;
+  completed_reports: number;
+  recent_sessions: SessionStatusResponse[];
+}
+
+export interface PatientProfileDetail {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  avatar_url?: string | null;
+  account_status: string;
+  created_at?: string | null;
+  hospital_id?: string | null;
+  hospital_name?: string | null;
+  patient_code?: string | null;
+  date_of_birth?: string | null;
+  blood_type?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  verification_status?: string | null;
+  assigned_doctor_id?: string | null;
+  assigned_doctor_name?: string | null;
+  assigned_radiologist_id?: string | null;
+  assigned_radiologist_name?: string | null;
+  mri_sessions: SessionStatusResponse[];
+  eeg_sessions: SessionStatusResponse[];
+  reports_count: number;
+}
+
+export interface HospitalAdminProfileDetail {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  avatar_url?: string | null;
+  account_status: string;
+  created_at?: string | null;
+  hospital_id?: string | null;
+  hospital_name?: string | null;
+  hospital_code?: string | null;
+  hospital_address?: string | null;
+  hospital_status?: string | null;
+  doctor_count: number;
+  radiologist_count: number;
+  patient_count: number;
+  mri_count: number;
+  eeg_count: number;
+  reports_generated: number;
+  pending_reports: number;
+  recent_sessions: SessionStatusResponse[];
+}
+
 export const adminApi = {
   // -- Analytics ---------------------------------------------------------- //
   platformAnalytics(): Promise<PlatformAnalytics> {
@@ -319,5 +428,19 @@ export const adminApi = {
   },
   healthStorage(): Promise<HealthStatus> {
     return apiClient.get<HealthStatus>('/api/v1/health/storage');
+  },
+
+  // -- Super Admin drill-down profiles (super_admin only) --------------------- //
+  doctorProfile(id: string): Promise<DoctorProfileDetail> {
+    return apiClient.get<DoctorProfileDetail>(`/api/v1/platform/doctors/${id}`);
+  },
+  radiologistProfile(id: string): Promise<RadiologistProfileDetail> {
+    return apiClient.get<RadiologistProfileDetail>(`/api/v1/platform/radiologists/${id}`);
+  },
+  patientProfile(id: string): Promise<PatientProfileDetail> {
+    return apiClient.get<PatientProfileDetail>(`/api/v1/platform/patients/${id}`);
+  },
+  hospitalAdminProfile(id: string): Promise<HospitalAdminProfileDetail> {
+    return apiClient.get<HospitalAdminProfileDetail>(`/api/v1/platform/hospital-admins/${id}`);
   },
 };
