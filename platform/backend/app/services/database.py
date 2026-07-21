@@ -464,6 +464,9 @@ class DatabaseService:
         row = {"user_id": user_id, **patch, "updated_at": _now()}
         res = self.client.table(table).upsert(row, on_conflict="user_id").execute()
         return _one(res) or {}
+
+    def get_role_profile(self, table: str, user_id: str) -> dict | None:
+        """Single-row role-detail lookup (doctor_profiles/radiologist_profiles/…)."""
         res = (
             self.client.table(table)
             .select("*")

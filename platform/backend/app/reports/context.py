@@ -4,10 +4,14 @@ The ported EEG and MRI PDF builders consume a nested ``comprehensive_data`` dict
 (hospital / patient / doctor / session / …). The two legacy backends fetched this
 from Supabase (``get_comprehensive_report_data``) with a mock fallback.
 
-For now this builds a mock context from the session row so reports render without
-patient PII wired up. Real DB-backed patient/hospital lookups slot in behind
-``build_report_context`` in Phase 5 (auth/permissions + real data), without
-touching the builders.
+``build_report_context`` stays a pure function — no DB import here, so it's
+trivially testable — and accepts optional pre-fetched rows. The caller
+(``PdfReportService.generate_reports``) does the actual lookups and passes
+whatever it managed to fetch; anything missing falls back to today's mock
+block, as a *whole* block rather than mixing real and mock fields within one
+person/hospital — a real patient name next to a mock date of birth on a
+document that otherwise looks authoritative would be more misleading than an
+obviously-placeholder block.
 """
 
 from __future__ import annotations
@@ -16,7 +20,18 @@ import datetime
 from typing import Any
 
 
-def build_report_context(session: dict, modality: str) -> dict[str, Any]:
+def build_report_context(
+    session: dict,
+    modality: str,
+    *,
+    hospital: dict | None = None,
+    patient: dict | None = None,
+    patient_profile: dict | None = None,
+    doctor: dict | None = None,
+    doctor_profile: dict | None = None,
+    radiologist: dict | None = None,
+    radiologist_profile: dict | None = None,
+) -> dict[str, Any]:
     """Assemble the comprehensive_data dict the PDF builders expect."""
     now = datetime.datetime.now(datetime.timezone.utc)
     analysis_type = session.get("analysis_type", "")
@@ -28,7 +43,7 @@ def build_report_context(session: dict, modality: str) -> dict[str, Any]:
     )
 
     return {
-        "hospital": {
+        "hospital": hospital or {
             "name": "General Neural Hospital",
             "address": "123 Medical Center Dr",
             "city": "Neuropolis",
@@ -39,7 +54,7 @@ def build_report_context(session: dict, modality: str) -> dict[str, Any]:
             "license_number": "HOSP-000000",
             "hospital_code": "GNH",
         },
-        "patient": {
+        "patient": patient or {
             "full_name": "Patient (Pending Identification)",
             "phone": "N/A",
             "email": "N/A",
@@ -47,19 +62,19 @@ def build_report_context(session: dict, modality: str) -> dict[str, Any]:
             "address": "N/A",
             "unique_identifier": str(session.get("patient_id", "N/A")),
         },
-        "patient_profile": {
+        "patient_profile": patient_profile or {
             "patient_code": session_code.replace(modality.upper(), "PAT"),
             "date_of_birth": None,
             "gender": "N/A",
             "medical_history": "Not available in this report context.",
         },
-        "doctor": {"full_name": "Assigned Clinician", "phone": "N/A", "email": "N/A"},
-        "doctor_profile": {
+        "doctor": doctor or {"full_name": "Assigned Clinician", "phone": "N/A", "email": "N/A"},
+        "doctor_profile": doctor_profile or {
             "specialization": "Neurology",
             "license_number": "MED-000000",
         },
-        "radiologist": {"full_name": "Assigned Radiologist", "phone": "N/A"},
-        "radiologist_profile": {"imaging_expertise": "Neuroimaging"},
+        "radiologist": radiologist or {"full_name": "Assigned Radiologist", "phone": "N/A"},
+        "radiologist_profile": radiologist_profile or {"imaging_expertise": "Neuroimaging"},
         "blood_group": None,
         "doctor_qualification": None,
         "radiologist_qualification": None,

@@ -67,23 +67,120 @@ def _artifact_data_uri(result: PipelineResult, key: str) -> str | None:
         return None
 
 
+def _hospital_context(hospital: dict) -> dict:
+    return {
+        "name": hospital.get("name") or "N/A",
+        "address": hospital.get("address") or "N/A",
+        # Not columns on the real hospitals table (only in the old mock
+        # block, as placeholder city/state/zip) — no data source for these.
+        "city": "N/A",
+        "state": "N/A",
+        "pincode": "N/A",
+        "phone": hospital.get("phone") or "N/A",
+        "email": hospital.get("email") or "N/A",
+        "license_number": hospital.get("license_number") or "N/A",
+        "hospital_code": hospital.get("hospital_code") or "N/A",
+    }
+
+
+def _person_context(user: dict) -> dict:
+    return {
+        "full_name": user.get("full_name") or "N/A",
+        "phone": user.get("phone") or "N/A",
+        "email": user.get("email") or "N/A",
+        "date_of_birth": user.get("date_of_birth"),
+        "address": user.get("address") or "N/A",
+        "unique_identifier": user.get("unique_identifier") or "N/A",
+    }
+
+
 class PdfReportService:
     """Generates patient/clinician/technical PDFs and uploads them to storage.
 
     ``storage`` is any object exposing ``upload_bytes(bucket, path, data,
-    content_type) -> url`` (the StorageService).
+    content_type) -> url`` (the StorageService). ``db`` is optional: when
+    given, real patient/hospital/doctor/radiologist data is fetched for the
+    report context; when omitted (as every existing test does), behavior is
+    unchanged from before — an all-mock context.
     """
 
-    def __init__(self, storage) -> None:
+    def __init__(self, storage, db=None) -> None:
         self._storage = storage
+        self._db = db
         self._settings = get_settings()
+
+    def _fetch_context_kwargs(self, session: dict) -> dict:
+        """Best-effort real-data lookups, each independently safe: a failed
+        or missing lookup for one person/hospital leaves that block on the
+        mock fallback in build_report_context, it never blanks out the
+        others or fails report generation."""
+        if self._db is None:
+            return {}
+        kwargs: dict = {}
+
+        hospital_id = session.get("hospital_id")
+        if hospital_id:
+            try:
+                hospital = self._db.get_hospital(hospital_id)
+                if hospital:
+                    kwargs["hospital"] = _hospital_context(hospital)
+            except Exception:  # noqa: BLE001 - report context must never fail the job
+                logger.warning("Report context: hospital lookup failed for %s", hospital_id)
+
+        patient_id = session.get("patient_id")
+        if patient_id:
+            try:
+                patient = self._db.get_user_profile(patient_id)
+                if patient:
+                    kwargs["patient"] = _person_context(patient)
+                patient_profile = self._db.get_role_profile("patient_profiles", patient_id)
+                if patient_profile:
+                    kwargs["patient_profile"] = {
+                        "patient_code": patient_profile.get("patient_id") or "N/A",
+                        "date_of_birth": patient.get("date_of_birth") if patient else None,
+                        "gender": "N/A",  # not a column on patient_profiles/user_profiles
+                        "medical_history": patient_profile.get("medical_history") or "Not on file.",
+                    }
+            except Exception:  # noqa: BLE001
+                logger.warning("Report context: patient lookup failed for %s", patient_id)
+
+        doctor_id = session.get("doctor_id")
+        if doctor_id:
+            try:
+                doctor = self._db.get_user_profile(doctor_id)
+                if doctor:
+                    kwargs["doctor"] = _person_context(doctor)
+                doctor_profile = self._db.get_role_profile("doctor_profiles", doctor_id)
+                if doctor_profile:
+                    kwargs["doctor_profile"] = {
+                        "specialization": doctor_profile.get("specialization") or "N/A",
+                        "license_number": doctor_profile.get("medical_license") or "N/A",
+                    }
+            except Exception:  # noqa: BLE001
+                logger.warning("Report context: doctor lookup failed for %s", doctor_id)
+
+        radiologist_id = session.get("radiologist_id")
+        if radiologist_id:
+            try:
+                radiologist = self._db.get_user_profile(radiologist_id)
+                if radiologist:
+                    kwargs["radiologist"] = _person_context(radiologist)
+                radiologist_profile = self._db.get_role_profile("radiologist_profiles", radiologist_id)
+                if radiologist_profile:
+                    kwargs["radiologist_profile"] = {
+                        "imaging_expertise": radiologist_profile.get("imaging_expertise") or "N/A",
+                    }
+            except Exception:  # noqa: BLE001
+                logger.warning("Report context: radiologist lookup failed for %s", radiologist_id)
+
+        return kwargs
 
     def generate_reports(
         self, session: dict, result: PipelineResult, uploaded_assets: dict
     ) -> GeneratedReports:
         modality = session.get("modality")
         session_id = str(session.get("id"))
-        context = build_report_context(session, modality or "")
+        context = build_report_context(session, modality or "", **self._fetch_context_kwargs(session))
 
         try:
             if modality == "eeg":
