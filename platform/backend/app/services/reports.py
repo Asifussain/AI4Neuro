@@ -72,10 +72,15 @@ class PdfReportService:
 
     ``storage`` is any object exposing ``upload_bytes(bucket, path, data,
     content_type) -> url`` (the StorageService).
+
+    ``db`` is an optional ``DatabaseService`` used to hydrate the report with
+    the real patient / hospital / doctor / radiologist records tied to the
+    session. When omitted, reports fall back to placeholder demographics.
     """
 
-    def __init__(self, storage) -> None:
+    def __init__(self, storage, db=None) -> None:
         self._storage = storage
+        self._db = db
         self._settings = get_settings()
 
     def generate_reports(
@@ -83,7 +88,7 @@ class PdfReportService:
     ) -> GeneratedReports:
         modality = session.get("modality")
         session_id = str(session.get("id"))
-        context = build_report_context(session, modality or "")
+        context = build_report_context(session, modality or "", db=self._db)
 
         try:
             if modality == "eeg":

@@ -77,6 +77,9 @@ class RadiologistProfileDetail(BaseModel):
     pending_reports: int
     completed_reports: int
     recent_sessions: list[SessionStatusResponse]
+    # patient_id -> full_name for the patients appearing in recent_sessions,
+    # so the UI can show real patient names in the reports table.
+    patient_names: dict[str, str] = {}
 
 
 class PatientProfileDetail(BaseModel):

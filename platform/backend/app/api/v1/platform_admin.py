@@ -68,6 +68,20 @@ def _to_session_status(session: dict) -> SessionStatusResponse:
         updated_at=session.get("updated_at"),
     )
 
+
+def _patient_name_map(db: DatabaseService, sessions: list[dict]) -> dict[str, str]:
+    """patient_id -> full_name for the patients in the given sessions, so the
+    drill-down UIs can render real patient names next to each session instead
+    of a placeholder."""
+    ids = {str(s["patient_id"]) for s in sessions if s.get("patient_id")}
+    names: dict[str, str] = {}
+    for pid in ids:
+        user = db.get_user_profile(pid)
+        if user and user.get("full_name"):
+            names[pid] = user["full_name"]
+    return names
+
+
 router = APIRouter(
     prefix="/platform",
     tags=["platform-admin"],
@@ -489,6 +503,7 @@ def get_radiologist_detail(
         pending_reports=sum(1 for s in sessions if s.get("status") in ("queued", "processing")),
         completed_reports=sum(1 for s in sessions if s.get("status") == "completed"),
         recent_sessions=[_to_session_status(s) for s in sessions[:10]],
+        patient_names=_patient_name_map(db, sessions[:10]),
     )
 
 

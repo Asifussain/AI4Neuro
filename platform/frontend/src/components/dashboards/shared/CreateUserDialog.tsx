@@ -143,8 +143,8 @@ export function CreateUserDialog({
     !!form.email &&
     !!form.role &&
     (hospitalId || hideHospitalPicker || form.role === 'super_admin' || !!form.hospital_id) &&
-    (!isDoctorOrRadiologist || !!form.license_number) &&
-    (form.role !== 'radiologist' || !!form.imaging_expertise);
+    // License number is mandatory for doctors only; optional for radiologists.
+    (form.role !== 'doctor' || !!form.license_number);
 
   const reset = () => setForm(EMPTY_FORM);
 
@@ -295,7 +295,12 @@ export function CreateUserDialog({
               <>
                 <div className="grid gap-2">
                   <Label htmlFor="license_number">
-                    License Number <span className="text-red-600">*</span>
+                    License Number{' '}
+                    {form.role === 'doctor' ? (
+                      <span className="text-red-600">*</span>
+                    ) : (
+                      <span className="text-muted-foreground">(Optional)</span>
+                    )}
                   </Label>
                   <Input
                     id="license_number"
@@ -353,7 +358,8 @@ export function CreateUserDialog({
               <>
                 <div className="grid gap-2">
                   <Label htmlFor="imaging_expertise">
-                    Imaging Expertise <span className="text-red-600">*</span>
+                    Imaging Expertise{' '}
+                    <span className="text-muted-foreground">(Optional)</span>
                   </Label>
                   <Input
                     id="imaging_expertise"

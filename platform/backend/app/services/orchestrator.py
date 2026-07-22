@@ -35,7 +35,7 @@ def run_analysis_job(
     """Process one analysis session to completion (or failure)."""
     db = db or DatabaseService()
     storage = storage or StorageService()
-    reports = reports or PdfReportService(storage)
+    reports = reports or PdfReportService(storage, db=db)
 
     work_dir: str | None = None
     try:
