@@ -71,7 +71,21 @@ Supabase is an **external managed service** — it is not a container in
 |---|---|---|
 | `backend/Dockerfile` | **All-in-one MVP** — API + both pipelines, jobs in-process | Large (PyTorch). CPU torch via `TORCH_INDEX_URL` build arg. Used by compose. |
 | `backend/Dockerfile.api` | **Slim API** — FastAPI only, no ML | Small, fast. The production API image when split from workers. |
+| `backend/Dockerfile.worker-eeg` | **Single-modality (EEG-only) deployment image** — API + EEG deps only | For a deployment that only ever needs EEG. Not a queue-routed worker — see caveat below. |
+| `backend/Dockerfile.worker-mri` | **Single-modality (MRI-only) deployment image** — API + MRI deps only | Symmetric to the EEG one. |
 | `frontend/Dockerfile` | Next.js **standalone** | Multi-stage; `NEXT_PUBLIC_*` passed as build args. |
+
+**Important caveat on the two single-modality images:** job dispatch today is
+still `LocalJobService` (in-process `ThreadPoolExecutor`, no queue, no
+modality-aware routing — see §4 below). These two images are real and
+functional smaller alternatives to the all-in-one image *for a deployment
+where every upload really is one modality* (smaller image, faster cold
+start, no unused attack surface). They are **not** the EEG/MRI "worker"
+split described in §4 — that split additionally requires the queue
+migration so jobs actually get routed to the correct modality's process.
+Submitting the wrong modality against one of these images fails at
+pipeline-import time (the other modality's ML deps aren't installed) rather
+than being routed anywhere.
 
 **Model weights are not baked in.** Mount them at `/models` (compose maps `./models`):
 

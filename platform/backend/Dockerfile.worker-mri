@@ -1,0 +1,49 @@
+# Single-modality (MRI-only) deployment image.
+#
+# What this is: the same API + ThreadPoolExecutor JobService as the
+# all-in-one Dockerfile, but installing only requirements/mri.txt — smaller
+# image, faster cold start, no unused EEG attack surface (no SIDDHI/ADformer
+# vendored code), for a deployment that only ever needs MRI analysis.
+#
+# What this is NOT: a real queue-routed MRI worker. See Dockerfile.worker-eeg
+# for the full explanation — the same caveat applies symmetrically here.
+# Submitting an EEG analysis against this image will fail at pipeline-import
+# time (the SIDDHI/ADformer dependencies are not installed).
+FROM python:3.11-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+
+COPY requirements ./requirements
+RUN pip install --no-cache-dir --index-url "${TORCH_INDEX_URL}" torch torchvision \
+    && pip install --no-cache-dir -r requirements/mri.txt
+
+COPY app ./app
+
+# CAT12/MATLAB Runtime are host-tooling dependencies, not pip-installable —
+# this image runs MRI analysis in mock-prediction mode unless CAT12_ROOT/
+# MCR_ROOT are provided via a mounted volume and USE_CAT12_PREPROCESSING is
+# enabled at runtime (see docs/CAT12_SETUP.md).
+ENV CONVIT_CHECKPOINT_PATH=/models/mri/ConViT_model.pth \
+    LOCAL_TMP_DIR=/tmp/neuro-platform \
+    USE_MOCK_MODEL=true \
+    USE_CAT12_PREPROCESSING=false
+
+RUN useradd --create-home --uid 10001 appuser && chown -R appuser /app
+USER appuser
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health').status==200 else 1)"
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

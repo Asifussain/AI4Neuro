@@ -1,0 +1,49 @@
+# Single-modality (EEG-only) deployment image.
+#
+# What this is: the same API + ThreadPoolExecutor JobService as the
+# all-in-one Dockerfile, but installing only requirements/eeg.txt — smaller
+# image, faster cold start, no unused MRI attack surface (no nibabel/timm/
+# CAT12 tooling), for a deployment that only ever needs EEG analysis.
+#
+# What this is NOT: a real queue-routed EEG worker. Job dispatch today still
+# runs in-process via LocalJobService with no modality-aware routing — that
+# requires the Celery/Redis migration this repo's docs already anticipate
+# (see docs/deployment.md §11.2, "Production Deployment With Separate
+# Workers"). Until that queue exists, this image is only safe to run for a
+# deployment where every uploaded file really is EEG; there is no mechanism
+# here to ensure an MRI job doesn't get routed to this image, because there
+# is no routing at all yet. Submitting an MRI analysis against this image
+# will fail at pipeline-import time (nibabel/timm are not installed).
+FROM python:3.11-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+
+COPY requirements ./requirements
+RUN pip install --no-cache-dir --index-url "${TORCH_INDEX_URL}" torch torchvision \
+    && pip install --no-cache-dir -r requirements/eeg.txt
+
+COPY app ./app
+
+ENV EEG_CHECKPOINT_ROOT=/models/eeg/checkpoints \
+    EEG_REFERENCE_DIR=/models/eeg/reference \
+    LOCAL_TMP_DIR=/tmp/neuro-platform
+
+RUN useradd --create-home --uid 10001 appuser && chown -R appuser /app
+USER appuser
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health').status==200 else 1)"
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
