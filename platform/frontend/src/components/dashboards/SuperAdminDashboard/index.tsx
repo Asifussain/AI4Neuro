@@ -116,14 +116,12 @@ export const SuperAdminDashboard: React.FC = () => {
   return (
     <DashboardShell roleLabel="Super Admin" accent="indigo" navItems={NAV_ITEMS}>
       <div className="space-y-8">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <DashboardPageHeader
-            eyebrow="Super Admin"
-            title="Super Admin Dashboard"
-            description="Platform-wide control for hospitals, hospital admins, and user directories across every tenant."
-            accent="indigo"
-          />
-        </div>
+        <DashboardPageHeader
+          eyebrow="Super Admin"
+          title="Super Admin Dashboard"
+          description="Platform-wide control for hospitals, hospital admins, and user directories across every tenant."
+          accent="indigo"
+        />
 
         <div className="flex justify-end">
           <Button asChild className="gap-2 bg-indigo-600 hover:bg-indigo-700">
