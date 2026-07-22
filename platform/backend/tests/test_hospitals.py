@@ -98,22 +98,36 @@ def test_suspend_hospital_cascades_to_users(client, db_service):
     assert db_service.get_user_profile(pat["id"])["account_status"] == "active"
 
 
-def test_delete_hospital_terminally_deletes_users(client, db_service):
+def test_delete_hospital_hard_removes_hospital_and_users(client, db_service, fake_auth_admin):
     h1 = db_service.create_hospital(_hospital_payload("H1"))
     admin = _seed_hospital_user(db_service, h1["id"], "admin")
     doc = _seed_hospital_user(db_service, h1["id"], "doctor")
 
     res = client.request("DELETE", f"/api/v1/platform/hospitals/{h1['id']}")
-    assert res.status_code == 200
-    assert res.json()["status"] == "suspended"
-    assert db_service.get_user_profile(admin["id"])["account_status"] == "deleted"
-    assert db_service.get_user_profile(doc["id"])["account_status"] == "deleted"
+    assert res.status_code == 204
 
-    # A terminally deleted account is NOT resurrected by reactivating the hospital.
-    res = client.post(f"/api/v1/platform/hospitals/{h1['id']}/activate")
-    assert res.status_code == 200
-    assert db_service.get_user_profile(admin["id"])["account_status"] == "deleted"
-    assert db_service.get_user_profile(doc["id"])["account_status"] == "deleted"
+    # Hospital is gone from the platform entirely.
+    assert db_service.get_hospital(h1["id"]) is None
+    assert all(h["id"] != h1["id"] for h in db_service.list_hospitals())
+
+    # Every user under it is hard-deleted (row removed, not just flagged) and
+    # their Auth login accounts are removed too.
+    assert db_service.get_user_profile(admin["id"]) is None
+    assert db_service.get_user_profile(doc["id"]) is None
+    assert admin["id"] in fake_auth_admin.deleted
+    assert doc["id"] in fake_auth_admin.deleted
+
+
+def test_delete_hospital_leaves_other_hospitals_untouched(client, db_service):
+    h1 = db_service.create_hospital(_hospital_payload("H1"))
+    h2 = db_service.create_hospital(_hospital_payload("H2"))
+    keep = _seed_hospital_user(db_service, h2["id"], "doctor")
+
+    res = client.request("DELETE", f"/api/v1/platform/hospitals/{h1['id']}")
+    assert res.status_code == 204
+
+    assert db_service.get_hospital(h2["id"]) is not None
+    assert db_service.get_user_profile(keep["id"]) is not None
 
 
 def test_delete_hospital_forbidden_for_hospital_admin(client, db_service):

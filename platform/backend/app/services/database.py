@@ -321,6 +321,45 @@ class DatabaseService:
     def set_hospital_status(self, hospital_id: str, status_value: str) -> dict | None:
         return self.update_hospital(hospital_id, {"status": status_value})
 
+    def hard_delete_hospital(self, hospital_id: str) -> list[str]:
+        """Permanently delete a hospital and EVERYTHING scoped to it, and return
+        the ids of the users that were removed (so the caller can also delete
+        their Supabase Auth accounts).
+
+        Deletes, in FK-safe order: analysis sessions (results/reports/job_events
+        cascade off them), doctor-patient relationships, the hospital's audit
+        trail, every user_profiles row (role-detail rows cascade via ON DELETE
+        CASCADE), and finally the hospital row itself. RESTRICT self-references
+        (hospitals.created_by, user_profiles.created_by_admin, audit_log.actor_id)
+        are cleared first so no delete is blocked.
+
+        Unlike suspend/soft-delete this is irreversible — the rows are gone.
+        """
+        users = self.list_user_profiles(hospital_id=hospital_id)
+        user_ids = [u["id"] for u in users]
+
+        # 1. Break RESTRICT references that would otherwise block the deletes.
+        self.client.table("hospitals").update({"created_by": None}).eq("id", hospital_id).execute()
+        for uid in user_ids:
+            self.client.table("user_profiles").update({"created_by_admin": None}).eq("id", uid).execute()
+
+        # 2. Analysis data — results/reports/job_events cascade off sessions.
+        self.client.table("analysis_sessions").delete().eq("hospital_id", hospital_id).execute()
+
+        # 3. Relationships + audit trail scoped to the hospital / its users.
+        self.client.table("doctor_patient_relationships").delete().eq("hospital_id", hospital_id).execute()
+        self.client.table("audit_log").delete().eq("hospital_id", hospital_id).execute()
+        for uid in user_ids:
+            self.client.table("audit_log").delete().eq("actor_id", uid).execute()
+
+        # 4. Users — patient/doctor/radiologist/hospital_admin profile rows
+        #    cascade via ON DELETE CASCADE on their user_id FK.
+        self.client.table("user_profiles").delete().eq("hospital_id", hospital_id).execute()
+
+        # 5. The hospital row itself.
+        self.client.table("hospitals").delete().eq("id", hospital_id).execute()
+        return user_ids
+
     # ------------------------------ users --------------------------------- #
 
     def create_user_profile(self, row: dict) -> dict:

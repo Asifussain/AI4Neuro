@@ -186,36 +186,45 @@ def suspend_hospital(
     return _set_hospital_status(hospital_id, HospitalStatus.suspended.value, principal, db)
 
 
-@router.delete("/hospitals/{hospital_id}", response_model=HospitalResponse)
+@router.delete("/hospitals/{hospital_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 def delete_hospital(
     hospital_id: str,
     principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
-) -> HospitalResponse:
-    """Terminal hospital delete. Hospitals are never hard-deleted (that would
-    break referential integrity with existing analysis sessions/reports/audit
-    history); instead the hospital is archived (status="suspended") and every
-    account under it — hospital admins, doctors, radiologists, patients — is
-    terminally soft-deleted (account_status="deleted"). Deleted accounts are
-    hidden from every directory and can never log in again (login shows the
-    account-suspended screen), which is the "their account no longer exists"
-    behaviour requested. Unlike suspend, this is NOT lifted by reactivating the
-    hospital."""
+    auth_admin: AuthAdminService = Depends(get_auth_admin),
+) -> None:
+    """Permanently delete a hospital and EVERYTHING scoped to it.
+
+    This is a true hard delete, distinct from ``/suspend`` (which is a
+    reversible login block): the hospital row is removed from the platform
+    entirely, along with every account under it (hospital admins, doctors,
+    radiologists, patients) — their user_profiles + role-detail rows, their
+    Supabase Auth login accounts, their analysis sessions/results/reports, and
+    the hospital's doctor-patient relationships and audit trail. Nothing
+    remains and it cannot be undone."""
     require_hospital(db, hospital_id)
     if not permissions.can_manage_hospitals(principal.role):
         raise forbid("Only Super Admins may delete hospitals.")
-    affected = db.set_hospital_users_status(hospital_id, "deleted")
-    hospital = db.set_hospital_status(hospital_id, HospitalStatus.suspended.value)
+
+    deleted_user_ids = db.hard_delete_hospital(hospital_id)
+
+    # Remove the Supabase Auth login accounts too (best-effort per user — a
+    # missing/already-gone account must not fail the overall delete).
+    for uid in deleted_user_ids:
+        auth_admin.delete_auth_user(uid)
+
+    # Audit the deletion with hospital_id=None (the hospital row no longer
+    # exists, so a hospital-scoped FK would dangle); actor is the super_admin.
     db.insert_audit_log(
         actor_id=principal.user_id,
         actor_role=principal.role,
-        hospital_id=hospital_id,
+        hospital_id=None,
         action="hospital.delete",
         target_table="hospitals",
         target_id=hospital_id,
-        metadata={"cascaded_users_deleted": affected},
+        metadata={"deleted_users": len(deleted_user_ids)},
     )
-    return HospitalResponse(**hospital)
+    return None
 
 
 def _set_hospital_status(
