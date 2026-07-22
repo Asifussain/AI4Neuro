@@ -192,3 +192,38 @@ def test_create_analysis_super_admin_may_cross_hospital(client):
         files={"file": ("x.npy", _npy_bytes(), "application/octet-stream")},
     )
     assert res.status_code == 202
+
+
+def test_super_admin_anonymous_scan_runs(client):
+    """Super Admin may run an analysis with no patient (anonymous outsider);
+    the session is created and completes with a NULL patient_id."""
+    res = client.post(
+        "/api/v1/analysis",
+        data={
+            "modality": "eeg",
+            "analysis_type": "multiclass",
+            "patient_id": "__anonymous__",
+            "doctor_id": "__anonymous__",
+            "uploaded_by_role": "super_admin",
+        },
+        files={"file": ("input.npy", _npy_bytes(), "application/octet-stream")},
+    )
+    assert res.status_code == 202
+    session_id = res.json()["session_id"]
+    status = client.get(f"/api/v1/analysis/{session_id}").json()
+    assert status["patient_id"] is None
+    assert status["doctor_id"] is None
+    assert status["status"] == "completed"
+
+
+def test_non_super_admin_cannot_run_anonymous_scan(client):
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id="d1", role="doctor", hospital_id="h1", is_dev=False
+    )
+    res = client.post(
+        "/api/v1/analysis",
+        data={"modality": "eeg", "analysis_type": "multiclass", "patient_id": "__anonymous__"},
+        files={"file": ("input.npy", _npy_bytes(), "application/octet-stream")},
+    )
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "patient_required"

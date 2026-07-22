@@ -107,12 +107,23 @@ def get_me(
     if profile.get("date_of_birth") is not None:
         role_detail = {**role_detail, "date_of_birth": profile.get("date_of_birth")}
 
+    # The hospital association lives on user_profiles (not the role-detail
+    # tables), so surface both the id and the resolved name into the roleProfile
+    # bag. Without this the caller's own profile page had no hospital_id to look
+    # up and always rendered "Not provided" for every role's Hospital field.
+    hospital_id = profile.get("hospital_id") or principal.hospital_id
+    if hospital_id:
+        role_detail = {**role_detail, "hospital_id": hospital_id}
+        hospital = db.get_hospital(hospital_id)
+        if hospital and hospital.get("name"):
+            role_detail = {**role_detail, "hospital_name": hospital["name"]}
+
     role_detail = _resolve_role_lookups(db, role, role_detail)
 
     merged_profile = {**profile, "roleProfile": role_detail}
     return UserResponse(
         id=principal.user_id,
-        hospital_id=principal.hospital_id,
+        hospital_id=hospital_id,
         unique_identifier=profile.get("unique_identifier", ""),
         full_name=profile.get("full_name", ""),
         email=principal.email or profile.get("email", "") or "",

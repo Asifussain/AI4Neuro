@@ -356,10 +356,14 @@ create table if not exists public.analysis_sessions (
   id uuid primary key default gen_random_uuid(),
   modality text not null check (modality in ('eeg','mri')),
   analysis_type text not null,
-  patient_id uuid not null references public.patient_profiles(user_id),
+  -- patient_id / hospital_id are nullable so a Super Admin can run an
+  -- anonymous "outsider" analysis with no patient record and no hospital.
+  -- Tenant-scoped scans always set both; only super_admin anonymous scans
+  -- leave them NULL (and such rows are visible only to super_admin).
+  patient_id uuid references public.patient_profiles(user_id),
   doctor_id uuid references public.user_profiles(id),
   radiologist_id uuid references public.user_profiles(id),
-  hospital_id uuid not null references public.hospitals(id),
+  hospital_id uuid references public.hospitals(id),
   uploaded_by uuid references public.user_profiles(id),
   uploaded_by_role text,
   original_filename text not null,
@@ -460,6 +464,25 @@ create index if not exists idx_audit_log_actor on public.audit_log(actor_id);
 
 alter table public.platform_settings enable row level security;
 alter table public.audit_log enable row level security;
+-- Fail-closed by default (no permissive policy) — backend service role only.
+
+-- Patient -> assigned-doctor report-access requests. A patient's analysis
+-- reports only open once their assigned doctor approves the request.
+create table if not exists public.report_access_requests (
+  id uuid primary key default gen_random_uuid(),
+  patient_id uuid not null references public.user_profiles(id) on delete cascade,
+  doctor_id uuid references public.user_profiles(id) on delete set null,
+  hospital_id uuid references public.hospitals(id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending','approved','denied')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  decided_at timestamptz,
+  unique (patient_id)
+);
+create index if not exists idx_rar_doctor on public.report_access_requests(doctor_id);
+create index if not exists idx_rar_status on public.report_access_requests(status);
+alter table public.report_access_requests enable row level security;
 -- Fail-closed by default (no permissive policy) — backend service role only.
 
 -- ---------------------------------------------------------------------

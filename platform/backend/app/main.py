@@ -19,6 +19,7 @@ from app.api.v1 import analysis as analysis_routes
 from app.api.v1 import health as health_routes
 from app.api.v1 import hospital_admin as hospital_admin_routes
 from app.api.v1 import platform_admin as platform_admin_routes
+from app.api.v1 import report_access as report_access_routes
 from app.api.v1 import settings as settings_routes
 from app.api.v1 import users as users_routes
 from app.core.config import get_settings
@@ -82,6 +83,7 @@ def create_app() -> FastAPI:
     v1.include_router(users_routes.router)
     v1.include_router(platform_admin_routes.router)
     v1.include_router(hospital_admin_routes.router)
+    v1.include_router(report_access_routes.router)
     v1.include_router(settings_routes.router)
     app.include_router(v1)
 

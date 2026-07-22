@@ -241,6 +241,21 @@ class VerificationResponse(BaseModel):
     verification_status: str
 
 
+class ReportAccessRequestResponse(BaseModel):
+    """A patient's report-access record (one per patient). ``status`` is
+    ``none`` when the patient has never requested access."""
+
+    id: str | None = None
+    patient_id: str
+    patient_name: str | None = None
+    doctor_id: str | None = None
+    doctor_name: str | None = None
+    hospital_id: str | None = None
+    status: str  # none | pending | approved | denied
+    created_at: datetime | None = None
+    decided_at: datetime | None = None
+
+
 class PlatformSettingsUpdate(BaseModel):
     settings: dict = Field(default_factory=dict)
 

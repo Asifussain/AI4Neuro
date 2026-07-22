@@ -29,6 +29,10 @@ import { getRoleMeta, type Role } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 
 const NO_DOCTOR_VALUE = '__none__';
+// Super-admin-only sentinels for an anonymous "outsider" analysis (no real
+// patient/doctor record). The backend collapses these to NULL.
+const ANONYMOUS_PATIENT_VALUE = '__anonymous__';
+const ANONYMOUS_DOCTOR_VALUE = '__anonymous__';
 
 interface PatientOption {
   id: string;
@@ -89,6 +93,9 @@ export function AnalysisUploadForm() {
   const analysisTypeOptions = useMemo(() => ANALYSIS_TYPES[modality], [modality]);
   const role = userProfile?.role;
   const isDoctor = role === 'doctor';
+  // Only a Super Admin may analyse an outsider (anonymous patient / doctor).
+  const isSuperAdmin = role === 'super_admin';
+  const isAnonymousPatient = patientId === ANONYMOUS_PATIENT_VALUE;
   // Match the accent to the caller's dashboard so New Analysis looks like the
   // rest of their profile rather than a generic page.
   const accent = getRoleMeta((role ?? 'patient') as Role).accent;
@@ -239,8 +246,15 @@ export function AnalysisUploadForm() {
     form.append('file', file);
     form.append('modality', modality);
     form.append('analysis_type', analysisType);
-    form.append('patient_id', patientId.trim());
-    if (doctorId.trim() && doctorId !== NO_DOCTOR_VALUE) form.append('doctor_id', doctorId.trim());
+    // Anonymous outsider scans (super admin only) send no real patient — the
+    // backend stores a NULL patient_id.
+    if (!isAnonymousPatient) form.append('patient_id', patientId.trim());
+    if (
+      doctorId.trim() &&
+      doctorId !== NO_DOCTOR_VALUE &&
+      doctorId !== ANONYMOUS_DOCTOR_VALUE
+    )
+      form.append('doctor_id', doctorId.trim());
     if (userProfile?.id) {
       form.append('uploaded_by_role', userProfile.role);
       if (userProfile.role === 'radiologist') form.append('radiologist_id', userProfile.id);
@@ -382,6 +396,14 @@ export function AnalysisUploadForm() {
                   <SelectValue placeholder={loadingAssociations ? 'Loading patients...' : 'Select patient'} />
                 </SelectTrigger>
                 <SelectContent>
+                  {isSuperAdmin && (
+                    <SelectItem value={ANONYMOUS_PATIENT_VALUE}>
+                      <span className="flex flex-col">
+                        <span>Anonymous patient (outsider)</span>
+                        <span className="text-xs text-muted-foreground">No patient record — Super Admin only</span>
+                      </span>
+                    </SelectItem>
+                  )}
                   {patients.map((patient) => (
                     <SelectItem key={patient.id} value={patient.id}>
                       <span className="flex flex-col">
@@ -408,7 +430,15 @@ export function AnalysisUploadForm() {
                   <SelectValue placeholder={loadingAssociations ? 'Loading doctors...' : 'Select doctor'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {!isDoctor && (
+                  {isSuperAdmin && (
+                    <SelectItem value={ANONYMOUS_DOCTOR_VALUE}>
+                      <span className="flex flex-col">
+                        <span>Anonymous doctor (outsider)</span>
+                        <span className="text-xs text-muted-foreground">No doctor record — Super Admin only</span>
+                      </span>
+                    </SelectItem>
+                  )}
+                  {!isDoctor && !isSuperAdmin && (
                     <SelectItem value={NO_DOCTOR_VALUE}>
                       <span className="text-muted-foreground">No referring doctor</span>
                     </SelectItem>

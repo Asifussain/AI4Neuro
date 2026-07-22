@@ -68,3 +68,81 @@ def test_users_me_dev_principal(client):
     body = res.json()
     assert body["role"] == "super_admin"
     assert body["account_status"] == "active"
+
+
+def test_users_me_surfaces_hospital_and_role_detail(client, db_service):
+    """The caller's own /users/me must include hospital_id + hospital_name and
+    the role-detail fields, so the profile page shows them instead of
+    "Not provided" (regression: hospital_id was dropped)."""
+    hospital = db_service.create_hospital(
+        {"hospital_code": "H1", "name": "General Hospital", "address": "1 Main St"}
+    )
+    db_service.create_user_profile(
+        {
+            "id": "rad1",
+            "hospital_id": hospital["id"],
+            "unique_identifier": "RAD-1",
+            "full_name": "Dr. Rita Radiologist",
+            "email": "rita@example.com",
+            "phone": "555-0100",
+            "role": "radiologist",
+            "account_status": "active",
+        }
+    )
+    db_service.create_role_profile(
+        "radiologist_profiles",
+        {
+            "user_id": "rad1",
+            "radiologist_license": "RAD-LIC-9",
+            "imaging_expertise": "MRI",
+            "experience_years": 7,
+            "certifications": "Board Certified",
+        },
+    )
+
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id="rad1", role="radiologist", hospital_id=hospital["id"], is_dev=False
+    )
+    res = client.get("/api/v1/users/me")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["hospital_id"] == hospital["id"]
+    rp = body["profile"]["roleProfile"]
+    assert rp["hospital_name"] == "General Hospital"
+    assert rp["radiologist_license"] == "RAD-LIC-9"
+    assert rp["imaging_expertise"] == "MRI"
+    assert rp["experience_years"] == 7
+    assert rp["certifications"] == "Board Certified"
+
+
+def test_create_radiologist_persists_all_role_fields(client, db_service):
+    """Creating a radiologist with the optional detail fields must persist every
+    one of them to radiologist_profiles (item 4: created data must sync)."""
+    hospital = db_service.create_hospital(
+        {"hospital_code": "H2", "name": "City Hospital", "address": "2 Main St"}
+    )
+    res = client.post(
+        "/api/v1/hospital/users",
+        json={
+            "full_name": "Dr. Ray",
+            "email": "ray@example.com",
+            "phone": "555-0111",
+            "role": "radiologist",
+            "unique_identifier": "RAD-2",
+            "hospital_id": hospital["id"],
+            "license_number": "LIC-42",
+            "imaging_expertise": "CT, MRI",
+            "qualification_id": 3,
+            "experience_years": 12,
+            "certifications": "ABR",
+        },
+    )
+    assert res.status_code == 201
+    new_id = res.json()["id"]
+    profiles = {p["user_id"]: p for p in db_service.list_role_profiles("radiologist_profiles")}
+    row = profiles[new_id]
+    assert row["radiologist_license"] == "LIC-42"
+    assert row["imaging_expertise"] == "CT, MRI"
+    assert row["qualification_id"] == 3
+    assert row["experience_years"] == 12
+    assert row["certifications"] == "ABR"

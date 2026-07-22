@@ -55,6 +55,7 @@ import {
   AlertList,
   DashboardPageHeader,
 } from '@/components/dashboards/shared/primitives';
+import { DoctorReportAccessRequests } from '@/components/dashboards/shared/DoctorReportAccessRequests';
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/doctor/dashboard', icon: LayoutGrid },
@@ -639,6 +640,9 @@ export const DoctorDashboard: React.FC = () => {
         description="Patient monitoring, AI prediction review, and clinical report workflows."
         accent="blue"
       />
+
+      {/* Pending report-access requests from this doctor's patients */}
+      <DoctorReportAccessRequests />
 
       {statsError && (
         <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
