@@ -180,11 +180,42 @@ def suspend_hospital(
     principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
 ) -> HospitalResponse:
-    """Explicit named replacement for the old ``DELETE /hospitals/{id}`` soft
-    delete: hospitals are archived (status="suspended"), never hard-deleted,
-    to preserve referential integrity with existing users/analysis sessions.
-    Reverse with ``POST /hospitals/{id}/activate``."""
+    """Archive a hospital (status="suspended") AND cascade-suspend every user
+    under it so none of them can log in until the hospital is reactivated.
+    Reverse with ``POST /hospitals/{id}/activate`` (which restores the users)."""
     return _set_hospital_status(hospital_id, HospitalStatus.suspended.value, principal, db)
+
+
+@router.delete("/hospitals/{hospital_id}", response_model=HospitalResponse)
+def delete_hospital(
+    hospital_id: str,
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> HospitalResponse:
+    """Terminal hospital delete. Hospitals are never hard-deleted (that would
+    break referential integrity with existing analysis sessions/reports/audit
+    history); instead the hospital is archived (status="suspended") and every
+    account under it — hospital admins, doctors, radiologists, patients — is
+    terminally soft-deleted (account_status="deleted"). Deleted accounts are
+    hidden from every directory and can never log in again (login shows the
+    account-suspended screen), which is the "their account no longer exists"
+    behaviour requested. Unlike suspend, this is NOT lifted by reactivating the
+    hospital."""
+    require_hospital(db, hospital_id)
+    if not permissions.can_manage_hospitals(principal.role):
+        raise forbid("Only Super Admins may delete hospitals.")
+    affected = db.set_hospital_users_status(hospital_id, "deleted")
+    hospital = db.set_hospital_status(hospital_id, HospitalStatus.suspended.value)
+    db.insert_audit_log(
+        actor_id=principal.user_id,
+        actor_role=principal.role,
+        hospital_id=hospital_id,
+        action="hospital.delete",
+        target_table="hospitals",
+        target_id=hospital_id,
+        metadata={"cascaded_users_deleted": affected},
+    )
+    return HospitalResponse(**hospital)
 
 
 def _set_hospital_status(
@@ -194,6 +225,20 @@ def _set_hospital_status(
     if not permissions.can_manage_hospitals(principal.role):
         raise forbid("Only Super Admins may change hospital status.")
     hospital = db.set_hospital_status(hospital_id, status_value)
+
+    # Cascade the hospital's lifecycle onto its users' login access:
+    #   * suspend / deactivate -> block every (non-deleted) user's login.
+    #   * activate            -> restore users that a hospital action put down
+    #                            (suspended/inactive), never a terminally
+    #                            deleted account.
+    cascaded = None
+    if status_value in (HospitalStatus.suspended.value, HospitalStatus.inactive.value):
+        cascaded = db.set_hospital_users_status(hospital_id, "suspended")
+    elif status_value == HospitalStatus.active.value:
+        cascaded = db.set_hospital_users_status(
+            hospital_id, "active", only_from_statuses=["suspended", "inactive"]
+        )
+
     db.insert_audit_log(
         actor_id=principal.user_id,
         actor_role=principal.role,
@@ -201,6 +246,7 @@ def _set_hospital_status(
         action=f"hospital.{status_value}",
         target_table="hospitals",
         target_id=hospital_id,
+        metadata={"cascaded_users": cascaded} if cascaded is not None else None,
     )
     return HospitalResponse(**hospital)
 

@@ -23,6 +23,8 @@ class _TableQuery:
         self._op: str | None = None
         self._payload: dict | None = None
         self._filters: list[tuple[str, Any]] = []
+        self._neq_filters: list[tuple[str, Any]] = []
+        self._in_filters: list[tuple[str, list]] = []
         self._single = False
 
     # ---- terminal-ish builders ----
@@ -46,6 +48,14 @@ class _TableQuery:
 
     def eq(self, col: str, val: Any) -> "_TableQuery":
         self._filters.append((col, val))
+        return self
+
+    def neq(self, col: str, val: Any) -> "_TableQuery":
+        self._neq_filters.append((col, val))
+        return self
+
+    def in_(self, col: str, vals: list) -> "_TableQuery":
+        self._in_filters.append((col, list(vals)))
         return self
 
     def maybe_single(self) -> "_TableQuery":
@@ -86,7 +96,11 @@ class _TableQuery:
         return _Result(list(matched))
 
     def _matches(self, row: dict) -> bool:
-        return all(row.get(col) == val for col, val in self._filters)
+        return (
+            all(row.get(col) == val for col, val in self._filters)
+            and all(row.get(col) != val for col, val in self._neq_filters)
+            and all(row.get(col) in vals for col, vals in self._in_filters)
+        )
 
 
 class _BucketOps:

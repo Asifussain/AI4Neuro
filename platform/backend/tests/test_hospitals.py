@@ -67,6 +67,64 @@ def test_suspend_then_reactivate_hospital(client, db_service):
     assert res.json()["status"] == "active"
 
 
+def _seed_hospital_user(db_service, hospital_id, role="doctor", status="active"):
+    return db_service.create_user_profile(
+        {
+            "hospital_id": hospital_id,
+            "unique_identifier": f"{role}-{status}-{hospital_id[:6]}",
+            "full_name": f"{role} user",
+            "email": f"{role}.{status}.{hospital_id[:6]}@example.com",
+            "phone": "555-0000",
+            "role": role,
+            "account_status": status,
+        }
+    )
+
+
+def test_suspend_hospital_cascades_to_users(client, db_service):
+    h1 = db_service.create_hospital(_hospital_payload("H1"))
+    doc = _seed_hospital_user(db_service, h1["id"], "doctor")
+    pat = _seed_hospital_user(db_service, h1["id"], "patient")
+
+    res = client.post(f"/api/v1/platform/hospitals/{h1['id']}/suspend")
+    assert res.status_code == 200
+    assert db_service.get_user_profile(doc["id"])["account_status"] == "suspended"
+    assert db_service.get_user_profile(pat["id"])["account_status"] == "suspended"
+
+    # Reactivating the hospital restores its users.
+    res = client.post(f"/api/v1/platform/hospitals/{h1['id']}/activate")
+    assert res.status_code == 200
+    assert db_service.get_user_profile(doc["id"])["account_status"] == "active"
+    assert db_service.get_user_profile(pat["id"])["account_status"] == "active"
+
+
+def test_delete_hospital_terminally_deletes_users(client, db_service):
+    h1 = db_service.create_hospital(_hospital_payload("H1"))
+    admin = _seed_hospital_user(db_service, h1["id"], "admin")
+    doc = _seed_hospital_user(db_service, h1["id"], "doctor")
+
+    res = client.request("DELETE", f"/api/v1/platform/hospitals/{h1['id']}")
+    assert res.status_code == 200
+    assert res.json()["status"] == "suspended"
+    assert db_service.get_user_profile(admin["id"])["account_status"] == "deleted"
+    assert db_service.get_user_profile(doc["id"])["account_status"] == "deleted"
+
+    # A terminally deleted account is NOT resurrected by reactivating the hospital.
+    res = client.post(f"/api/v1/platform/hospitals/{h1['id']}/activate")
+    assert res.status_code == 200
+    assert db_service.get_user_profile(admin["id"])["account_status"] == "deleted"
+    assert db_service.get_user_profile(doc["id"])["account_status"] == "deleted"
+
+
+def test_delete_hospital_forbidden_for_hospital_admin(client, db_service):
+    h1 = db_service.create_hospital(_hospital_payload("H1"))
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id="ha1", role="admin", hospital_id=h1["id"], is_dev=False
+    )
+    res = client.request("DELETE", f"/api/v1/platform/hospitals/{h1['id']}")
+    assert res.status_code == 403
+
+
 def test_hospital_admin_creates_doctor_in_own_hospital(client, db_service):
     h1 = db_service.create_hospital(_hospital_payload("H1"))
     client.app.dependency_overrides[get_current_user] = lambda: Principal(

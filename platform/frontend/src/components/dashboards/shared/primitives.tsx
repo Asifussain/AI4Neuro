@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -128,6 +129,7 @@ export function StatCard({
   accent = 'blue',
   isLoading = false,
   onClick,
+  href,
   size = 'default',
 }: {
   label: string;
@@ -137,6 +139,8 @@ export function StatCard({
   accent?: Accent;
   isLoading?: boolean;
   onClick?: () => void;
+  /** When provided, the whole card becomes a link to this route. */
+  href?: string;
   size?: 'default' | 'lg';
 }) {
   const styles = ACCENT_STYLES[accent];
@@ -159,6 +163,19 @@ export function StatCard({
       {sublabel && <p className={cn('text-sm font-medium mt-1', styles.text)}>{sublabel}</p>}
     </>
   );
+
+  if (href) {
+    return (
+      <SectionCard className="p-0 overflow-hidden">
+        <Link
+          href={href}
+          className="block p-5 hover:bg-slate-50/80 transition-colors cursor-pointer"
+        >
+          {content}
+        </Link>
+      </SectionCard>
+    );
+  }
 
   if (onClick) {
     return (

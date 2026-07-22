@@ -254,6 +254,7 @@ function UserDirectoryInner({
   onAddUser,
   hospitals,
   showHospitalColumn,
+  initialHospitalId,
 }: {
   role?: string;
   eyebrow: string;
@@ -268,6 +269,9 @@ function UserDirectoryInner({
    * hospitals aren't visually mixed together. Hospital Admin's own directory
    * is already scoped to a single hospital, so it stays off there. */
   showHospitalColumn?: boolean;
+  /** When arriving from a hospital drill-down (`?hospital=<id>`), pre-scope the
+   * directory to that hospital. The user can still widen it via the dropdown. */
+  initialHospitalId?: string;
 }) {
   const meta = role ? ROLE_TITLES[role] : undefined;
   const addUserLabel = role ? ADD_USER_LABELS[role] ?? 'Add User' : 'Add User';
@@ -275,7 +279,7 @@ function UserDirectoryInner({
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
-  const [hospitalFilter, setHospitalFilter] = useState('');
+  const [hospitalFilter, setHospitalFilter] = useState(initialHospitalId ?? '');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
@@ -585,8 +589,17 @@ function UserDirectoryResolver(props: {
   hospitals?: Hospital[];
   showHospitalColumn?: boolean;
 }) {
-  const role = useSearchParams().get('role') || undefined;
-  // Keying by role remounts the inner view on filter change, giving a clean
-  // loading state without synchronously resetting state inside an effect.
-  return <UserDirectoryInner key={role ?? 'all'} role={role} {...props} />;
+  const searchParams = useSearchParams();
+  const role = searchParams.get('role') || undefined;
+  const hospitalId = searchParams.get('hospital') || undefined;
+  // Keying by role + hospital remounts the inner view on filter change, giving
+  // a clean loading state without synchronously resetting state inside an effect.
+  return (
+    <UserDirectoryInner
+      key={`${role ?? 'all'}:${hospitalId ?? 'all'}`}
+      role={role}
+      initialHospitalId={hospitalId}
+      {...props}
+    />
+  );
 }

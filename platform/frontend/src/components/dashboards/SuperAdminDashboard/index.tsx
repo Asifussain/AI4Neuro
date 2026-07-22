@@ -147,14 +147,14 @@ export const SuperAdminDashboard: React.FC = () => {
         {/* Stats — one unified grid: hero metrics first, breakdown below */}
         <FadeIn>
           <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Hospitals" value={totalHospitals} icon={Building2} accent="indigo" isLoading={loading} size="lg" />
-            <StatCard label="Active Hospitals" value={activeHospitals} icon={CheckCircle2} accent="indigo" isLoading={loading} size="lg" />
-            <StatCard label="Total Users" value={analytics?.total_users ?? 0} icon={Users} accent="indigo" isLoading={loading} size="lg" />
-            <StatCard label="Doctors" value={roles.doctor ?? 0} icon={Stethoscope} accent="indigo" isLoading={loading} size="lg" />
-            <StatCard label="Radiologists" value={roles.radiologist ?? 0} icon={Brain} accent="indigo" isLoading={loading} />
-            <StatCard label="Patients" value={roles.patient ?? 0} icon={UserRound} accent="indigo" isLoading={loading} />
-            <StatCard label="Hospital Admins" value={roles.admin ?? 0} icon={Landmark} accent="indigo" isLoading={loading} />
-            <StatCard label="Super Admins" value={roles.super_admin ?? 0} icon={ShieldCheck} accent="indigo" isLoading={loading} />
+            <StatCard label="Hospitals" value={totalHospitals} icon={Building2} accent="indigo" isLoading={loading} size="lg" href="/super-admin/hospitals" />
+            <StatCard label="Active Hospitals" value={activeHospitals} icon={CheckCircle2} accent="indigo" isLoading={loading} size="lg" href="/super-admin/hospitals" />
+            <StatCard label="Total Users" value={analytics?.total_users ?? 0} icon={Users} accent="indigo" isLoading={loading} size="lg" href="/super-admin/users" />
+            <StatCard label="Doctors" value={roles.doctor ?? 0} icon={Stethoscope} accent="indigo" isLoading={loading} size="lg" href="/super-admin/users?role=doctor" />
+            <StatCard label="Radiologists" value={roles.radiologist ?? 0} icon={Brain} accent="indigo" isLoading={loading} href="/super-admin/users?role=radiologist" />
+            <StatCard label="Patients" value={roles.patient ?? 0} icon={UserRound} accent="indigo" isLoading={loading} href="/super-admin/users?role=patient" />
+            <StatCard label="Hospital Admins" value={roles.admin ?? 0} icon={Landmark} accent="indigo" isLoading={loading} href="/super-admin/users?role=admin" />
+            <StatCard label="Super Admins" value={roles.super_admin ?? 0} icon={ShieldCheck} accent="indigo" isLoading={loading} href="/super-admin/users?role=super_admin" />
           </div>
         </FadeIn>
 

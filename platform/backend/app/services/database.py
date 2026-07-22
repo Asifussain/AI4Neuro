@@ -361,6 +361,33 @@ class DatabaseService:
         self.client.table("user_profiles").update(patch).eq("id", user_id).execute()
         return self.get_user_profile(user_id)
 
+    def set_hospital_users_status(
+        self,
+        hospital_id: str,
+        new_status: str,
+        *,
+        only_from_statuses: list[str] | None = None,
+    ) -> int:
+        """Cascade an account_status onto every user of a hospital and return the
+        number of rows affected.
+
+        Used when a hospital is suspended/deactivated/deleted (block all its
+        users' logins) or reactivated (restore them). ``only_from_statuses``
+        restricts the update to rows currently in one of those statuses — used
+        on reactivate so we only lift users that a hospital action put down, and
+        never resurrect a terminally ``deleted`` account.
+        """
+        query = self.client.table("user_profiles").update(
+            {"account_status": new_status, "updated_at": _now()}
+        ).eq("hospital_id", hospital_id)
+        if only_from_statuses:
+            query = query.in_("account_status", only_from_statuses)
+        else:
+            # Never overwrite a terminal soft-delete with a lesser status.
+            query = query.neq("account_status", "deleted")
+        res = query.execute()
+        return len(list(getattr(res, "data", None) or []))
+
     def create_role_profile(self, table: str, row: dict) -> dict:
         res = self.client.table(table).insert(row).execute()
         return _one(res) or {}
