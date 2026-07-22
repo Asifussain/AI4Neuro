@@ -101,6 +101,12 @@ def get_me(
     if role == "patient":
         role_detail = {**role_detail, **_patient_care_team_detail(db, principal.user_id, principal.hospital_id)}
 
+    # date_of_birth lives on user_profiles (not the role-detail tables); surface
+    # it into the roleProfile bag so patient-facing views (e.g. the simple
+    # patient report) can show a real DOB/age instead of a blank.
+    if profile.get("date_of_birth") is not None:
+        role_detail = {**role_detail, "date_of_birth": profile.get("date_of_birth")}
+
     role_detail = _resolve_role_lookups(db, role, role_detail)
 
     merged_profile = {**profile, "roleProfile": role_detail}

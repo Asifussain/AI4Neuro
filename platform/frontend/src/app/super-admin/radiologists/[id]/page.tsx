@@ -146,6 +146,7 @@ function RadiologistProfilePageInner() {
               sessions={radiologist.recent_sessions}
               accent="indigo"
               showDeleteAction={false}
+              patientNameById={radiologist.patient_names ?? {}}
               emptyLabel="No scans processed by this radiologist yet."
             />
           </SectionCard>

@@ -26,6 +26,8 @@ import {
 } from '@/components/dashboards/shared/primitives';
 import { SessionsTable } from '@/components/dashboards/shared/SessionsTable';
 import { ActivityCalendar } from '@/components/dashboards/shared/ActivityCalendar';
+import { PatientReportModal, type PatientReportData } from '@/components/shared/PatientReportModal';
+import { toast } from 'sonner';
 
 const ROLE_COPY: Record<Role, { eyebrow: string; title: string; description: string }> = {
   super_admin: {
@@ -86,6 +88,46 @@ export function AnalysisDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [patientNameById, setPatientNameById] = useState<Record<string, string>>({});
+  // Patient-only: the simple, plain-language report modal (opened from the
+  // Recent Analyses "View Report" button instead of the technical PDF).
+  const [patientReport, setPatientReport] = useState<PatientReportData | null>(null);
+
+  const openPatientReport = React.useCallback(
+    async (session: SessionStatusResponse) => {
+      const rp = (userProfile?.roleProfile ?? {}) as unknown as Record<string, unknown>;
+      const sessionCode = `${session.modality.toUpperCase()}-${session.id.slice(0, 8)}`;
+      // Base report from what we already have; enrich with the AI result.
+      const base: PatientReportData = {
+        sessionCode,
+        modality: session.modality,
+        analysisType: session.analysis_type,
+        scanDate: session.created_at,
+        status: session.status,
+        patientName: userProfile?.full_name ?? null,
+        patientCode: (rp.patient_code as string) ?? (rp.patient_id as string) ?? null,
+        dateOfBirth: (rp.date_of_birth as string) ?? null,
+        bloodGroup: (rp.blood_type as string) ?? ((rp.blood_groups as { blood_group?: string })?.blood_group ?? null),
+        doctorName: (rp.assigned_doctor_name as string) ?? null,
+        hospitalName: (rp.hospitals as { name?: string })?.name ?? null,
+      };
+      setPatientReport(base);
+      if (session.status === 'completed') {
+        try {
+          const res = await analysisApi.result(session.id);
+          setPatientReport({
+            ...base,
+            prediction: res.prediction,
+            confidence: res.confidence,
+            reportPdfUrl:
+              res.report_urls?.patient ?? res.report_urls?.clinician ?? res.report_urls?.technical ?? null,
+          });
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : 'Could not load your result.');
+        }
+      }
+    },
+    [userProfile]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -271,6 +313,7 @@ export function AnalysisDashboard() {
             patientNameById={patientNameById}
             showPatientColumn={role !== 'patient'}
             showDeleteAction={role !== 'patient'}
+            onViewReport={role === 'patient' ? openPatientReport : undefined}
             emptyLabel={canCreate ? 'No analyses found. Upload a new scan to get started.' : 'Your reports will appear here once available.'}
           />
         )}
@@ -284,6 +327,8 @@ export function AnalysisDashboard() {
           onClose={() => setShowCalendar(false)}
         />
       )}
+
+      <PatientReportModal data={patientReport} onClose={() => setPatientReport(null)} />
     </>
   );
 }
