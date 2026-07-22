@@ -10,6 +10,8 @@ import { apiClient } from '@/lib/api/client';
 interface RoleProfile {
   date_of_birth?: string;
   blood_groups?: { blood_group?: string };
+  blood_group_id?: number | null;
+  blood_type?: string | null;
   emergency_contact?: string;
   license_number?: string;
   specialization?: string;
@@ -19,6 +21,10 @@ interface RoleProfile {
   years_of_experience?: number;
   admin_level?: string;
   patient_code?: string;
+  // Role-detail tables carry many more columns (employee_id, department,
+  // medical_license, imaging_expertise, certifications, qualification_id,
+  // experience_years, …); they're read dynamically by the profile page.
+  [key: string]: unknown;
 }
 
 interface UserProfile {
@@ -110,32 +116,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('FastAPI /users/me fetch error, falling back to Supabase:', err);
       }
 
-      // 2. Fallback to Supabase direct query
+      // 2. Fallback to Supabase direct query (used when the backend /users/me
+      //    is unreachable). maybeSingle() so a transient 0-row/RLS hiccup
+      //    doesn't throw and blank the whole profile.
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', currentUser.id)
-        .single();
+        .maybeSingle();
 
       if (profile) {
-        let roleProfile = null;
-        try {
-          const role = profile.role;
-          if (role === 'doctor') {
-            const { data } = await supabase.from('doctor_profiles').select('*, hospitals(name)').eq('user_id', currentUser.id).single();
-            roleProfile = data;
-          } else if (role === 'radiologist') {
-            const { data } = await supabase.from('radiologist_profiles').select('*, hospitals(name)').eq('user_id', currentUser.id).single();
-            roleProfile = data;
-          } else if (role === 'patient') {
-            const { data } = await supabase.from('patient_profiles').select('*, blood_groups(blood_group)').eq('user_id', currentUser.id).single();
-            roleProfile = data;
-          } else if (role === 'admin') {
-            const { data } = await supabase.from('hospital_admins').select('*, hospitals(name)').eq('user_id', currentUser.id).single();
-            roleProfile = data;
+        // Role-detail table per role. NOTE: these tables are keyed by user_id
+        // and have NO hospital FK — the hospital lives on user_profiles — so we
+        // must NOT try to join hospitals() here (that join errors and nulls the
+        // whole roleProfile). The hospital name is resolved separately below.
+        const ROLE_TABLE: Record<string, string> = {
+          doctor: 'doctor_profiles',
+          radiologist: 'radiologist_profiles',
+          patient: 'patient_profiles',
+          admin: 'hospital_admin_profiles',
+          super_admin: 'super_admin_profiles',
+        };
+        let roleProfile: RoleProfile = {};
+        const table = ROLE_TABLE[profile.role as string];
+        if (table) {
+          try {
+            const { data } = await supabase.from(table).select('*').eq('user_id', currentUser.id).maybeSingle();
+            if (data) roleProfile = { ...(data as RoleProfile) };
+          } catch {
+            // Keep the empty roleProfile if the role table read fails.
           }
-        } catch {
-          // Keep null if role-specific table fetch fails
+        }
+        // Resolve blood type for patients (patient_profiles.blood_group_id -> blood_groups.blood_type).
+        const bloodGroupId = roleProfile.blood_group_id;
+        if (profile.role === 'patient' && bloodGroupId) {
+          try {
+            const { data: bg } = await supabase
+              .from('blood_groups').select('blood_type').eq('id', bloodGroupId).maybeSingle();
+            if (bg?.blood_type) roleProfile = { ...roleProfile, blood_type: bg.blood_type };
+          } catch {}
+        }
+        // Resolve the hospital NAME from user_profiles.hospital_id so every
+        // role's profile page shows its hospital (not "Not provided").
+        if (profile.hospital_id) {
+          try {
+            const { data: h } = await supabase
+              .from('hospitals').select('name').eq('id', profile.hospital_id).maybeSingle();
+            if (h?.name) {
+              roleProfile = { ...roleProfile, hospital_id: profile.hospital_id, hospital_name: h.name };
+            }
+          } catch {}
         }
         return { ...profile, roleProfile };
       }
