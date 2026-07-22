@@ -25,6 +25,7 @@ from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
 from app.core.security import Principal
 from app.services import permissions
+from app.services.rate_limit import RateLimiter, get_rate_limiter
 from app.schemas.analysis import (
     ALLOWED_EXTENSIONS,
     AnalysisResultResponse,
@@ -172,6 +173,7 @@ async def create_analysis(
     db: DatabaseService = Depends(get_database),
     storage: StorageService = Depends(get_storage),
     settings: Settings = Depends(get_settings),
+    limiter: RateLimiter = Depends(get_rate_limiter),
 ) -> CreateAnalysisResponse:
     modality = modality.lower().strip()
     _validate_upload(modality, file.filename or "")
@@ -179,6 +181,12 @@ async def create_analysis(
 
     if not permissions.can_create_analysis(principal.role, modality):
         raise _forbid(f"Your role may not create {modality} analyses.")
+
+    limiter.check(
+        f"analysis:{principal.user_id}",
+        max_requests=settings.rate_limit_analysis_per_minute,
+        window_seconds=60,
+    )
 
     data = await _read_upload_within_limit(file, settings.max_upload_bytes, settings.max_upload_mb)
 

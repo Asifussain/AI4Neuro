@@ -42,9 +42,11 @@ from app.schemas.users import (
     UserUpdate,
     VerificationResponse,
 )
+from app.core.config import Settings, get_settings
 from app.services import permissions
 from app.services.auth_admin import AuthAdminService
 from app.services.database import DatabaseService
+from app.services.rate_limit import RateLimiter, get_rate_limiter
 from app.services.user_provisioning import create_user_account
 
 router = APIRouter(prefix="/hospital", tags=["hospital-admin"])
@@ -61,6 +63,8 @@ def create_hospital_user(
     principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
     auth_admin: AuthAdminService = Depends(get_auth_admin),
+    settings: Settings = Depends(get_settings),
+    limiter: RateLimiter = Depends(get_rate_limiter),
 ) -> UserCreateResult:
     """Create doctor/radiologist/patient accounts only.
 
@@ -72,6 +76,11 @@ def create_hospital_user(
     """
     if payload.role.value in (Role.hospital_admin.value, Role.super_admin.value):
         raise forbid("POST /hospital/users only creates doctor, radiologist, and patient accounts.")
+    limiter.check(
+        f"user_creation:{principal.user_id}",
+        max_requests=settings.rate_limit_user_creation_per_minute,
+        window_seconds=60,
+    )
     result = create_user_account(payload=payload, principal=principal, db=db, auth_admin=auth_admin)
     return UserCreateResult(**result)
 

@@ -27,6 +27,7 @@ from app.main import create_app
 from app.services.database import DatabaseService
 from app.services.jobs import JobService, set_job_service
 from app.services.orchestrator import run_analysis_job
+from app.services.rate_limit import RateLimiter, get_rate_limiter
 from app.services.reports import NoopReportService
 from app.services.storage import StorageService
 from tests.fake_supabase import FakeSupabase
@@ -95,10 +96,22 @@ def fake_auth_admin() -> FakeAuthAdminService:
 
 
 @pytest.fixture
+def rate_limiter() -> RateLimiter:
+    # A fixture (not an inline lambda in the override below) specifically so
+    # every request *within one test* shares this same instance — a lambda
+    # constructing `RateLimiter()` fresh would hand every request its own
+    # empty limiter, defeating rate limiting entirely. Fresh per *test*
+    # (not the production module-level singleton) so tests sharing the same
+    # dev-bypass principal id don't leak rate-limit state into each other.
+    return RateLimiter()
+
+
+@pytest.fixture
 def client(
     db_service: DatabaseService,
     storage_service: StorageService,
     fake_auth_admin: FakeAuthAdminService,
+    rate_limiter: RateLimiter,
 ) -> TestClient:
     from app.pipelines.base import register_pipeline, stub_runner_factory
 
@@ -106,6 +119,7 @@ def client(
     app.dependency_overrides[get_database] = lambda: db_service
     app.dependency_overrides[get_storage] = lambda: storage_service
     app.dependency_overrides[get_auth_admin] = lambda: fake_auth_admin
+    app.dependency_overrides[get_rate_limiter] = lambda: rate_limiter
     with TestClient(app) as c:
         # Force deterministic stub pipelines so foundation tests never depend on
         # torch/weights (real EEG is covered separately in test_eeg_pipeline.py).

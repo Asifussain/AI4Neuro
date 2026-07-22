@@ -79,6 +79,12 @@ class Settings(BaseSettings):
     local_tmp_dir: str = Field(default="/tmp/neuro-platform", alias="LOCAL_TMP_DIR")
     max_upload_mb: int = Field(default=512, alias="MAX_UPLOAD_MB")
 
+    # ---- Rate limiting (per caller identity, per-process — see rate_limit.py) ----
+    rate_limit_analysis_per_minute: int = Field(default=20, alias="RATE_LIMIT_ANALYSIS_PER_MINUTE")
+    rate_limit_user_creation_per_minute: int = Field(
+        default=10, alias="RATE_LIMIT_USER_CREATION_PER_MINUTE"
+    )
+
     # ---- Auth ----
     # When true AND app_env is exactly "development", the JWT guard accepts
     # requests without a valid token and injects a dev principal. Defaults to
