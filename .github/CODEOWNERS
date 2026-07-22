@@ -1,0 +1,21 @@
+# Code ownership for review routing. Replace @Asifussain with real
+# usernames/teams as the project grows past a single maintainer — this file
+# is a starting point, not a finished policy.
+#
+# Order matters: later patterns override earlier ones for overlapping paths.
+
+* @Asifussain
+
+# Security-sensitive: authorization, JWT verification, and the schema/RLS
+# layer that enforces tenant isolation. Changes here warrant closer review.
+/platform/backend/app/services/permissions.py @Asifussain
+/platform/backend/app/core/security.py @Asifussain
+/platform/backend/app/core/config.py @Asifussain
+/supabase/migrations/ @Asifussain
+/supabase/setup/ @Asifussain
+
+# ML pipelines — model inference, checkpoints, and third-party vendored code.
+/platform/backend/app/pipelines/ @Asifussain
+
+# CI/CD — changes here affect what every PR is actually verified against.
+/.github/workflows/ @Asifussain
