@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
   CheckCircle2,
@@ -13,7 +14,7 @@ import {
 import { useAuth } from '@/components/providers/AuthProvider';
 import { analysisApi } from '@/features/analysis/api';
 import { adminApi } from '@/features/admin/api';
-import { isActive, type SessionStatusResponse } from '@/features/analysis/types';
+import { isActive } from '@/features/analysis/types';
 import { getRoleMeta, type Role } from '@/lib/navigation';
 import {
   SectionCard,
@@ -82,41 +83,35 @@ export function AnalysisDashboard() {
   };
   const allAnalysesHref = ALL_ANALYSES_HREF[role] ?? '/search';
 
-  const [sessions, setSessions] = useState<SessionStatusResponse[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [patientNameById, setPatientNameById] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    let cancelled = false;
-    analysisApi
-      .list({ limit: 100 })
-      .then((data) => !cancelled && setSessions(data))
-      .catch((e) => !cancelled && setError((e as Error).message));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Migrated onto TanStack Query — see QueryProvider for why only this
+  // component has been moved onto it so far (foundational adoption, not a
+  // full app-wide migration in one pass). Behavior is unchanged: same data
+  // shape, same loading/error semantics the rest of this component reads.
+  const {
+    data: sessions,
+    error: sessionsError,
+  } = useQuery({
+    queryKey: ['analysis-sessions', 'dashboard'],
+    queryFn: () => analysisApi.list({ limit: 100 }),
+  });
+  const error = sessionsError ? (sessionsError as Error).message : null;
 
   // Best-effort patient-name lookup for the Recent Analyses table. The patient
   // role only sees their own analyses (no patient column), so skip the fetch;
   // doctors use their assigned-patients endpoint, other staff the hospital
   // directory. Any permission/network failure just falls back to a placeholder.
-  useEffect(() => {
-    if (role === 'patient') return;
-    let cancelled = false;
-    const fetchPatients =
-      role === 'doctor' ? adminApi.myPatients({ limit: 200 }) : adminApi.patients({ limit: 200 });
-    fetchPatients
-      .then((r) => {
-        if (cancelled) return;
-        setPatientNameById(Object.fromEntries(r.items.map((p) => [p.id, p.full_name])));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [role]);
+  const { data: patientNameByIdData } = useQuery({
+    queryKey: ['patient-directory', role],
+    queryFn: async () => {
+      const r = role === 'doctor' ? await adminApi.myPatients({ limit: 200 }) : await adminApi.patients({ limit: 200 });
+      return Object.fromEntries(r.items.map((p) => [p.id, p.full_name])) as Record<string, string>;
+    },
+    enabled: role !== 'patient',
+    retry: false,
+  });
+  const patientNameById = patientNameByIdData ?? {};
 
   const stats = useMemo(() => {
     const all = sessions ?? [];
@@ -171,7 +166,7 @@ export function AnalysisDashboard() {
     [sessions]
   );
 
-  const loading = sessions === null && !error;
+  const loading = sessions === undefined && !error;
 
   return (
     <>
