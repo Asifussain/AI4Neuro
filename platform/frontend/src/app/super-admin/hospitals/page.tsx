@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import Swal from 'sweetalert2';
-import { Search, Building2, Plus, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Search, Building2, Plus, MoreHorizontal, Loader2, ChevronRight } from 'lucide-react';
 import { RoleShell } from '@/components/dashboards/shared/RoleShell';
 import {
   SectionCard,
@@ -304,17 +306,21 @@ function EditHospitalDialog({
 function HospitalRowActions({
   hospital,
   busy,
+  onView,
   onEdit,
   onActivate,
   onDeactivate,
   onSuspend,
+  onDelete,
 }: {
   hospital: Hospital;
   busy: boolean;
+  onView: (h: Hospital) => void;
   onEdit: (h: Hospital) => void;
   onActivate: (h: Hospital) => void;
   onDeactivate: (h: Hospital) => void;
   onSuspend: (h: Hospital) => void;
+  onDelete: (h: Hospital) => void;
 }) {
   return (
     <DropdownMenu>
@@ -324,6 +330,7 @@ function HospitalRowActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => onView(hospital)}>View Details</DropdownMenuItem>
         <DropdownMenuItem onClick={() => onEdit(hospital)}>Edit</DropdownMenuItem>
         {hospital.status !== 'active' && (
           <DropdownMenuItem onClick={() => onActivate(hospital)}>Activate</DropdownMenuItem>
@@ -336,12 +343,16 @@ function HospitalRowActions({
             Suspend
           </DropdownMenuItem>
         )}
+        <DropdownMenuItem variant="destructive" onClick={() => onDelete(hospital)}>
+          Delete
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
 function HospitalsPage() {
+  const router = useRouter();
   const [hospitals, setHospitals] = useState<Hospital[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -380,16 +391,20 @@ function HospitalsPage() {
 
   const runStatusAction = async (h: Hospital, action: (id: string) => Promise<Hospital>, label: string) => {
     const isSuspend = label === 'suspended';
+    const isDeactivate = label === 'deactivated';
+    const blocksLogins = isSuspend || isDeactivate;
     const confirm = await Swal.fire({
-      icon: isSuspend ? 'warning' : 'question',
-      title: `${label === 'activated' ? 'Activate' : label === 'deactivated' ? 'Deactivate' : 'Suspend'} ${h.name}?`,
-      text: isSuspend
-        ? 'Every doctor, radiologist, and patient under this hospital will be blocked from logging in.'
+      icon: blocksLogins ? 'warning' : 'question',
+      title: `${label === 'activated' ? 'Activate' : isDeactivate ? 'Deactivate' : 'Suspend'} ${h.name}?`,
+      text: blocksLogins
+        ? 'Every hospital admin, doctor, radiologist, and patient under this hospital will be signed out and blocked from logging in until it is reactivated.'
+        : label === 'activated'
+        ? 'The hospital and all its previously-suspended accounts will be able to log in again.'
         : `This will mark the hospital as ${label}.`,
       showCancelButton: true,
-      confirmButtonText: label === 'activated' ? 'Activate' : label === 'deactivated' ? 'Deactivate' : 'Suspend',
+      confirmButtonText: label === 'activated' ? 'Activate' : isDeactivate ? 'Deactivate' : 'Suspend',
       cancelButtonText: 'Cancel',
-      confirmButtonColor: isSuspend ? '#dc2626' : '#4f46e5',
+      confirmButtonColor: blocksLogins ? '#dc2626' : '#4f46e5',
     });
     if (!confirm.isConfirmed) return;
 
@@ -400,6 +415,42 @@ function HospitalsPage() {
       Swal.fire({ icon: 'success', title: `${h.name} ${label}`, timer: 2500, showConfirmButton: false });
     } catch (e) {
       toast.error((e as Error).message || `Failed to ${label} hospital`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDelete = async (h: Hospital) => {
+    const confirm = await Swal.fire({
+      icon: 'warning',
+      title: `Delete ${h.name}?`,
+      html:
+        'This is <b>permanent</b>. The hospital will be archived and <b>every account under it</b> — ' +
+        'hospital admins, doctors, radiologists, and patients — will be deleted and can <b>never log in again</b>. ' +
+        'This is not reversible by reactivating the hospital.',
+      input: 'text',
+      inputPlaceholder: 'Type DELETE to confirm',
+      inputValidator: (value) => (value === 'DELETE' ? null : 'Type DELETE to confirm'),
+      showCancelButton: true,
+      confirmButtonText: 'Delete Hospital',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!confirm.isConfirmed) return;
+
+    setBusyId(h.id);
+    try {
+      const updated = await adminApi.deleteHospital(h.id);
+      patchHospital(updated);
+      Swal.fire({
+        icon: 'success',
+        title: `${h.name} deleted`,
+        text: 'The hospital and all its accounts have been removed.',
+        timer: 2500,
+        showConfirmButton: false,
+      });
+    } catch (e) {
+      toast.error((e as Error).message || 'Failed to delete hospital');
     } finally {
       setBusyId(null);
     }
@@ -467,15 +518,20 @@ function HospitalsPage() {
                 {filtered.map((h) => (
                   <tr key={h.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
                     <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2.5">
+                      <Link
+                        href={`/super-admin/hospitals/${h.id}`}
+                        className="flex items-center gap-2.5 group"
+                        title={`View ${h.name} details`}
+                      >
                         <div className="p-1.5 rounded-lg bg-indigo-50 shrink-0">
                           <Building2 className="h-4 w-4 text-indigo-600" />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-slate-900 truncate">{h.name}</p>
+                          <p className="font-medium text-indigo-700 group-hover:underline truncate">{h.name}</p>
                           <p className="text-xs text-slate-500 truncate">{h.address}</p>
                         </div>
-                      </div>
+                        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-indigo-500 shrink-0" />
+                      </Link>
                     </td>
                     <td className="py-3 pr-4 font-mono text-xs text-slate-600">{h.hospital_code}</td>
                     <td className="py-3 pr-4 hidden md:table-cell text-slate-600">
@@ -489,10 +545,12 @@ function HospitalsPage() {
                       <HospitalRowActions
                         hospital={h}
                         busy={busyId === h.id}
+                        onView={(hh) => router.push(`/super-admin/hospitals/${hh.id}`)}
                         onEdit={setEditingHospital}
                         onActivate={(hh) => runStatusAction(hh, adminApi.activateHospital, 'activated')}
                         onDeactivate={(hh) => runStatusAction(hh, adminApi.deactivateHospital, 'deactivated')}
                         onSuspend={(hh) => runStatusAction(hh, adminApi.suspendHospital, 'suspended')}
+                        onDelete={handleDelete}
                       />
                     </td>
                   </tr>

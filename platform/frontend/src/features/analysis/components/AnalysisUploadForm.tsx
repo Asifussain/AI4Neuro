@@ -231,14 +231,9 @@ export function AnalysisUploadForm() {
       return;
     }
 
-    if (!doctorId.trim()) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Select a doctor',
-        text: 'Please select a referring doctor before starting the analysis.',
-      });
-      return;
-    }
+    // Referring doctor is optional — a doctor running their own analysis is
+    // auto-attributed below, and radiologists/admins may proceed without
+    // naming a referring doctor. The backend accepts a null doctor_id.
 
     const form = new FormData();
     form.append('file', file);
@@ -401,7 +396,9 @@ export function AnalysisUploadForm() {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="doctor-id">Referring doctor <span className="text-destructive">*</span></Label>
+              <Label htmlFor="doctor-id">
+                Referring doctor <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
               <Select
                 value={doctorId || NO_DOCTOR_VALUE}
                 onValueChange={(value) => setDoctorId(value === NO_DOCTOR_VALUE ? '' : value)}
@@ -411,6 +408,11 @@ export function AnalysisUploadForm() {
                   <SelectValue placeholder={loadingAssociations ? 'Loading doctors...' : 'Select doctor'} />
                 </SelectTrigger>
                 <SelectContent>
+                  {!isDoctor && (
+                    <SelectItem value={NO_DOCTOR_VALUE}>
+                      <span className="text-muted-foreground">No referring doctor</span>
+                    </SelectItem>
+                  )}
                   {doctors.map((doctor) => (
                     <SelectItem key={doctor.id} value={doctor.id}>
                       <span className="flex flex-col">

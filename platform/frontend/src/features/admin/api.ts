@@ -333,6 +333,11 @@ export const adminApi = {
   suspendHospital(id: string): Promise<Hospital> {
     return apiClient.post<Hospital>(`/api/v1/platform/hospitals/${id}/suspend`);
   },
+  /** Terminal delete: archives the hospital and terminally soft-deletes every
+   * account under it (they can never log in again). */
+  deleteHospital(id: string): Promise<Hospital> {
+    return apiClient.delete<Hospital>(`/api/v1/platform/hospitals/${id}`);
+  },
 
   // -- Users ---------------------------------------------------------------- //
   // `/hospital/users` is reachable by both `admin` (auto-scoped server-side
