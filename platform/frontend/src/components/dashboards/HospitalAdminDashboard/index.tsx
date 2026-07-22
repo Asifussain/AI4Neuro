@@ -731,12 +731,16 @@ export const HospitalAdminDashboard: React.FC = () => {
                     <div className="flex rounded-lg border border-slate-200 overflow-hidden">
                       <button
                         onClick={() => setViewMode('grid')}
+                        aria-label="Grid view"
+                        aria-pressed={viewMode === 'grid'}
                         className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-teal-50 text-teal-700' : 'text-slate-400 hover:bg-slate-50'}`}
                       >
                         <LayoutGrid className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => setViewMode('list')}
+                        aria-label="List view"
+                        aria-pressed={viewMode === 'list'}
                         className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-teal-50 text-teal-700' : 'text-slate-400 hover:bg-slate-50'}`}
                       >
                         <List className="h-4 w-4" />
@@ -767,7 +771,7 @@ export const HospitalAdminDashboard: React.FC = () => {
                         onChange={(e) => updateFilter(setSearchTerm, e.target.value)}
                       />
                       {searchTerm && (
-                        <button onClick={() => updateFilter(setSearchTerm, '')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                        <button onClick={() => updateFilter(setSearchTerm, '')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
                           <X className="h-3.5 w-3.5" />
                         </button>
                       )}
@@ -779,6 +783,7 @@ export const HospitalAdminDashboard: React.FC = () => {
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                        aria-label="Sort by"
                         className="bg-transparent text-sm text-slate-500 border-none outline-none cursor-pointer"
                       >
                         <option value="name">Name</option>
@@ -797,6 +802,7 @@ export const HospitalAdminDashboard: React.FC = () => {
                         <select
                           value={roleFilter}
                           onChange={(e) => updateFilter(setRoleFilter, e.target.value)}
+                          aria-label="Filter by role"
                           className="bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 px-2 py-1 outline-none focus:border-teal-400"
                         >
                           <option value="all">All</option>
@@ -811,6 +817,7 @@ export const HospitalAdminDashboard: React.FC = () => {
                         <select
                           value={statusFilter}
                           onChange={(e) => updateFilter(setStatusFilter, e.target.value)}
+                          aria-label="Filter by status"
                           className="bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 px-2 py-1 outline-none focus:border-teal-400"
                         >
                           <option value="all">All</option>
@@ -837,19 +844,19 @@ export const HospitalAdminDashboard: React.FC = () => {
                   {roleFilter !== 'all' && (
                     <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 text-xs font-medium">
                       Role: {roleFilter}
-                      <button onClick={() => updateFilter(setRoleFilter, 'all')}><X className="h-3 w-3" /></button>
+                      <button onClick={() => updateFilter(setRoleFilter, 'all')} aria-label="Remove role filter"><X className="h-3 w-3" /></button>
                     </span>
                   )}
                   {statusFilter !== 'all' && (
                     <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
                       Status: {statusFilter}
-                      <button onClick={() => updateFilter(setStatusFilter, 'all')}><X className="h-3 w-3" /></button>
+                      <button onClick={() => updateFilter(setStatusFilter, 'all')} aria-label="Remove status filter"><X className="h-3 w-3" /></button>
                     </span>
                   )}
                   {searchTerm && (
                     <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-medium">
                       Search: &quot;{searchTerm}&quot;
-                      <button onClick={() => updateFilter(setSearchTerm, '')}><X className="h-3 w-3" /></button>
+                      <button onClick={() => updateFilter(setSearchTerm, '')} aria-label="Remove search filter"><X className="h-3 w-3" /></button>
                     </span>
                   )}
                 </div>

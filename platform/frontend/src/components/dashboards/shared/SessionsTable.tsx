@@ -182,6 +182,7 @@ export function SessionsTable({
                     <button
                       type="button"
                       title="Delete scan session"
+                      aria-label="Delete scan session"
                       onClick={() => handleDelete(s.id)}
                       disabled={isDeleting}
                       className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"

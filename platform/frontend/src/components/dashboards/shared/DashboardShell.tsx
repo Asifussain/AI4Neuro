@@ -204,6 +204,7 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
       <div className="p-3">
         <button
           onClick={() => signOut()}
+          aria-label="Logout"
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
         >
           <LogOut className="h-4 w-4 shrink-0" />
