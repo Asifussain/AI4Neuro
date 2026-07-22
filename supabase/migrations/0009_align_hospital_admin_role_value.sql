@@ -24,8 +24,32 @@
 -- still named `hospital_admin_profiles` and is intentionally left unchanged.
 -- =====================================================================
 
--- 1. Rename any rows that 0003 migrated to `hospital_admin` back to `admin`.
+-- 1a. Rename any rows that 0003 migrated to `hospital_admin` back to `admin`.
 update public.user_profiles set role = 'admin' where role = 'hospital_admin';
+
+-- 1b. Remove any leftover `technician` accounts. The multi-tenant refactor
+--     removed the technician role entirely (see 0004_drop_technician.sql); on a
+--     database where 0004 was never run, these rows survive and would violate
+--     the tightened 5-role CHECK below. Their analysis attribution is preserved
+--     via analysis_sessions.uploaded_by_role (a text label, kept), while every
+--     foreign-key link to the row is cleared first so the delete cannot fail on
+--     a RESTRICT constraint. Idempotent: a no-op once no technician remains.
+do $$
+declare tech_id uuid;
+begin
+  for tech_id in select id from public.user_profiles where role = 'technician'
+  loop
+    update public.analysis_sessions set uploaded_by = null where uploaded_by = tech_id;
+    update public.analysis_sessions set doctor_id = null where doctor_id = tech_id;
+    update public.analysis_sessions set radiologist_id = null where radiologist_id = tech_id;
+    update public.doctor_patient_relationships set assigned_by = null where assigned_by = tech_id;
+    update public.user_profiles set created_by_admin = null where created_by_admin = tech_id;
+    update public.hospitals set created_by = null where created_by = tech_id;
+    update public.audit_log set actor_id = null where actor_id = tech_id;
+    update public.platform_settings set updated_by = null where updated_by = tech_id;
+    delete from public.user_profiles where id = tech_id;
+  end loop;
+end $$;
 
 -- 2. Canonical 5-role CHECK using `admin` as the hospital-admin value.
 alter table public.user_profiles drop constraint if exists user_profiles_role_check;
