@@ -3,8 +3,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ReportModal } from '@/components/shared/ReportModal';
 import { ReportViewer } from '@/components/shared/ReportViewer';
-import { PatientReportModal, type PatientReportData } from '@/components/shared/PatientReportModal';
 import { usePatientStats, useMySessions, useCurrentPatient } from '@/lib/hooks/useApi';
 import { useAuth } from '@/components/providers/AuthProvider';
 import {
@@ -51,36 +51,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Profile', href: '/profile', icon: User },
   { label: 'Settings', href: '/profile', icon: Settings },
 ];
-
-// Map a patient session (+ the patient's own profile info) into the simple,
-// plain-language report shown to patients. Keeps all real data — no mocks.
-function buildPatientReport(
-  session: any,
-  patient: Pick<
-    PatientReportData,
-    'patientName' | 'patientCode' | 'dateOfBirth' | 'age' | 'gender' | 'bloodGroup' | 'doctorName' | 'hospitalName'
-  >
-): PatientReportData {
-  const prediction = session?.prediction?.prediction ?? session?.prediction ?? null;
-  const confidence = session?.prediction?.confidence_score ?? null;
-  const reportPdfUrl =
-    session?.prediction?.patient_pdf_url ||
-    session?.prediction?.clinician_pdf_url ||
-    session?.prediction?.technical_pdf_url ||
-    null;
-  return {
-    ...patient,
-    sessionCode: session?.session_code ?? session?.sessionCode ?? null,
-    modality: session?.modality ?? 'mri',
-    analysisType: session?.analysis_type ?? null,
-    scanDate: session?.scan_date ?? session?.scanDate ?? session?.created_at ?? null,
-    status: session?.status ?? null,
-    notes: session?.notes ?? null,
-    reportPdfUrl,
-    prediction,
-    confidence,
-  };
-}
 
 // ============================================================================
 // PREDICTION DISPLAY
@@ -906,19 +876,7 @@ export const PatientDashboard: React.FC = () => {
         </div>
       </div>
 
-      <PatientReportModal
-        data={selectedSession ? buildPatientReport(selectedSession, {
-          patientName,
-          patientCode,
-          dateOfBirth: patientProfile?.date_of_birth ?? null,
-          age: patientProfile?.age ?? null,
-          gender: patientProfile?.gender ?? null,
-          bloodGroup: patientProfile?.blood_group?.blood_group ?? null,
-          doctorName: assignedDoctor !== 'Not Assigned' ? assignedDoctor : null,
-          hospitalName: userProfile?.roleProfile?.hospitals?.name ?? null,
-        }) : null}
-        onClose={() => setSelectedSession(null)}
-      />
+      <ReportModal session={selectedSession} onClose={() => setSelectedSession(null)} userRole="patient" />
     </DashboardShell>
   );
 };

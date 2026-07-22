@@ -35,6 +35,7 @@ export function SessionsTable({
   emptyLabel = 'No sessions found.',
   onSessionDeleted,
   showDeleteAction = true,
+  onViewReport,
 }: {
   sessions: SessionStatusResponse[];
   accent: Accent;
@@ -47,6 +48,9 @@ export function SessionsTable({
    * pass false to hide the column entirely rather than show a button that
    * always 403s. */
   showDeleteAction?: boolean;
+  /** When provided, the "View Report" button calls this instead of opening the
+   * technical PDF — used to show patients the simple, plain-language report. */
+  onViewReport?: (session: SessionStatusResponse) => void;
 }) {
   const styles = ACCENT_STYLES[accent];
   const [loadingReportId, setLoadingReportId] = useState<string | null>(null);
@@ -155,7 +159,7 @@ export function SessionsTable({
                   {isCompleted ? (
                     <button
                       type="button"
-                      onClick={() => openReport(s.id)}
+                      onClick={() => (onViewReport ? onViewReport(s) : openReport(s.id))}
                       disabled={isLoadingReport}
                       className={cn(
                         'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:brightness-95 disabled:opacity-60',

@@ -219,7 +219,7 @@ export function PatientReportModal({ data, onClose }: PatientReportModalProps) {
               <DemographicCell label="Report No." value={data.sessionCode} />
               <DemographicCell label="Date of Birth" value={formatDate(data.dateOfBirth)} />
               <DemographicCell label="Age" value={computeAge(data.dateOfBirth, data.age)} />
-              <DemographicCell label="Gender" value={data.gender} />
+              <DemographicCell label="Blood Group" value={data.bloodGroup} />
               <DemographicCell label="Date of Assessment" value={formatDate(data.scanDate)} />
               <DemographicCell label="Referring Doctor" value={data.doctorName} />
               <DemographicCell label="Test" value={modalityLabel} />
