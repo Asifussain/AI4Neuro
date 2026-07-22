@@ -27,7 +27,7 @@ from app.schemas.admin_detail import (
     PatientProfileDetail,
     RadiologistProfileDetail,
 )
-from app.schemas.analysis import SessionStatusResponse
+from app.schemas.analysis import ScanRow, SessionStatusResponse
 from app.schemas.audit import AuditLogEntry
 from app.schemas.common import PaginatedResponse
 from app.schemas.users import (
@@ -297,6 +297,60 @@ def platform_analytics(
         "total_users": len(users),
         "users_by_role": by_role,
     }
+
+
+# --------------------------------------------------------------------------- #
+# Platform-wide scan directory ("View Scans")
+# --------------------------------------------------------------------------- #
+
+
+@router.get("/scans", response_model=PaginatedResponse[ScanRow])
+def list_scans(
+    modality: str | None = Query(default=None),
+    status_filter: str | None = Query(default=None, alias="status"),
+    hospital_id: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> PaginatedResponse[ScanRow]:
+    """Every analysis session across the whole platform, enriched with patient /
+    doctor / radiologist / hospital display names for the Super Admin's
+    "View Scans" table. super_admin-only (router-level guard)."""
+    if not permissions.can_view_platform_analytics(principal.role):
+        raise forbid("Only Super Admins may view every scan on the platform.")
+
+    rows = db.list_sessions(modality=modality, status=status_filter, hospital_id=hospital_id)
+    rows.sort(key=lambda r: str(r.get("created_at") or ""), reverse=True)
+
+    # Resolve ids -> names once (small per-platform scale), rather than per row.
+    user_names = {u["id"]: u.get("full_name") for u in db.list_user_profiles()}
+    hospital_names = {h["id"]: h.get("name") for h in db.list_hospitals()}
+
+    def _name(uid) -> str | None:
+        return user_names.get(str(uid)) if uid else None
+
+    scans = [
+        ScanRow(
+            id=str(r["id"]),
+            modality=r["modality"],
+            analysis_type=r["analysis_type"],
+            status=r["status"],
+            created_at=r.get("created_at"),
+            patient_id=str(r["patient_id"]) if r.get("patient_id") else None,
+            patient_name=_name(r.get("patient_id")),
+            doctor_id=str(r["doctor_id"]) if r.get("doctor_id") else None,
+            doctor_name=_name(r.get("doctor_id")),
+            radiologist_id=str(r["radiologist_id"]) if r.get("radiologist_id") else None,
+            radiologist_name=_name(r.get("radiologist_id")),
+            hospital_id=str(r["hospital_id"]) if r.get("hospital_id") else None,
+            hospital_name=hospital_names.get(str(r.get("hospital_id"))) if r.get("hospital_id") else None,
+            uploaded_by_role=r.get("uploaded_by_role"),
+        )
+        for r in rows
+    ]
+    page, total = paginate(scans, limit=limit, offset=offset)
+    return PaginatedResponse(items=page, total=total, limit=limit, offset=offset)
 
 
 # --------------------------------------------------------------------------- #

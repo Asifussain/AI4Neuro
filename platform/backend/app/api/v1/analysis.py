@@ -107,7 +107,7 @@ async def create_analysis(
     file: UploadFile = File(...),
     modality: str = Form(...),
     analysis_type: str = Form(...),
-    patient_id: str = Form(...),
+    patient_id: str | None = Form(default=None),
     doctor_id: str | None = Form(default=None),
     hospital_id: str | None = Form(default=None),
     radiologist_id: str | None = Form(default=None),
@@ -126,6 +126,22 @@ async def create_analysis(
 
     if not permissions.can_create_analysis(principal.role, modality):
         raise _forbid(f"Your role may not create {modality} analyses.")
+
+    # Anonymous ("outsider") scans: only a super_admin may run an analysis with
+    # no patient record. Everyone else must name a real patient. An anonymous
+    # sentinel or empty value collapses to a NULL patient_id (and, for
+    # super_admin, an implicitly hospital-less session — see below).
+    _ANON = {"", "anonymous", "__anonymous__", "none"}
+    is_anonymous_patient = not patient_id or patient_id.strip().lower() in _ANON
+    if is_anonymous_patient:
+        if principal.role != "super_admin":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "patient_required", "message": "A patient is required for this analysis."},
+            )
+        patient_id = None
+    if doctor_id and doctor_id.strip().lower() in _ANON:
+        doctor_id = None
 
     data = await file.read()
     if len(data) > settings.max_upload_bytes:
@@ -352,6 +368,21 @@ def get_reports(
         principal.user_id, principal.role, principal.hospital_id, session
     ):
         raise _forbid("You do not have access to these reports.")
+
+    # A patient may only open their reports once their assigned doctor has
+    # approved their report-access request (doc: report access flow). Other
+    # roles (doctor/radiologist/admin/super_admin) are unaffected.
+    if principal.role == "patient":
+        grant = db.get_report_access_by_patient(principal.user_id)
+        if not grant or grant.get("status") != "approved":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "report_access_pending",
+                    "message": "Your doctor has not yet approved your request to view reports.",
+                },
+            )
+
     reports = db.get_reports(session_id) or {}
     return ReportsResponse(
         session_id=session_id,

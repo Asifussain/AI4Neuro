@@ -300,10 +300,40 @@ export interface HospitalAdminProfileDetail {
   recent_sessions: SessionStatusResponse[];
 }
 
+export interface ScanRow {
+  id: string;
+  modality: string;
+  analysis_type: string;
+  status: string;
+  created_at?: string | null;
+  patient_id?: string | null;
+  patient_name?: string | null;
+  doctor_id?: string | null;
+  doctor_name?: string | null;
+  radiologist_id?: string | null;
+  radiologist_name?: string | null;
+  hospital_id?: string | null;
+  hospital_name?: string | null;
+  uploaded_by_role?: string | null;
+}
+
 export const adminApi = {
   // -- Analytics ---------------------------------------------------------- //
   platformAnalytics(): Promise<PlatformAnalytics> {
     return apiClient.get<PlatformAnalytics>('/api/v1/platform/analytics');
+  },
+  /** Every scan across the platform, enriched with patient/doctor/hospital
+   * names — for the Super Admin "View Scans" table. */
+  scans(params: { modality?: string; status?: string; hospitalId?: string } & ListParams = {}): Promise<Paginated<ScanRow>> {
+    return apiClient.get<Paginated<ScanRow>>(
+      `/api/v1/platform/scans${qs({
+        modality: params.modality,
+        status: params.status,
+        hospital_id: params.hospitalId,
+        limit: params.limit,
+        offset: params.offset,
+      })}`
+    );
   },
   hospitalAnalytics(hospitalId?: string): Promise<HospitalAnalytics> {
     return apiClient.get<HospitalAnalytics>(

@@ -289,3 +289,43 @@ def test_platform_users_list_paginated_envelope(client, db_service):
     assert page["limit"] == 2
     assert page["offset"] == 1
     assert len(page["items"]) == 2
+
+
+def test_platform_scans_enriches_names(client, db_service):
+    h1 = db_service.create_hospital(_hospital_payload("H1"))
+    doc = db_service.create_user_profile(
+        {
+            "id": "doc1", "hospital_id": h1["id"], "unique_identifier": "DOC-1",
+            "full_name": "Dr. Who", "email": "who@example.com", "phone": "1",
+            "role": "doctor", "account_status": "active",
+        }
+    )
+    pat = db_service.create_user_profile(
+        {
+            "id": "pat1", "hospital_id": h1["id"], "unique_identifier": "PAT-1",
+            "full_name": "Pat Patient", "email": "pat@example.com", "phone": "1",
+            "role": "patient", "account_status": "active",
+        }
+    )
+    db_service.create_session(
+        modality="mri", analysis_type="multiclass", original_filename="x.nii.gz",
+        patient_id=pat["id"], doctor_id=doc["id"], hospital_id=h1["id"],
+    )
+
+    res = client.get("/api/v1/platform/scans")
+    assert res.status_code == 200
+    items = res.json()["items"]
+    assert len(items) == 1
+    row = items[0]
+    assert row["modality"] == "mri"
+    assert row["patient_name"] == "Pat Patient"
+    assert row["doctor_name"] == "Dr. Who"
+    assert row["hospital_name"] == "General Hospital"
+
+
+def test_platform_scans_forbidden_for_hospital_admin(client, db_service):
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id="ha1", role="admin", hospital_id="h1", is_dev=False
+    )
+    res = client.get("/api/v1/platform/scans")
+    assert res.status_code == 403

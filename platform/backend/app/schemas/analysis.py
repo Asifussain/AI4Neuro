@@ -88,6 +88,27 @@ class SessionStatusResponse(BaseModel):
         return self.status in TERMINAL_STATUSES
 
 
+class ScanRow(BaseModel):
+    """A single analysis session enriched with the display names the Super
+    Admin "View Scans" table needs, so the frontend doesn't have to resolve
+    patient/doctor/hospital ids one lookup at a time."""
+
+    id: str
+    modality: str
+    analysis_type: str
+    status: str
+    created_at: datetime | None = None
+    patient_id: str | None = None
+    patient_name: str | None = None
+    doctor_id: str | None = None
+    doctor_name: str | None = None
+    radiologist_id: str | None = None
+    radiologist_name: str | None = None
+    hospital_id: str | None = None
+    hospital_name: str | None = None
+    uploaded_by_role: str | None = None
+
+
 class ReportUrls(BaseModel):
     patient: str | None = None
     clinician: str | None = None

@@ -58,6 +58,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Doctors', href: '/super-admin/users?role=doctor', icon: Stethoscope },
     { label: 'Radiologists', href: '/super-admin/users?role=radiologist', icon: Brain },
     { label: 'Patients', href: '/super-admin/users?role=patient', icon: Users },
+    { label: 'View Scans', href: '/super-admin/scans', icon: ScanLine },
     { label: 'Settings', href: '/profile', icon: Settings },
   ],
   admin: [

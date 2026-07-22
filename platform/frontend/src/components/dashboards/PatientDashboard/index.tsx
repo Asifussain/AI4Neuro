@@ -44,6 +44,7 @@ import {
   AlertList,
   DashboardPageHeader,
 } from '@/components/dashboards/shared/primitives';
+import { PatientReportAccessCard } from '@/components/dashboards/shared/PatientReportAccessCard';
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/patient/dashboard', icon: LayoutGrid },
@@ -617,6 +618,9 @@ export const PatientDashboard: React.FC = () => {
         description="Read-only view for personal diagnosis summaries and downloadable reports."
         accent="green"
       />
+
+      {/* Report access — request from the assigned doctor before reports open */}
+      <PatientReportAccessCard />
 
       {/* Stats */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">

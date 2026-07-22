@@ -14,6 +14,8 @@ interface RoleProfile {
   license_number?: string;
   specialization?: string;
   hospitals?: { name?: string };
+  hospital_id?: string | null;
+  hospital_name?: string | null;
   years_of_experience?: number;
   admin_level?: string;
   patient_code?: string;
@@ -26,6 +28,7 @@ interface UserProfile {
   role: Role;
   phone?: string;
   avatar_url?: string;
+  hospital_id?: string | null;
   account_status: 'active' | 'inactive' | 'suspended';
   roleProfile?: RoleProfile | null;
 }
@@ -95,6 +98,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             role: (backendUser.role || profileBag.role || 'patient') as Role,
             phone: backendUser.phone || profileBag.phone || '',
             avatar_url: backendUser.avatar_url || profileBag.avatar_url || '',
+            // hospital_id is on user_profiles, not the role-detail tables — carry
+            // it through so profile/dashboard views can resolve the hospital name
+            // instead of showing "Not provided".
+            hospital_id: backendUser.hospital_id ?? profileBag.hospital_id ?? null,
             account_status: backendUser.account_status || 'active',
             roleProfile: profileBag.roleProfile || null,
           };

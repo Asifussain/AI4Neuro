@@ -59,7 +59,7 @@ class DatabaseService:
         modality: str,
         analysis_type: str,
         original_filename: str,
-        patient_id: str,
+        patient_id: str | None = None,
         doctor_id: str | None = None,
         radiologist_id: str | None = None,
         hospital_id: str | None = None,
@@ -495,6 +495,76 @@ class DatabaseService:
         self.client.table("doctor_patient_relationships").delete().eq(
             "id", relationship_id
         ).execute()
+
+    # -------------------- report-access requests -------------------------- #
+
+    def get_report_access_by_patient(self, patient_id: str) -> dict | None:
+        res = (
+            self.client.table("report_access_requests")
+            .select("*")
+            .eq("patient_id", patient_id)
+            .maybe_single()
+            .execute()
+        )
+        return _one(res)
+
+    def upsert_report_access_request(
+        self, *, patient_id: str, doctor_id: str | None, hospital_id: str | None, status: str
+    ) -> dict:
+        """Create or update the single per-patient report-access record."""
+        existing = self.get_report_access_by_patient(patient_id)
+        if existing:
+            patch = {
+                "doctor_id": doctor_id,
+                "hospital_id": hospital_id,
+                "status": status,
+                "updated_at": _now(),
+            }
+            self.client.table("report_access_requests").update(patch).eq(
+                "id", existing["id"]
+            ).execute()
+            return self.get_report_access(existing["id"]) or {**existing, **patch}
+        row = {
+            "patient_id": patient_id,
+            "doctor_id": doctor_id,
+            "hospital_id": hospital_id,
+            "status": status,
+        }
+        res = self.client.table("report_access_requests").insert(row).execute()
+        return _one(res) or {}
+
+    def get_report_access(self, request_id: str) -> dict | None:
+        res = (
+            self.client.table("report_access_requests")
+            .select("*")
+            .eq("id", request_id)
+            .maybe_single()
+            .execute()
+        )
+        return _one(res)
+
+    def list_report_access_requests(
+        self,
+        *,
+        doctor_id: str | None = None,
+        hospital_id: str | None = None,
+        status: str | None = None,
+    ) -> list[dict]:
+        query = self.client.table("report_access_requests").select("*")
+        if doctor_id:
+            query = query.eq("doctor_id", doctor_id)
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        if status:
+            query = query.eq("status", status)
+        res = query.execute()
+        return list(getattr(res, "data", None) or [])
+
+    def set_report_access_status(self, request_id: str, status: str) -> dict | None:
+        self.client.table("report_access_requests").update(
+            {"status": status, "decided_at": _now(), "updated_at": _now()}
+        ).eq("id", request_id).execute()
+        return self.get_report_access(request_id)
 
     # ---------------------------- audit log ------------------------------- #
 
