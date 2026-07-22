@@ -24,10 +24,17 @@
 -- still named `hospital_admin_profiles` and is intentionally left unchanged.
 -- =====================================================================
 
--- 1a. Rename any rows that 0003 migrated to `hospital_admin` back to `admin`.
+-- 1. Ensure the hospital audit column exists FIRST (the source of the
+--    "Could not find the 'created_by' column of 'hospitals' in the schema
+--    cache" error when 0003 had not been applied). It must exist before the
+--    technician cleanup below references it. Idempotent.
+alter table public.hospitals
+  add column if not exists created_by uuid references public.user_profiles(id);
+
+-- 2a. Rename any rows that 0003 migrated to `hospital_admin` back to `admin`.
 update public.user_profiles set role = 'admin' where role = 'hospital_admin';
 
--- 1b. Remove any leftover `technician` accounts. The multi-tenant refactor
+-- 2b. Remove any leftover `technician` accounts. The multi-tenant refactor
 --     removed the technician role entirely (see 0004_drop_technician.sql); on a
 --     database where 0004 was never run, these rows survive and would violate
 --     the tightened 5-role CHECK below. Their analysis attribution is preserved
@@ -51,17 +58,11 @@ begin
   end loop;
 end $$;
 
--- 2. Canonical 5-role CHECK using `admin` as the hospital-admin value.
+-- 3. Canonical 5-role CHECK using `admin` as the hospital-admin value.
 alter table public.user_profiles drop constraint if exists user_profiles_role_check;
 alter table public.user_profiles
   add constraint user_profiles_role_check
   check (role in ('super_admin','admin','doctor','radiologist','patient'));
-
--- 3. Ensure the hospital audit column exists (the source of the
---    "Could not find the 'created_by' column of 'hospitals' in the schema
---    cache" error when 0003 had not been applied). Idempotent.
-alter table public.hospitals
-  add column if not exists created_by uuid references public.user_profiles(id);
 
 -- 4. Force PostgREST (the Supabase REST/schema-cache layer) to reload its
 --    schema cache so newly added columns like hospitals.created_by become
