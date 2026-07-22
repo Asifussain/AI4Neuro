@@ -141,6 +141,7 @@ export function CreateUserDialog({
   const canSubmit =
     !!form.full_name &&
     !!form.email &&
+    !!form.phone &&
     !!form.role &&
     (hospitalId || hideHospitalPicker || form.role === 'super_admin' || !!form.hospital_id) &&
     // License number is mandatory for doctors only; optional for radiologists.
@@ -282,7 +283,9 @@ export function CreateUserDialog({
               </div>
             )}
             <div className="grid gap-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">
+                Phone <span className="text-red-600">*</span>
+              </Label>
               <Input
                 id="phone"
                 placeholder="+1 (555) 000-0000"
