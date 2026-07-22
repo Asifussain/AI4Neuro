@@ -420,19 +420,24 @@ function HospitalsPage() {
     }
   };
 
+  const removeHospital = (id: string) => {
+    setHospitals((prev) => (prev ? prev.filter((h) => h.id !== id) : prev));
+  };
+
   const handleDelete = async (h: Hospital) => {
     const confirm = await Swal.fire({
       icon: 'warning',
-      title: `Delete ${h.name}?`,
+      title: `Permanently delete ${h.name}?`,
       html:
-        'This is <b>permanent</b>. The hospital will be archived and <b>every account under it</b> — ' +
-        'hospital admins, doctors, radiologists, and patients — will be deleted and can <b>never log in again</b>. ' +
-        'This is not reversible by reactivating the hospital.',
+        'This <b>cannot be undone</b>. The hospital will be <b>removed entirely</b>, and ' +
+        '<b>every account under it</b> — hospital admins, doctors, radiologists, and patients — ' +
+        'along with all their data (scans, reports and logins) will be <b>deleted instantly</b>.<br/><br/>' +
+        'To only block logins temporarily instead, use <b>Suspend</b>.',
       input: 'text',
       inputPlaceholder: 'Type DELETE to confirm',
       inputValidator: (value) => (value === 'DELETE' ? null : 'Type DELETE to confirm'),
       showCancelButton: true,
-      confirmButtonText: 'Delete Hospital',
+      confirmButtonText: 'Delete permanently',
       cancelButtonText: 'Cancel',
       confirmButtonColor: '#dc2626',
     });
@@ -440,12 +445,12 @@ function HospitalsPage() {
 
     setBusyId(h.id);
     try {
-      const updated = await adminApi.deleteHospital(h.id);
-      patchHospital(updated);
+      await adminApi.deleteHospital(h.id);
+      removeHospital(h.id);
       Swal.fire({
         icon: 'success',
         title: `${h.name} deleted`,
-        text: 'The hospital and all its accounts have been removed.',
+        text: 'The hospital and all its accounts and data have been permanently removed.',
         timer: 2500,
         showConfirmButton: false,
       });

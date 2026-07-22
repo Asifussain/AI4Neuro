@@ -333,10 +333,10 @@ export const adminApi = {
   suspendHospital(id: string): Promise<Hospital> {
     return apiClient.post<Hospital>(`/api/v1/platform/hospitals/${id}/suspend`);
   },
-  /** Terminal delete: archives the hospital and terminally soft-deletes every
-   * account under it (they can never log in again). */
-  deleteHospital(id: string): Promise<Hospital> {
-    return apiClient.delete<Hospital>(`/api/v1/platform/hospitals/${id}`);
+  /** Permanent hard delete: removes the hospital and every account + record
+   * scoped to it (users, auth logins, sessions, reports). Irreversible. */
+  deleteHospital(id: string): Promise<void> {
+    return apiClient.delete<void>(`/api/v1/platform/hospitals/${id}`);
   },
 
   // -- Users ---------------------------------------------------------------- //
