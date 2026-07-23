@@ -340,6 +340,13 @@ def get_result(
             detail={"code": "result_not_ready", "message": "Result not available yet."},
         )
     reports = db.get_reports(session_id) or {}
+    visualizations = result.get("visualizations") or {}
+    # Re-sign explainability image URLs (signed URLs expire ~1h after write).
+    if visualizations.get("explainability"):
+        visualizations = {
+            **visualizations,
+            "explainability": storage.refresh_explainability(visualizations["explainability"]),
+        }
     return AnalysisResultResponse(
         session_id=session_id,
         modality=session["modality"],
@@ -350,7 +357,7 @@ def get_result(
         metrics=result.get("metrics") or {},
         similarity=result.get("similarity") or {},
         consistency=result.get("consistency") or {},
-        visualizations=result.get("visualizations") or {},
+        visualizations=visualizations,
         model_version=result.get("model_version"),
         report_urls=_report_urls(reports, storage),
     )

@@ -127,6 +127,39 @@ def test_generate_explainability_normal_case(tmp_path):
     assert "no significant" in payload["summary"].lower()
 
 
+def test_explainability_persists_to_storage_and_resigns(tmp_path):
+    """The in-process payload (base64 data-URIs) uploads to storage and comes
+    back as a JSON structure with signed image URLs, re-signable on read."""
+    from app.services.storage import StorageService
+    from tests.fake_supabase import FakeSupabase
+
+    slices = _make_slices(tmp_path)
+    preds = [
+        {"image_index": i, "image_path": f"slice_{i}.png", "predicted_class": "AD",
+         "probabilities": {"AD": 10 * i, "CN": 5, "MCI": 5}}
+        for i in range(1, 11)
+    ]
+    payload = ex.generate_explainability(
+        scan_path="x.nii.gz", slice_paths=slices, individual_predictions=preds,
+        predictor=_NoModelPredictor(),
+        ml_results={"hippocampal_volume": 2.5, "csf_volume": 400, "gm_volume": 400, "brain_volume": 1000},
+        prediction="AD", work_dir=str(tmp_path),
+    )
+    storage = StorageService(client=FakeSupabase())
+    web = storage.upload_explainability("sess-1", payload)
+    assert web and web["panels"]
+    assert web["regions"]
+    p0 = web["panels"][0]
+    assert p0["affected_url"] and p0["reference_url"]
+    assert "data:" not in p0["affected_url"]  # a stored URL, not raw base64
+    assert p0["observations"]
+    # None payload persists to None (nothing to store).
+    assert storage.upload_explainability("s", None) is None
+    # Re-signing preserves structure.
+    web2 = storage.refresh_explainability(web)
+    assert len(web2["panels"]) == len(web["panels"])
+
+
 def test_mri_report_renders_with_explainability(tmp_path):
     pytest.importorskip("matplotlib")
     from app.reports.mri import UnifiedPDFReport, build_unified_report
