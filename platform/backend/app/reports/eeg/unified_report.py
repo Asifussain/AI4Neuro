@@ -30,14 +30,8 @@ class UnifiedPDFReport(BasePDFReport):
         self.secondary_color = theme.BRAND
 
     def header(self):
-        theme.draw_letterhead(
-            self,
-            subtitle=self.report_title,
-            brand_name="AI4NEURO",
-            brand_tagline="a product by PraxiaTech",
-            monogram="A",
-            tagline_spaced=False,
-        )
+        hospital = (getattr(self, "comprehensive_data", None) or {}).get("hospital") or {}
+        theme.draw_clinical_letterhead(self, hospital, subtitle=self.report_title)
 
 
 BAND_DESCRIPTIONS = {
@@ -91,10 +85,12 @@ def build_unified_pdf_report_content(pdf: UnifiedPDFReport, comprehensive_data, 
 
         pdf.add_page()
 
-        if hospital_data:
-            pdf.add_hospital_header(hospital_data)
-        pdf.add_report_metadata_section("EEG COMPLETE ANALYSIS REPORT")
-        pdf.ln(3)
+        # Centered study title (hospital masthead already lives in the
+        # clinical letterhead, so the redundant hospital header is dropped).
+        pdf.set_font('Helvetica', 'B', 12.5)
+        pdf.set_text_color(*theme.INK)
+        pdf.cell(0, 7, "EEG PATTERN ANALYSIS - AI DIAGNOSTIC REPORT", 0, 1, 'C')
+        pdf.ln(2)
 
         # ---- Shared administrative sections (each appears once) --------- #
         pdf.add_patient_demographics_section()
