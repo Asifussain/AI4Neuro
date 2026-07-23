@@ -275,6 +275,14 @@ def list_my_patients(
     my_patient_ids = {
         str(r["patient_id"]) for r in relationships if str(r.get("doctor_id")) == str(principal.user_id)
     }
+    # An analysis that names this doctor implicitly makes that patient one of the
+    # doctor's patients — the patient selected during the analysis is assigned to
+    # the chosen doctor. Union those in so "My Patients" reflects every analysis
+    # routed to this doctor, even without a formal doctor_patient_relationships
+    # row (e.g. analyses created by a radiologist who picked this doctor).
+    for s in db.list_sessions(doctor_id=principal.user_id):
+        if s.get("patient_id"):
+            my_patient_ids.add(str(s["patient_id"]))
     entries: list[PatientDirectoryEntry] = []
     if my_patient_ids:
         users = db.list_user_profiles(

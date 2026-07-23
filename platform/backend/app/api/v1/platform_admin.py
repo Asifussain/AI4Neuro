@@ -414,6 +414,14 @@ def get_doctor_detail(
     active_patient_ids = {
         str(r["patient_id"]) for r in relationships if r.get("relationship_status") == "active"
     }
+    sessions = db.list_sessions(doctor_id=doctor_id)
+    sessions.sort(key=lambda r: str(r.get("created_at") or ""), reverse=True)
+    # A patient named on any analysis routed to this doctor counts as one of the
+    # doctor's patients too (the analysis assigns that patient to the doctor),
+    # so the profile's patient list matches the doctor's own "My Patients".
+    for s in sessions:
+        if s.get("patient_id"):
+            active_patient_ids.add(str(s["patient_id"]))
     hospital_patients = (
         db.list_user_profiles(hospital_id=hospital_id, role=Role.patient.value, exclude_deleted=True)
         if hospital_id
@@ -431,9 +439,6 @@ def get_doctor_detail(
         for p in hospital_patients
         if p["id"] in active_patient_ids
     ]
-
-    sessions = db.list_sessions(doctor_id=doctor_id)
-    sessions.sort(key=lambda r: str(r.get("created_at") or ""), reverse=True)
 
     return DoctorProfileDetail(
         id=user["id"],
