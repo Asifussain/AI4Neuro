@@ -71,6 +71,25 @@ function PatientProfilePageInner() {
         title={loading ? 'Loading…' : patient?.full_name || 'Patient'}
         description="Full read-only view of this patient's care team, scan history, and reports."
         accent="indigo"
+        timelineSteps={
+          patient
+            ? [
+                { label: 'Super Admin', href: '/super-admin/dashboard' },
+                { label: 'Hospitals', href: '/super-admin/hospitals' },
+                { label: patient.hospital_name || 'Hospital', href: patient.hospital_id ? `/super-admin/hospitals/${patient.hospital_id}` : undefined },
+                {
+                  label: 'Patients',
+                  href: patient.hospital_id
+                    ? `/super-admin/users?hospital=${patient.hospital_id}&role=patient`
+                    : '/super-admin/users?role=patient',
+                },
+                { label: patient.full_name, active: true },
+              ]
+            : [
+                { label: 'Super Admin', href: '/super-admin/dashboard' },
+                { label: 'Patient Profile', active: true },
+              ]
+        }
       />
 
       {error && (

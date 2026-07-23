@@ -66,6 +66,25 @@ function DoctorProfilePageInner() {
         title={loading ? 'Loading…' : doctor?.full_name || 'Doctor'}
         description="Full read-only view of this doctor's care team, activity, and reports."
         accent="indigo"
+        timelineSteps={
+          doctor
+            ? [
+                { label: 'Super Admin', href: '/super-admin/dashboard' },
+                { label: 'Hospitals', href: '/super-admin/hospitals' },
+                { label: doctor.hospital_name || 'Hospital', href: doctor.hospital_id ? `/super-admin/hospitals/${doctor.hospital_id}` : undefined },
+                {
+                  label: 'Doctors',
+                  href: doctor.hospital_id
+                    ? `/super-admin/users?hospital=${doctor.hospital_id}&role=doctor`
+                    : '/super-admin/users?role=doctor',
+                },
+                { label: doctor.full_name, active: true },
+              ]
+            : [
+                { label: 'Super Admin', href: '/super-admin/dashboard' },
+                { label: 'Doctor Profile', active: true },
+              ]
+        }
       />
 
       {error && (

@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   BarChart,
   Bar,
   XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -131,6 +134,8 @@ export function StatCard({
   onClick,
   href,
   size = 'default',
+  trendText,
+  isMain = false,
 }: {
   label: string;
   value: string | number;
@@ -142,35 +147,70 @@ export function StatCard({
   /** When provided, the whole card becomes a link to this route. */
   href?: string;
   size?: 'default' | 'lg';
+  trendText?: string;
+  isMain?: boolean;
 }) {
   const styles = ACCENT_STYLES[accent];
   const numericValue = typeof value === 'number' ? value : null;
   const animatedValue = useCountUp(numericValue ?? 0);
   const displayValue = numericValue !== null ? animatedValue : value;
+
   const content = (
-    <>
-      <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center mb-4', styles.solid)}>
-        <Icon className="h-5 w-5 text-white" />
+    <div className="relative flex flex-col justify-between h-full min-h-[110px]">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className={cn("text-xs font-semibold uppercase tracking-wider", isMain ? "text-white/80" : "text-slate-500")}>
+            {label}
+          </p>
+          {isLoading ? (
+            <div className={cn('mt-2 bg-slate-100/50 rounded animate-pulse', size === 'lg' ? 'h-10 w-20' : 'h-8 w-16')} />
+          ) : (
+            <p className={cn('font-bold mt-2 leading-none tracking-tight', isMain ? 'text-white' : 'text-slate-900', size === 'lg' ? 'text-4xl' : 'text-3xl')}>
+              {displayValue}
+            </p>
+          )}
+        </div>
+        <div className={cn(
+          'w-9 h-9 rounded-full flex items-center justify-center border transition-all duration-300',
+          isMain ? 'bg-white/20 border-white/20 text-white' : cn(styles.soft, 'border-slate-100', styles.text)
+        )}>
+          <ArrowUpRight className="h-4.5 w-4.5" />
+        </div>
       </div>
-      <p className="text-sm text-slate-500">{label}</p>
-      {isLoading ? (
-        <div className={cn('mt-1 bg-slate-100 rounded animate-pulse', size === 'lg' ? 'h-10 w-20' : 'h-8 w-16')} />
-      ) : (
-        <p className={cn('font-bold text-slate-900 mt-0.5', size === 'lg' ? 'text-4xl' : 'text-3xl')}>
-          {displayValue}
-        </p>
-      )}
-      {sublabel && <p className={cn('text-sm font-medium mt-1', styles.text)}>{sublabel}</p>}
-    </>
+
+      <div className="mt-4 flex items-center gap-1.5">
+        {trendText ? (
+          <span className={cn(
+            'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase',
+            isMain ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+          )}>
+            <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+            {trendText}
+          </span>
+        ) : sublabel ? (
+          <p className={cn('text-xs font-medium', isMain ? 'text-white/80' : styles.text)}>{sublabel}</p>
+        ) : null}
+      </div>
+    </div>
   );
+
+  const wrapperClass = isMain
+    ? cn(
+        'rounded-2xl border-0 bg-gradient-to-br shadow-md p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 text-white',
+        accent === 'indigo'
+          ? 'from-indigo-600 to-violet-700'
+          : accent === 'green'
+          ? 'from-emerald-600 to-teal-700'
+          : accent === 'teal'
+          ? 'from-teal-600 to-cyan-700'
+          : 'from-blue-600 to-indigo-700'
+      )
+    : 'p-5 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 bg-white border border-slate-200/80';
 
   if (href) {
     return (
       <SectionCard className="p-0 overflow-hidden">
-        <Link
-          href={href}
-          className="block p-5 hover:bg-slate-50/80 transition-colors cursor-pointer"
-        >
+        <Link href={href} className={cn("block", wrapperClass)}>
           {content}
         </Link>
       </SectionCard>
@@ -180,18 +220,18 @@ export function StatCard({
   if (onClick) {
     return (
       <SectionCard className="p-0 overflow-hidden">
-        <button
-          type="button"
-          onClick={onClick}
-          className="w-full text-left p-5 hover:bg-slate-50/80 transition-colors cursor-pointer"
-        >
+        <button type="button" onClick={onClick} className={cn("block w-full text-left", wrapperClass)}>
           {content}
         </button>
       </SectionCard>
     );
   }
 
-  return <SectionCard className="p-5">{content}</SectionCard>;
+  return (
+    <SectionCard className="p-0 overflow-hidden">
+      <div className={wrapperClass}>{content}</div>
+    </SectionCard>
+  );
 }
 
 // ============================================================================
@@ -325,21 +365,63 @@ export function MiniBarChart({
   color?: string;
   isLoading?: boolean;
 }) {
+  const gradientColors = useMemo(() => {
+    if (color === '#4f46e5' || color === 'indigo') return { start: '#818cf8', end: '#4f46e5' };
+    if (color === '#0d9488' || color === 'teal') return { start: '#2dd4bf', end: '#0d9488' };
+    if (color === '#2563eb' || color === 'blue') return { start: '#60a5fa', end: '#2563eb' };
+    if (color === '#059669' || color === 'green') return { start: '#34d399', end: '#059669' };
+    return { start: color, end: color };
+  }, [color]);
+
   if (isLoading) {
     return <div className="h-[220px] rounded-xl bg-slate-100 animate-pulse" />;
   }
+
   const summary = `Bar chart: ${data.map((d) => `${d.name} ${d.value}`).join(', ')}`;
+  const chartId = `bar-gradient-${color.replace('#', '')}`;
+
   return (
     <div role="img" aria-label={summary}>
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} barSize={18}>
+        <BarChart data={data} barSize={20} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
+          <defs>
+            <linearGradient id={chartId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={gradientColors.start} stopOpacity={1} />
+              <stop offset="100%" stopColor={gradientColors.end} stopOpacity={0.85} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
           <XAxis
             dataKey="name"
             tickLine={false}
             axisLine={false}
-            tick={{ fill: '#64748b', fontSize: 12 }}
+            tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 500 }}
+            dy={8}
           />
-          <Bar dataKey={dataKey} fill={color} radius={[6, 6, 0, 0]} />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 500 }}
+            dx={-8}
+          />
+          <Tooltip
+            cursor={{ fill: 'rgba(241, 245, 249, 0.4)', radius: 4 }}
+            content={({ active, payload, label }) => {
+              if (active && payload && payload.length) {
+                return (
+                  <div className="bg-slate-900/95 backdrop-blur border border-slate-800 px-3 py-2 rounded-xl shadow-xl text-white">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">{label}</p>
+                    <p className="text-xs font-black mt-0.5 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      {payload[0].value.toLocaleString()}
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            }}
+          />
+          <Bar dataKey={dataKey} fill={`url(#${chartId})`} radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -411,25 +493,61 @@ export function DonutLegend({
 // ============================================================================
 // PAGE HEADER
 // ============================================================================
+export interface TimelineStep {
+  label: string;
+  href?: string;
+  active?: boolean;
+}
+
 export function DashboardPageHeader({
   eyebrow,
   title,
   description,
   accent = 'blue',
+  timelineSteps,
 }: {
   eyebrow: string;
   title: string;
   description: string;
   accent?: Accent;
+  timelineSteps?: TimelineStep[];
 }) {
   const styles = ACCENT_STYLES[accent];
   return (
     <SectionCard className="p-6 md:p-8 relative overflow-hidden">
       <div className={cn('absolute inset-0 opacity-[0.05] bg-gradient-to-br', styles.gradient)} />
       <div className="relative">
-        <span className={cn('text-xs font-bold uppercase tracking-wider', styles.text)}>
-          {eyebrow}
-        </span>
+        {timelineSteps && timelineSteps.length > 0 ? (
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider mb-2.5 flex-wrap">
+            {timelineSteps.map((step, idx) => (
+              <React.Fragment key={idx}>
+                {idx > 0 && <span className="text-slate-400">→</span>}
+                {step.active ? (
+                  <span className="text-emerald-700 font-extrabold bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded shadow-sm">
+                    {step.label}
+                  </span>
+                ) : step.href ? (
+                  <Link
+                    href={step.href}
+                    className={cn(
+                      'font-bold transition-all hover:underline',
+                      styles.text,
+                      'hover:brightness-90'
+                    )}
+                  >
+                    {step.label}
+                  </Link>
+                ) : (
+                  <span className="text-slate-500 font-semibold">{step.label}</span>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        ) : (
+          <span className={cn('text-xs font-bold uppercase tracking-wider', styles.text)}>
+            {eyebrow}
+          </span>
+        )}
         <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mt-1">{title}</h1>
         <p className="text-slate-500 mt-2 max-w-xl">{description}</p>
       </div>

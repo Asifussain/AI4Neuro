@@ -170,6 +170,17 @@ export default function DoctorPatientDetailPage({ params }: { params: Promise<{ 
             </Button>
             <div className="h-6 w-px bg-border" />
             <div>
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-400">
+                <Link href="/doctor/dashboard" className="text-violet-600 hover:text-violet-800 transition-colors hover:underline">
+                  Doctor Dashboard
+                </Link>
+                <span>→</span>
+                <span>Patients</span>
+                <span>→</span>
+                <span className="text-emerald-600 font-extrabold bg-emerald-50 border border-emerald-200/50 px-2 py-0.5 rounded">
+                  {patientName}
+                </span>
+              </div>
               <h1 className="text-xl lg:text-2xl font-bold text-foreground flex items-center gap-2">
                 <User className="h-5 w-5 lg:h-6 lg:w-6 text-purple-500" />
                 <GradientText>{patientName}</GradientText>

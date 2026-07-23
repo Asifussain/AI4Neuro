@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { DashboardShell } from '@/components/dashboards/shared/DashboardShell';
+import { useAuth } from '@/components/providers/AuthProvider';
 import {
   SectionCard,
   StatCard as SharedStatCard,
@@ -432,6 +433,7 @@ function RowSkeleton() {
 // MAIN RADIOLOGIST DASHBOARD
 // ============================================================================
 export const RadiologistDashboard: React.FC = () => {
+  const { userProfile } = useAuth();
   // View state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
@@ -568,6 +570,11 @@ export const RadiologistDashboard: React.FC = () => {
         title="Radiologist Dashboard"
         description="Scan upload, imaging review, AI output validation, and technical reporting."
         accent="indigo"
+        timelineSteps={[
+          { label: userProfile?.roleProfile?.hospitals?.name || 'Hospital' },
+          { label: 'Radiologists', href: '/profile' },
+          { label: userProfile?.full_name || 'Radiologist', active: true }
+        ]}
       />
 
       {statsError && (
@@ -582,7 +589,7 @@ export const RadiologistDashboard: React.FC = () => {
           <>{[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}</>
         ) : (
           <>
-            <SharedStatCard label="Total Scans" value={stats?.totalScans || allSessions.length} icon={Activity} sublabel="All-time processed" accent="indigo" />
+            <SharedStatCard label="Total Scans" value={stats?.totalScans || allSessions.length} icon={Activity} sublabel="All-time processed" accent="indigo" isMain={true} />
             <SharedStatCard label="Processing" value={stats?.processingScans || allSessions.filter((s) => s.status === 'processing').length} icon={Clock} sublabel="Currently in queue" accent="indigo" />
             <SharedStatCard label="Completed Today" value={stats?.completedToday || 0} icon={CheckCircle2} sublabel="Finished today" accent="indigo" />
             <SharedStatCard label="This Week" value={stats?.completedThisWeek || 0} icon={CalendarDays} sublabel="Completed this week" accent="indigo" />

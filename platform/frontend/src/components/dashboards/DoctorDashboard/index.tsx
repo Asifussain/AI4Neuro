@@ -48,6 +48,7 @@ import {
   Cell,
 } from 'recharts';
 import { DashboardShell, type NavItem } from '@/components/dashboards/shared/DashboardShell';
+import { useAuth } from '@/components/providers/AuthProvider';
 import {
   SectionCard,
   StatCard as SharedStatCard,
@@ -490,6 +491,7 @@ function RowSkeleton() {
 // MAIN DOCTOR DASHBOARD
 // ============================================================================
 export const DoctorDashboard: React.FC = () => {
+  const { userProfile } = useAuth();
   // View state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
@@ -639,6 +641,11 @@ export const DoctorDashboard: React.FC = () => {
         title="Doctor Dashboard"
         description="Patient monitoring, AI prediction review, and clinical report workflows."
         accent="blue"
+        timelineSteps={[
+          { label: userProfile?.roleProfile?.hospitals?.name || 'Hospital' },
+          { label: 'Doctors', href: '/doctor/dashboard' },
+          { label: userProfile?.full_name || 'Doctor', active: true }
+        ]}
       />
 
       {/* Pending report-access requests from this doctor's patients */}
@@ -656,7 +663,7 @@ export const DoctorDashboard: React.FC = () => {
           <>{[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}</>
         ) : (
           <>
-            <SharedStatCard label="Assigned Patients" value={stats?.totalPatients || 0} icon={Users} sublabel={`Dr. ${doctorName}`} accent="blue" />
+            <SharedStatCard label="Assigned Patients" value={stats?.totalPatients || 0} icon={Users} sublabel={`Dr. ${doctorName}`} accent="blue" isMain={true} />
             <SharedStatCard label="Pending Reviews" value={stats?.pendingReviews || 0} icon={ClipboardList} sublabel="Requiring attention" accent="blue" />
             <SharedStatCard label="Reports Generated" value={stats?.completedReviews || 0} icon={Activity} sublabel="All-time reviewed" accent="blue" />
             <SharedStatCard label="This Month" value={stats?.thisMonthScans || 0} icon={TrendingUp} sublabel={specialization} accent="blue" />

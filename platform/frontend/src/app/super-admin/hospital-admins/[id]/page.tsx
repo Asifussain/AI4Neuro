@@ -74,6 +74,25 @@ function HospitalAdminProfilePageInner() {
         title={loading ? 'Loading…' : admin?.full_name || 'Hospital Admin'}
         description="Read-only view of this hospital admin's complete hospital dashboard."
         accent="indigo"
+        timelineSteps={
+          admin
+            ? [
+                { label: 'Super Admin', href: '/super-admin/dashboard' },
+                { label: 'Hospitals', href: '/super-admin/hospitals' },
+                { label: admin.hospital_name || 'Hospital', href: admin.hospital_id ? `/super-admin/hospitals/${admin.hospital_id}` : undefined },
+                {
+                  label: 'Hospital Admins',
+                  href: admin.hospital_id
+                    ? `/super-admin/users?hospital=${admin.hospital_id}&role=admin`
+                    : '/super-admin/users?role=admin',
+                },
+                { label: admin.full_name, active: true },
+              ]
+            : [
+                { label: 'Super Admin', href: '/super-admin/dashboard' },
+                { label: 'Hospital Admin Profile', active: true },
+              ]
+        }
       />
 
       {error && (

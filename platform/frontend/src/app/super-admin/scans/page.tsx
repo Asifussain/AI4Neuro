@@ -65,6 +65,10 @@ function ScansPage() {
         title="View Scans"
         description="Every MRI and EEG analysis performed across all hospitals on the platform."
         accent="indigo"
+        timelineSteps={[
+          { label: 'Super Admin', href: '/super-admin/dashboard' },
+          { label: 'View Scans', active: true }
+        ]}
       />
 
       {error && (

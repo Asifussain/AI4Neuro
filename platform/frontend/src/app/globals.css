@@ -329,3 +329,13 @@
 .status-error {
   @apply w-2 h-2 rounded-full bg-red-500;
 }
+
+/* Hide Next.js Dev Indicator and static route watermark */
+nextjs-portal,
+#nextjs-portal,
+.__next-prerender-indicator,
+[data-nextjs-scroll-focus-boundary] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}

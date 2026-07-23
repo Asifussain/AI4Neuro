@@ -468,6 +468,10 @@ function HospitalsPage() {
         title="Hospitals"
         description="All hospitals onboarded on the platform, with their status and contact details."
         accent="indigo"
+        timelineSteps={[
+          { label: 'Super Admin', href: '/super-admin/dashboard' },
+          { label: 'Hospitals', active: true }
+        ]}
       />
 
       {error && (

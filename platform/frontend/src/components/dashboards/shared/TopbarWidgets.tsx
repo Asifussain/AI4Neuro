@@ -195,17 +195,24 @@ export function ProfileMenu({ accent }: { accent: Accent }) {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Account menu"
-        className={cn(
-          'w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0 overflow-hidden border border-slate-200 shadow-sm',
-          !avatarUrl && styles.solid
-        )}
-        title={displayName}
+        className="flex items-center gap-3 px-2.5 py-1.5 rounded-full hover:bg-slate-100/80 transition-colors"
       >
-        {avatarUrl ? (
-          <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
-        ) : (
-          initials
-        )}
+        <div
+          className={cn(
+            'w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0 overflow-hidden border border-slate-200 shadow-sm',
+            !avatarUrl && styles.solid
+          )}
+        >
+          {avatarUrl ? (
+            <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+          ) : (
+            initials
+          )}
+        </div>
+        <div className="hidden sm:block text-left">
+          <p className="text-sm font-bold text-slate-800 leading-none">{displayName}</p>
+          <p className="text-[11px] text-slate-500 leading-tight mt-0.5">{user?.email || ''}</p>
+        </div>
       </button>
 
       {open && (

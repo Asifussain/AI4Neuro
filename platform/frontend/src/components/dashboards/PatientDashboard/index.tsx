@@ -628,7 +628,7 @@ export const PatientDashboard: React.FC = () => {
           <>{[1, 2, 3].map((i) => <StatCardSkeleton key={i} />)}</>
         ) : (
           <>
-            <StatCard label="Total Scans" value={stats?.totalScans || 0} icon={Activity} sublabel="All-time scans" accent="green" isLoading={statsLoading} />
+            <StatCard label="Total Scans" value={stats?.totalScans || 0} icon={Activity} sublabel="All-time scans" accent="green" isLoading={statsLoading} isMain={true} />
             <StatCard label="Completed" value={stats?.completedScans || 0} icon={CheckCircle} sublabel="Successfully analyzed" accent="green" isLoading={statsLoading} />
             <StatCard label="Last Scan" value={stats?.latestScanDate ? new Date(stats.latestScanDate).toLocaleDateString() : 'N/A'} icon={Calendar} sublabel="Most recent scan" accent="green" isLoading={statsLoading} />
           </>

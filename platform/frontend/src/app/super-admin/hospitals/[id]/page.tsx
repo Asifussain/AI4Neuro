@@ -88,6 +88,18 @@ function HospitalDetailPageInner() {
         title={hospital?.name ?? (loading ? 'Loading…' : 'Hospital')}
         description="Drill into every account and record that belongs to this hospital."
         accent="indigo"
+        timelineSteps={
+          hospital
+            ? [
+                { label: 'Super Admin', href: '/super-admin/dashboard' },
+                { label: 'Hospitals', href: '/super-admin/hospitals' },
+                { label: hospital.name, active: true },
+              ]
+            : [
+                { label: 'Super Admin', href: '/super-admin/dashboard' },
+                { label: 'Hospital', active: true },
+              ]
+        }
       />
 
       {error && (

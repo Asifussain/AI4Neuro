@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, Brain, CheckCircle2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import Swal from 'sweetalert2';
 
@@ -73,6 +73,7 @@ function getInitialQueryValue(key: string): string {
  */
 export function AnalysisUploadForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { userProfile } = useAuth();
 
   const [modality, setModality] = useState<Modality>(() => getInitialModality());
@@ -89,6 +90,22 @@ export function AnalysisUploadForm() {
   const [doctors, setDoctors] = useState<DoctorOption[]>([]);
   const [loadingAssociations, setLoadingAssociations] = useState(true);
   const [associationError, setAssociationError] = useState<string | null>(null);
+
+  // Sync state if URL query params change dynamically
+  useEffect(() => {
+    const requested = searchParams.get('modality');
+    if (requested === 'mri' || requested === 'eeg') {
+      setModality(requested);
+      const allowed = ANALYSIS_TYPES[requested].some((type) => type.value === analysisType);
+      if (!allowed) {
+        setAnalysisType(ANALYSIS_TYPES[requested][0].value);
+      }
+    }
+    const pid = searchParams.get('patient_id');
+    if (pid !== null) setPatientId(pid);
+    const did = searchParams.get('doctor_id');
+    if (did !== null) setDoctorId(did);
+  }, [searchParams, analysisType]);
 
   const analysisTypeOptions = useMemo(() => ANALYSIS_TYPES[modality], [modality]);
   const role = userProfile?.role;

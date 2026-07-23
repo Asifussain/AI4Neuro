@@ -284,6 +284,35 @@ function UserDirectoryInner({
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
 
+  const activeHospitalId = hospitalFilter || initialHospitalId;
+  const matchedHospital = hospitals?.find((h) => h.id === activeHospitalId);
+  const roleLabel = role === 'admin' ? 'Hospital Admins' :
+                    role === 'doctor' ? 'Doctors' :
+                    role === 'radiologist' ? 'Radiologists' :
+                    role === 'patient' ? 'Patients' : 'All Users';
+
+  let timelineSteps = undefined;
+  if (basePath.startsWith('/super-admin')) {
+    if (matchedHospital) {
+      timelineSteps = [
+        { label: 'Super Admin', href: '/super-admin/dashboard' },
+        { label: 'Hospitals', href: '/super-admin/hospitals' },
+        { label: matchedHospital.name, href: `/super-admin/hospitals/${matchedHospital.id}` },
+        { label: roleLabel, active: true },
+      ];
+    } else {
+      timelineSteps = [
+        { label: 'Super Admin', href: '/super-admin/dashboard' },
+        { label: roleLabel, active: true },
+      ];
+    }
+  } else if (basePath.startsWith('/admin')) {
+    timelineSteps = [
+      { label: 'Hospital Admin', href: '/admin/dashboard' },
+      { label: roleLabel, active: true },
+    ];
+  }
+
   const hospitalNameById = useMemo(
     () => Object.fromEntries((hospitals ?? []).map((h) => [h.id, h.name])),
     [hospitals]
@@ -380,6 +409,7 @@ function UserDirectoryInner({
         title={meta?.title ?? 'All Users'}
         description={meta?.description ?? fallbackDescription}
         accent={accent}
+        timelineSteps={timelineSteps}
       />
 
       {error && (

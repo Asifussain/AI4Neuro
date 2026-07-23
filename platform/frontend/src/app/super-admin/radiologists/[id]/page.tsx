@@ -66,6 +66,25 @@ function RadiologistProfilePageInner() {
         title={loading ? 'Loading…' : radiologist?.full_name || 'Radiologist'}
         description="Full read-only view of this radiologist's imaging workload and reports."
         accent="indigo"
+        timelineSteps={
+          radiologist
+            ? [
+                { label: 'Super Admin', href: '/super-admin/dashboard' },
+                { label: 'Hospitals', href: '/super-admin/hospitals' },
+                { label: radiologist.hospital_name || 'Hospital', href: radiologist.hospital_id ? `/super-admin/hospitals/${radiologist.hospital_id}` : undefined },
+                {
+                  label: 'Radiologists',
+                  href: radiologist.hospital_id
+                    ? `/super-admin/users?hospital=${radiologist.hospital_id}&role=radiologist`
+                    : '/super-admin/users?role=radiologist',
+                },
+                { label: radiologist.full_name, active: true },
+              ]
+            : [
+                { label: 'Super Admin', href: '/super-admin/dashboard' },
+                { label: 'Radiologist Profile', active: true },
+              ]
+        }
       />
 
       {error && (
