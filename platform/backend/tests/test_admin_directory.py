@@ -301,3 +301,30 @@ def test_list_my_patients_paginated_envelope(client, db_service):
     assert page["limit"] == 2
     assert page["offset"] == 1
     assert len(page["items"]) == 2
+
+
+def test_my_patients_includes_patient_from_analysis_without_relationship(client, db_service):
+    """A patient assigned to a doctor purely via an analysis (e.g. a radiologist
+    picked this doctor) must appear in the doctor's My Patients even with no
+    formal doctor_patient_relationships row."""
+    h1 = _hospital(db_service, "H1")
+    doctor = _doctor(db_service, h1["id"], name="Dr. A", email="a@x.com")
+    patient = _patient(db_service, h1["id"], name="Analysis Only", email="ao@x.com")
+
+    # No relationship row — only an analysis session naming this doctor.
+    db_service.create_session(
+        modality="mri",
+        analysis_type="multiclass",
+        original_filename="scan.nii.gz",
+        patient_id=patient["id"],
+        doctor_id=doctor["id"],
+        hospital_id=h1["id"],
+    )
+
+    client.app.dependency_overrides[get_current_user] = lambda: Principal(
+        user_id=doctor["id"], role="doctor", hospital_id=h1["id"], is_dev=False
+    )
+    res = client.get("/api/v1/hospital/patients/mine")
+    assert res.status_code == 200
+    items = res.json()["items"]
+    assert any(p["id"] == patient["id"] for p in items)
