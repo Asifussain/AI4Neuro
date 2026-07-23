@@ -280,7 +280,11 @@ def list_my_patients(
     # the chosen doctor. Union those in so "My Patients" reflects every analysis
     # routed to this doctor, even without a formal doctor_patient_relationships
     # row (e.g. analyses created by a radiologist who picked this doctor).
-    for s in db.list_sessions(doctor_id=principal.user_id):
+    #
+    # Scoped to the doctor's own hospital so platform-level (NULL-hospital)
+    # super-admin scans and any cross-hospital row can never contribute a
+    # patient here — strict tenant isolation, defence in depth.
+    for s in db.list_sessions(doctor_id=principal.user_id, hospital_id=principal.hospital_id):
         if s.get("patient_id"):
             my_patient_ids.add(str(s["patient_id"]))
     entries: list[PatientDirectoryEntry] = []
