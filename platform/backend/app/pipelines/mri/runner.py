@@ -122,4 +122,5 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
         model_version=ml.get("model_version", get_settings().mri_model_version),
         artifacts=artifacts,
         viewer_slices=viewer_slices,
+        explainability=ml.get("explainability"),
     )

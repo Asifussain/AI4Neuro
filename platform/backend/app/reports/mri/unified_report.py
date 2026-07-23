@@ -20,9 +20,47 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.reports.mri.utils import sanitize_for_pdf
+from app.reports.mri.utils import sanitize_for_pdf, calculate_age, format_date
 from app.pipelines.mri.config import DISEASE_INFO, NORMATIVE_VOLUMES, MODEL_VERSION
 from app.reports import theme
+from datetime import datetime as _dt
+
+
+def _add_patient_strip(pdf, data: Dict[str, Any]) -> None:
+    """Render the compact radiology-style patient information band from the real
+    patient / doctor / session records in ``comprehensive_data``."""
+    patient = (data or {}).get('patient') or {}
+    profile = (data or {}).get('patient_profile') or {}
+    doctor = (data or {}).get('doctor') or {}
+    session = (data or {}).get('session') or {}
+
+    dob = profile.get('date_of_birth') or patient.get('date_of_birth')
+    age = calculate_age(dob) if dob else None
+    sex = profile.get('gender') or patient.get('gender') or '-'
+    scan_date = session.get('scan_date') or session.get('session_date')
+
+    left_pairs = [
+        ("Age", f"{age} yrs" if age else "-"),
+        ("Sex", sex),
+    ]
+    if data.get('blood_group'):
+        left_pairs.append(("Blood", data.get('blood_group')))
+    mid_pairs = [
+        ("PID", profile.get('patient_code') or patient.get('unique_identifier') or "-"),
+        ("Study No", session.get('session_code') or "-"),
+        ("Ref By", doctor.get('full_name') or "-"),
+    ]
+    right_pairs = [
+        ("Reg. on", format_date(scan_date, 'date_only') if scan_date else "-"),
+        ("Reported", _dt.now().strftime("%d %b, %Y")),
+    ]
+    theme.patient_info_strip(
+        pdf,
+        name=patient.get('full_name') or "Patient (Pending Identification)",
+        left_pairs=left_pairs,
+        mid_pairs=mid_pairs,
+        right_pairs=right_pairs,
+    )
 
 
 class UnifiedPDFReport(BaseMRIReport):
@@ -38,14 +76,8 @@ class UnifiedPDFReport(BaseMRIReport):
         self.secondary_color = theme.BRAND
 
     def header(self):
-        theme.draw_letterhead(
-            self,
-            subtitle=self.report_title,
-            brand_name="AI4NEURO",
-            brand_tagline="a product by PraxiaTech",
-            monogram="A",
-            tagline_spaced=False,
-        )
+        hospital = (getattr(self, "comprehensive_data", None) or {}).get("hospital") or {}
+        theme.draw_clinical_letterhead(self, hospital, subtitle=self.report_title)
 
     def add_signature_section(self):
         """Two dateless signature blocks: radiologist on the left, doctor on
@@ -86,13 +118,15 @@ def build_unified_report(
 
         pdf.add_page()
 
-        if hospital_data:
-            pdf.add_hospital_header(hospital_data)
-        pdf.add_report_metadata("MRI COMPLETE ANALYSIS REPORT")
-        pdf.ln(3)
+        # Centered study title (the hospital masthead is already in the
+        # letterhead, so the redundant hospital header/metadata is dropped).
+        pdf.set_font('Helvetica', 'B', 12.5)
+        pdf.set_text_color(*theme.INK)
+        pdf.cell(0, 7, "MRI BRAIN ANALYSIS - AI DIAGNOSTIC REPORT", 0, 1, 'C')
+        pdf.ln(1)
 
-        # ---- Shared administrative sections (each appears once) --------- #
-        pdf.add_patient_section()
+        # ---- Patient information strip (radiology-report style) ---------- #
+        _add_patient_strip(pdf, comprehensive_data)
 
         if patient_profile.get('medical_history'):
             if pdf.get_y() > pdf.h - 50:
@@ -239,6 +273,9 @@ def build_unified_report(
             pdf.set_text_color(*pdf.text_color_normal)
             pdf.ln(6)
 
+        # ---- AI Visual Explainability ------------------------------------- #
+        _add_explainability_section(pdf, prediction_data.get('explainability'))
+
         # ---- Clinical Recommendations -------------------------------------- #
         if pdf.get_y() > pdf.h - 80:
             pdf.add_page()
@@ -319,6 +356,126 @@ def build_unified_report(
         print(f"Error building unified MRI report: {e}")
         traceback.print_exc()
         _add_error_page(pdf, e)
+
+
+def _add_explainability_section(pdf, explainability) -> None:
+    """Render the AI Visual Explainability section: for each informative slice,
+    the Grad-CAM-highlighted patient image beside its healthy MNI152 reference,
+    with plain-language observations derived from the volumetric findings."""
+    if not explainability or not explainability.get('panels'):
+        return
+    try:
+        if pdf.get_y() > pdf.h - 100:
+            pdf.add_page()
+        pdf.section_title("AI Visual Explainability")
+        pdf.ln(2)
+
+        method = explainability.get('method', 'Grad-CAM (ConViT)')
+        regions = explainability.get('regions') or []
+        intro = [
+            ("bullet", f"**Method**: {method}. The colored heatmap marks the regions that contributed most to the AI prediction."),
+            ("bullet", "Each **patient slice (left)** is shown beside the anatomically-matched **healthy MNI152 reference (right)**."),
+        ]
+        if regions:
+            intro.append(("bullet", "**Clinically relevant regions assessed**: " + ", ".join(regions) + "."))
+        theme.info_panel(pdf, "How To Read This Section", intro)
+        pdf.ln(3)
+
+        for panel in explainability['panels']:
+            _render_explainability_panel(pdf, panel)
+
+        # Analysis-level observations (derived from the real volumetric
+        # comparison) shown once beneath the comparisons.
+        panels = explainability['panels']
+        observations = panels[0].get('observations') if panels else None
+        if observations:
+            if pdf.get_y() > pdf.h - 45:
+                pdf.add_page()
+            pdf.set_font('Helvetica', 'B', 9)
+            pdf.set_text_color(*pdf.text_color_dark)
+            pdf.cell(0, 5.5, "AI Observations", 0, 1, 'L')
+            pdf.set_font('Helvetica', '', 8.7)
+            pdf.set_text_color(*pdf.text_color_normal)
+            for obs in observations:
+                pdf.multi_cell(0, 4.8, sanitize_for_pdf(f"- {obs}"), align='L')
+            pdf.ln(1)
+
+        summary = explainability.get('summary')
+        if summary:
+            pdf.set_font('Helvetica', 'I', 8.3)
+            pdf.set_text_color(*pdf.text_color_light)
+            pdf.multi_cell(0, 4.6, sanitize_for_pdf(summary), align='L')
+            pdf.set_text_color(*pdf.text_color_normal)
+        pdf.ln(6)
+    except Exception as e:  # noqa: BLE001 - visual section must never fail the report
+        print(f"Explainability section error: {e}")
+
+
+def _render_explainability_panel(pdf, panel) -> None:
+    """One comparison row: affected patient slice (left) vs healthy reference
+    (right), column headers above and the slice caption below."""
+    gap = 6.0
+    usable = pdf.w - pdf.l_margin - pdf.r_margin
+    col_w = (usable - gap) / 2.0
+
+    # Ensure the whole row fits; otherwise start a fresh page.
+    if pdf.get_y() > pdf.h - (col_w + 30):
+        pdf.add_page()
+
+    left_x = pdf.l_margin
+    right_x = pdf.l_margin + col_w + gap
+
+    # Column headers.
+    y_top = pdf.get_y()
+    pdf.set_font('Helvetica', 'B', 8.3)
+    pdf.set_text_color(*pdf.text_color_dark)
+    pdf.set_xy(left_x, y_top)
+    pdf.cell(col_w, 5, "Patient MRI Slice (Affected)", 0, 0, 'C')
+    pdf.set_xy(right_x, y_top)
+    pdf.cell(col_w, 5, "Healthy Reference (MNI152)", 0, 1, 'C')
+
+    img_y = pdf.get_y() + 1
+    left_h = _place_data_uri_image(pdf, panel.get('affected_image'), left_x, img_y, col_w)
+    right_h = _place_data_uri_image(pdf, panel.get('reference_image'), right_x, img_y, col_w)
+    pdf.set_y(img_y + max(left_h, right_h, 12) + 2)
+
+    caption = panel.get('caption')
+    if caption:
+        pdf.set_font('Helvetica', 'I', 8)
+        pdf.set_text_color(*pdf.text_color_light)
+        pdf.cell(0, 4.5, sanitize_for_pdf(caption), 0, 1, 'L')
+        pdf.set_text_color(*pdf.text_color_normal)
+    pdf.ln(3)
+
+
+def _place_data_uri_image(pdf, data_uri, x: float, y: float, w: float) -> float:
+    """Place a base64 data-URI image at (x, y) with width ``w``; returns the
+    rendered height. Draws a light placeholder box when the image is missing."""
+    import base64
+    import io as _io
+
+    if not data_uri or not isinstance(data_uri, str):
+        pdf.set_draw_color(210, 210, 210)
+        pdf.rect(x, y, w, w * 0.9)
+        pdf.set_font('Helvetica', 'I', 7)
+        pdf.set_text_color(*pdf.text_color_light)
+        pdf.set_xy(x, y + w * 0.42)
+        pdf.cell(w, 5, "(image unavailable)", 0, 0, 'C')
+        pdf.set_text_color(*pdf.text_color_normal)
+        return w * 0.9
+    try:
+        raw = data_uri.split(',', 1)[1] if data_uri.startswith('data:') else data_uri
+        img_bytes = base64.b64decode(raw)
+        from PIL import Image
+        pil = Image.open(_io.BytesIO(img_bytes))
+        iw, ih = pil.size
+        pil.close()
+        aspect = (ih / iw) if iw else 0.9
+        pdf.image(_io.BytesIO(img_bytes), x=x, y=y, w=w)
+        return w * aspect
+    except Exception as e:  # noqa: BLE001
+        print(f"Explainability image error: {e}")
+        return 12.0
 
 
 def _patient_framing(prediction: str):

@@ -211,6 +211,9 @@ def _mri_ml_results(result: PipelineResult, session: dict) -> dict:
         "analysis_type": session.get("analysis_type"),
         "processing_time": _processing_seconds(m.get("processing_time_ms")),
         "used_cat12": m.get("used_cat12"),
+        # In-process visual-explainability payload (Grad-CAM overlays + MNI152
+        # reference slices + observations); never persisted to the DB.
+        "explainability": result.explainability,
     }
 
 

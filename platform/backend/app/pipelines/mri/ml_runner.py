@@ -93,7 +93,7 @@ def run_model(scan_path: str, analysis_type: str = 'multiclass') -> Dict[str, An
 
     volumes = _generate_consistent_volumes(predicted_label)
 
-    return {
+    result = {
         'prediction': predicted_label,
         'confidence': confidence,
         'probabilities': list(probabilities_by_class.values()),
@@ -110,6 +110,26 @@ def run_model(scan_path: str, analysis_type: str = 'multiclass') -> Dict[str, An
         'model_version': 'ConViT-v1.0',
         'status': 'success'
     }
+
+    # --- Step 3: Visual explainability (Grad-CAM overlays + MNI152 reference) ---
+    # Non-fatal: any failure just omits the visual section from the report.
+    try:
+        from app.pipelines.mri.explainability import generate_explainability
+
+        result['explainability'] = generate_explainability(
+            scan_path=str(processed_path),
+            slice_paths=slice_paths,
+            individual_predictions=prediction_result.get('individual_predictions', []),
+            predictor=predictor,
+            ml_results=result,
+            prediction=predicted_label,
+            work_dir=os.path.dirname(str(processed_path)),
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Explainability generation skipped: %s", e)
+        result['explainability'] = None
+
+    return result
 
 def get_volume_comparison(ml_results: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     """Compare measured volumes with normative ranges."""

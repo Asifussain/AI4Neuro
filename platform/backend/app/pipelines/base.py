@@ -61,6 +61,11 @@ class PipelineResult(BaseModel):
     # {"axial": ["/tmp/.../axial/slice_000.png", ...]}. Uploaded to the
     # viewer-slices bucket; surfaced as visualizations.viewer_slice_urls.
     viewer_slices: dict[str, list[str]] = Field(default_factory=dict)
+    # In-process visual-explainability payload (Grad-CAM overlay + MNI152
+    # reference data-URIs + observations) consumed by the report builder. Held
+    # here rather than in ``metrics`` so the large base64 images are NEVER
+    # persisted to the DB (mirrors how chart artifacts stay out of metrics).
+    explainability: dict | None = None
 
 
 class Pipeline(Protocol):
