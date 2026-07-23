@@ -7,7 +7,8 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-import type { AnalysisResultResponse } from '../types';
+import type { AnalysisResultResponse, Explainability } from '../types';
+import { ExplainabilityPanel } from './ExplainabilityPanel';
 
 // Heavy viewers — client-only, loaded on demand.
 const RealMRIViewer = dynamic(
@@ -132,6 +133,13 @@ export function AnalysisResultPanel({ result }: { result: AnalysisResultResponse
           </CardContent>
         </Card>
       )}
+
+      {result.modality === 'mri' && (viz.explainability as Explainability | undefined)?.panels?.length ? (
+        <ExplainabilityPanel
+          explainability={viz.explainability as Explainability}
+          variant={viewerMode === 'patient' ? 'patient' : 'clinical'}
+        />
+      ) : null}
 
       {result.modality === 'mri' && (
         <Card>

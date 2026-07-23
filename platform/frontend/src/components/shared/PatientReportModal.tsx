@@ -16,6 +16,8 @@
 import React from 'react';
 import { X, Printer, Brain, Waves, ShieldCheck, HeartPulse, Lightbulb, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ExplainabilityPanel } from '@/features/analysis/components/ExplainabilityPanel';
+import type { Explainability } from '@/features/analysis/types';
 
 type Modality = 'mri' | 'eeg';
 
@@ -31,6 +33,7 @@ export interface PatientReportData {
   // Result
   prediction?: string | null; // CN | MCI | AD | Normal | Alzheimer's
   confidence?: number | null; // 0..1
+  explainability?: Explainability | null;
   // Patient
   patientName?: string | null;
   patientCode?: string | null;
@@ -278,6 +281,11 @@ export function PatientReportModal({ data, onClose }: PatientReportModalProps) {
               </section>
             </div>
           )}
+
+          {/* AI visual explainability (patient-friendly) */}
+          {data.explainability?.panels?.length ? (
+            <ExplainabilityPanel explainability={data.explainability} variant="patient" />
+          ) : null}
 
           {/* Notes from doctor */}
           {data.notes && (

@@ -65,6 +65,21 @@ export interface ReportUrls {
   technical?: string | null;
 }
 
+export interface ExplainabilityPanel {
+  plane?: string | null;
+  caption?: string | null;
+  observations?: string[];
+  affected_url?: string | null;
+  reference_url?: string | null;
+}
+
+export interface Explainability {
+  method?: string | null;
+  regions?: string[];
+  summary?: string | null;
+  panels?: ExplainabilityPanel[];
+}
+
 export interface AnalysisResultResponse {
   session_id: string;
   modality: Modality;

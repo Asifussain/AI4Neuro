@@ -103,6 +103,69 @@ class StorageService:
                 urls[orientation] = orientation_urls
         return urls
 
+    def upload_explainability(self, session_id: str, explainability: dict | None) -> dict | None:
+        """Persist the in-process explainability payload (Grad-CAM overlays +
+        MNI152 reference images, held as base64 data-URIs) to storage so the web
+        viewers can render the same visual evidence as the PDF.
+
+        Returns a JSON-serialisable structure with signed image URLs (or
+        ``None`` when there's nothing to persist)::
+
+            {"method", "regions", "summary",
+             "panels": [{"plane", "caption", "observations",
+                         "affected_url", "reference_url"}, ...]}
+        """
+        if not explainability or not explainability.get("panels"):
+            return None
+        import base64
+
+        bucket = self._settings.report_assets_bucket
+        panels_out: list[dict] = []
+        for i, panel in enumerate(explainability.get("panels", [])):
+            out = {
+                "plane": panel.get("plane"),
+                "caption": panel.get("caption"),
+                "observations": panel.get("observations") or [],
+                "affected_url": None,
+                "reference_url": None,
+            }
+            for key, dst in (("affected_image", "affected_url"), ("reference_image", "reference_url")):
+                data_uri = panel.get(key)
+                if not data_uri or not isinstance(data_uri, str):
+                    continue
+                try:
+                    raw = data_uri.split(",", 1)[1] if data_uri.startswith("data:") else data_uri
+                    img = base64.b64decode(raw)
+                    path = f"{session_id}/explainability/panel_{i}_{dst.split('_')[0]}.png"
+                    self._upload(bucket, path, img, "image/png")
+                    out[dst] = self.create_signed_url(bucket, path)
+                except Exception:  # noqa: BLE001 - one bad image must not drop the section
+                    continue
+            panels_out.append(out)
+
+        return {
+            "method": explainability.get("method"),
+            "regions": explainability.get("regions") or [],
+            "summary": explainability.get("summary"),
+            "panels": panels_out,
+        }
+
+    def refresh_explainability(self, explainability: dict | None) -> dict | None:
+        """Re-sign the stored explainability image URLs (signed URLs expire),
+        mirroring ``refresh_signed_url`` for report PDFs."""
+        if not explainability or not isinstance(explainability, dict):
+            return explainability
+        panels = []
+        for panel in explainability.get("panels", []) or []:
+            panels.append(
+                {
+                    **panel,
+                    "affected_url": self.refresh_signed_url(panel.get("affected_url")),
+                    "reference_url": self.refresh_signed_url(panel.get("reference_url")),
+                }
+            )
+        return {**explainability, "panels": panels}
+
     def upload_bytes(
         self, *, bucket: str, path: str, data: bytes, content_type: str
     ) -> str:

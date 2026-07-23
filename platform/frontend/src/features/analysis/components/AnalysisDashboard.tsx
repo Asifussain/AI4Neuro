@@ -118,6 +118,8 @@ export function AnalysisDashboard() {
             ...base,
             prediction: res.prediction,
             confidence: res.confidence,
+            explainability:
+              (res.visualizations?.explainability as PatientReportData['explainability']) ?? null,
             reportPdfUrl:
               res.report_urls?.patient ?? res.report_urls?.clinician ?? res.report_urls?.technical ?? null,
           });
