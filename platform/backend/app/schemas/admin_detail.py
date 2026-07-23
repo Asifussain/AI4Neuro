@@ -51,6 +51,9 @@ class DoctorProfileDetail(BaseModel):
     pending_reports: int
     completed_reports: int
     recent_sessions: list[SessionStatusResponse]
+    # patient_id -> full_name for patients in recent_sessions (the patient
+    # assigned to each analysis), so tables show real names not placeholders.
+    patient_names: dict[str, str] = {}
 
 
 class RadiologistProfileDetail(BaseModel):
@@ -139,3 +142,5 @@ class HospitalAdminProfileDetail(BaseModel):
     pending_reports: int
 
     recent_sessions: list[SessionStatusResponse]
+    # patient_id -> full_name for the patients assigned to recent_sessions.
+    patient_names: dict[str, str] = {}

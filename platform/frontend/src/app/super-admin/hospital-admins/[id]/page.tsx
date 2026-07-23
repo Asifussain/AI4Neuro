@@ -170,6 +170,7 @@ function HospitalAdminProfilePageInner() {
               sessions={admin.recent_sessions}
               accent="indigo"
               showDeleteAction={false}
+              patientNameById={admin.patient_names ?? {}}
               emptyLabel="No analyses recorded for this hospital yet."
             />
           </SectionCard>

@@ -179,7 +179,10 @@ function DoctorProfilePageInner() {
               sessions={doctor.recent_sessions}
               accent="indigo"
               showDeleteAction={false}
-              patientNameById={Object.fromEntries(doctor.patients.map((p) => [p.id, p.full_name]))}
+              patientNameById={{
+                ...Object.fromEntries(doctor.patients.map((p) => [p.id, p.full_name])),
+                ...(doctor.patient_names ?? {}),
+              }}
               emptyLabel="No analyses recorded for this doctor yet."
             />
           </SectionCard>

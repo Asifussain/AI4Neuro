@@ -512,6 +512,7 @@ def get_doctor_detail(
         pending_reports=sum(1 for s in sessions if s.get("status") in ("queued", "processing")),
         completed_reports=sum(1 for s in sessions if s.get("status") == "completed"),
         recent_sessions=[_to_session_status(s) for s in sessions[:10]],
+        patient_names=_patient_name_map(db, sessions[:10]),
     )
 
 
@@ -673,4 +674,5 @@ def get_hospital_admin_detail(
         reports_generated=sum(1 for s in sessions if s.get("status") == "completed"),
         pending_reports=sum(1 for s in sessions if s.get("status") in ("queued", "processing")),
         recent_sessions=[_to_session_status(s) for s in sessions[:10]],
+        patient_names=_patient_name_map(db, sessions[:10]),
     )
