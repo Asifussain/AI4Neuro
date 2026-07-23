@@ -225,6 +225,8 @@ export interface DoctorProfileDetail {
   pending_reports: number;
   completed_reports: number;
   recent_sessions: SessionStatusResponse[];
+  /** patient_id -> full_name for patients appearing in recent_sessions. */
+  patient_names?: Record<string, string>;
 }
 
 export interface RadiologistProfileDetail {
@@ -298,6 +300,8 @@ export interface HospitalAdminProfileDetail {
   reports_generated: number;
   pending_reports: number;
   recent_sessions: SessionStatusResponse[];
+  /** patient_id -> full_name for patients appearing in recent_sessions. */
+  patient_names?: Record<string, string>;
 }
 
 export const adminApi = {
