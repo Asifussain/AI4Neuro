@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import logging
 import os
+import platform
+import stat
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +25,8 @@ from typing import Dict, List
 from app.pipelines.mri.config import CAT12_EXE, MCR_ROOT, CAT12_ROOT, CAT12_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
+
+_IS_WINDOWS = platform.system() == "Windows"
 
 # ROI atlases: neuromorphometrics gives broad regional coverage (ventricles,
 # lobes, subcortical structures); cobra adds detailed hippocampal/amygdala/
@@ -133,6 +137,21 @@ def validate_cat12_config() -> List[str]:
         issues.append("CAT12_EXE is not set.")
     elif not Path(CAT12_EXE).exists():
         issues.append(f"CAT12_EXE does not exist: {CAT12_EXE}")
+    else:
+        # Catch the most common cross-platform misconfiguration: pointing
+        # CAT12_EXE at the wrong launcher for this OS (e.g. a .bat copied
+        # from a Windows teammate's .env, or vice versa).
+        exe_lower = CAT12_EXE.lower()
+        if _IS_WINDOWS and not exe_lower.endswith(".bat") and not exe_lower.endswith(".exe"):
+            issues.append(
+                f"CAT12_EXE ({CAT12_EXE}) doesn't look like a Windows launcher "
+                "(expected cat12_standalone.bat or spm25.exe)."
+            )
+        if not _IS_WINDOWS and exe_lower.endswith(".bat"):
+            issues.append(
+                f"CAT12_EXE ({CAT12_EXE}) is a Windows .bat file, but this is not Windows "
+                "(expected run_spm25.sh)."
+            )
 
     if not MCR_ROOT:
         issues.append("MCR_ROOT is not set.")
@@ -140,6 +159,19 @@ def validate_cat12_config() -> List[str]:
         issues.append(f"MCR_ROOT does not exist: {MCR_ROOT}")
 
     return issues
+
+
+def _ensure_executable(path: str) -> None:
+    """CAT12's run_spm25.sh (Mac/Linux) needs its executable bit set; some
+    download/extraction methods (e.g. certain zip tools, or a plain file
+    copy) strip it, which turns an otherwise-correct install into a
+    confusing "Permission denied" at run time. Set it defensively rather
+    than making the friend debug that themselves."""
+    try:
+        current = os.stat(path).st_mode
+        os.chmod(path, current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    except OSError as exc:  # noqa: BLE001 - best-effort; real failure surfaces from subprocess.run
+        logger.warning("Could not verify/set executable bit on %s: %s", path, exc)
 
 
 def _write_segmentation_batch(input_nii_path: str, script_path: str) -> None:
@@ -175,11 +207,15 @@ def run_cat12_preprocessing(input_nii_path: str) -> Cat12Result | None:
     script_path = os.path.join(work_dir, "cat12_segment.m")
     _write_segmentation_batch(input_nii_path, script_path)
 
-    # CAT12_EXE points at cat12_standalone.bat, which sets up the MCR PATH
-    # itself before invoking spm25.exe - see that file for the wrapper.
+    # CAT12_EXE is the platform launcher - cat12_standalone.bat on Windows,
+    # run_spm25.sh on Mac/Linux - both take the identical 3-arg pattern and
+    # set up the MCR runtime paths themselves before invoking SPM.
     command = [CAT12_EXE, MCR_ROOT, "batch", script_path]
 
     logger.info("--- Starting CAT12 preprocessing on %s ---", filename)
+
+    if not _IS_WINDOWS:
+        _ensure_executable(CAT12_EXE)
 
     try:
         completed = subprocess.run(
