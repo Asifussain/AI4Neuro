@@ -347,6 +347,15 @@ def get_result(
             **visualizations,
             "explainability": storage.refresh_explainability(visualizations["explainability"]),
         }
+    # report_urls are signed PDF links; only include them once this caller is
+    # actually allowed to see reports (patients need doctor approval first —
+    # /result must not leak them ahead of the /reports gate).
+    report_urls = ReportUrls()
+    try:
+        _require_report_access_approved(principal, db)
+        report_urls = _report_urls(reports, storage)
+    except HTTPException:
+        pass
     return AnalysisResultResponse(
         session_id=session_id,
         modality=session["modality"],
@@ -359,7 +368,7 @@ def get_result(
         consistency=result.get("consistency") or {},
         visualizations=visualizations,
         model_version=result.get("model_version"),
-        report_urls=_report_urls(reports, storage),
+        report_urls=report_urls,
     )
 
 
@@ -376,19 +385,7 @@ def get_reports(
     ):
         raise _forbid("You do not have access to these reports.")
 
-    # A patient may only open their reports once their assigned doctor has
-    # approved their report-access request (doc: report access flow). Other
-    # roles (doctor/radiologist/admin/super_admin) are unaffected.
-    if principal.role == "patient":
-        grant = db.get_report_access_by_patient(principal.user_id)
-        if not grant or grant.get("status") != "approved":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "code": "report_access_pending",
-                    "message": "Your doctor has not yet approved your request to view reports.",
-                },
-            )
+    _require_report_access_approved(principal, db)
 
     reports = db.get_reports(session_id) or {}
     return ReportsResponse(
@@ -540,6 +537,24 @@ def _require_read(principal: Principal, session: dict) -> None:
         principal.user_id, principal.role, principal.hospital_id, session
     ):
         raise _forbid("You do not have access to this analysis session.")
+
+
+def _require_report_access_approved(principal: Principal, db: DatabaseService) -> None:
+    """A patient may only see report PDF URLs once their assigned doctor has
+    approved their report-access request (doc: report access flow). Other
+    roles (doctor/radiologist/admin/super_admin) are unaffected. Must be
+    called by every endpoint that returns ``report_urls`` to a patient."""
+    if principal.role != "patient":
+        return
+    grant = db.get_report_access_by_patient(principal.user_id)
+    if not grant or grant.get("status") != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "report_access_pending",
+                "message": "Your doctor has not yet approved your request to view reports.",
+            },
+        )
 
 
 def _forbid(message: str) -> HTTPException:

@@ -1,11 +1,14 @@
 """MRI pipeline tests (multiclass-only, no mock fallback).
 
-The pipeline is multiclass-only (CN/MCI/AD; no CAT12, no binary path) and has
-no mock fallback: without a real, loadable ConViT checkpoint, it must fail
-loudly (raise) instead of returning a fabricated prediction. The viewer-slice
-test builds a small synthetic NIfTI with nibabel to exercise the real
-(Supabase-decoupled) slice extraction + upload path, which is independent of
-the model.
+The pipeline is multiclass-only (CN/MCI/AD; no binary path) and has no mock
+fallback: without a real, loadable ConViT checkpoint, it must fail loudly
+(raise) instead of returning a fabricated prediction. Checkpoint-focused
+tests force USE_CAT12_PREPROCESSING off so they isolate that failure mode
+from CAT12 (which would otherwise fail first against these tests' synthetic
+placeholder NIfTI, for an unrelated reason, whenever CAT12 is enabled
+locally). The viewer-slice test builds a small synthetic NIfTI with nibabel
+to exercise the real (Supabase-decoupled) slice extraction + upload path,
+which is independent of the model.
 """
 
 from __future__ import annotations
@@ -46,6 +49,7 @@ def test_no_checkpoint_fails_loudly(tmp_path, monkeypatch):
     from app.pipelines.mri.runner import run_mri_pipeline
 
     monkeypatch.setattr(ml_runner, "CONVIT_CHECKPOINT_PATH", "")
+    monkeypatch.setattr(ml_runner, "USE_CAT12_PREPROCESSING", False)
 
     ctx = _make_context(tmp_path, "scan.nii.gz", "multiclass", "mri-no-checkpoint")
     with pytest.raises(RuntimeError, match="checkpoint"):
@@ -57,6 +61,7 @@ def test_analysis_type_is_always_multiclass(tmp_path, monkeypatch):
     from app.pipelines.mri import ml_runner
 
     monkeypatch.setattr(ml_runner, "CONVIT_CHECKPOINT_PATH", "")
+    monkeypatch.setattr(ml_runner, "USE_CAT12_PREPROCESSING", False)
 
     ctx = _make_context(tmp_path, "scan.nii.gz", "binary", "mri-binary-request")
     # Even a "binary" request hits the same (checkpoint-required) multiclass-only path.

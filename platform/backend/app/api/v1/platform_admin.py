@@ -481,7 +481,11 @@ def get_doctor_detail(
         if hospital_id
         else []
     )
-    patient_codes = {p["user_id"]: p.get("patient_id") for p in db.list_role_profiles("patient_profiles")}
+    relevant_patient_ids = [p["id"] for p in hospital_patients if p["id"] in active_patient_ids]
+    patient_codes = {
+        p["user_id"]: p.get("patient_id")
+        for p in db.list_role_profiles("patient_profiles", user_ids=relevant_patient_ids)
+    }
     patients = [
         PatientBrief(
             id=p["id"],

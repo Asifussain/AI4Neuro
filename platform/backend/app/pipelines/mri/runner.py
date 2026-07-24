@@ -87,6 +87,13 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
         confidence_chart_b64 = (
             generate_confidence_chart(probs_list, classes) if probs_list else None
         )
+        mwp1_image_b64 = mwp2_image_b64 = None
+        if ml.get("mwp1_path"):
+            from app.pipelines.mri.volumetric_analyzer import generate_tissue_map_grids
+
+            mwp1_image_b64, mwp2_image_b64 = generate_tissue_map_grids(
+                ml["mwp1_path"], ml.get("mwp2_path")
+            )
 
     # --- 4) Consistency (only present from the real slice-voting predictor) ---
     consistency: dict = {}
@@ -104,6 +111,8 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
     for key, b64, name in [
         ("volume_chart_url", volume_chart_b64, "volume_chart.png"),
         ("confidence_chart_url", confidence_chart_b64, "confidence_chart.png"),
+        ("mwp1_image_url", mwp1_image_b64, "mwp1_gm.png"),
+        ("mwp2_image_url", mwp2_image_b64, "mwp2_wm.png"),
     ]:
         written = write_data_uri_png(b64, os.path.join(work_dir, name))
         if written:

@@ -9,11 +9,11 @@ modules port with only their import lines rewired:
   * **env-driven values** (ConViT checkpoint, CAT12/MATLAB paths) are sourced
     from the unified settings.
 
-The runtime pipeline (``ml_runner.py``) treats the uploaded scan as already
-preprocessed and does not run CAT12, and is multiclass-only (CN/MCI/AD) since
-the ConViT checkpoint is trained multiclass-only. CAT12_ROOT/CAT12_EXE/
-MCR_ROOT/CAT12_OUTPUT_DIR are kept here only for the standalone
-``cat12_manager.py`` / ``scripts/check_cat12_setup.py`` tooling.
+The runtime pipeline (``ml_runner.py``) is multiclass-only (CN/MCI/AD) since
+the ConViT checkpoint is trained multiclass-only. When ``USE_CAT12_PREPROCESSING``
+is true it runs CAT12 (via ``cat12_manager.py``) on the uploaded raw T1 NIfTI
+before inference; when false, the uploaded scan is treated as already
+preprocessed (previous behavior).
 """
 
 from __future__ import annotations
@@ -26,9 +26,11 @@ _settings = get_settings()
 
 # ---- Env-driven ----
 CONVIT_CHECKPOINT_PATH: str = _settings.convit_checkpoint_path
+USE_CAT12_PREPROCESSING: bool = _settings.use_cat12_preprocessing
 CAT12_ROOT: str = _settings.cat12_root
 CAT12_EXE: str = _settings.cat12_exe
 MCR_ROOT: str = _settings.mcr_root
+CAT12_TIMEOUT_SECONDS: float = _settings.cat12_timeout_seconds
 MODEL_VERSION: str = _settings.mri_model_version
 CAT12_OUTPUT_DIR: str = _settings.cat12_output_dir or os.path.join(
     _settings.local_tmp_dir, "mri"
@@ -46,7 +48,9 @@ NORMATIVE_VOLUMES = {
     "gray_matter": {"min": 450, "max": 600, "unit": "cm³"},
     "white_matter": {"min": 400, "max": 550, "unit": "cm³"},
     "csf": {"min": 150, "max": 300, "unit": "cm³"},
-    "hippocampus": {"min": 3.0, "max": 4.5, "unit": "cm³"},
+    # Bilateral (left + right combined) - matches volumetric_analyzer.py, which
+    # sums both hemispheres from the neuromorphometrics ROI atlas.
+    "hippocampus": {"min": 6.0, "max": 9.0, "unit": "cm³"},
     "ventricles": {"min": 20, "max": 50, "unit": "cm³"},
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Activity,
@@ -8,11 +8,15 @@ import {
   Clock,
   Upload,
   CalendarDays,
+  Stethoscope,
+  Mail,
+  Phone,
 } from 'lucide-react';
 
 import { useAuth } from '@/components/providers/AuthProvider';
 import { analysisApi } from '@/features/analysis/api';
-import { adminApi } from '@/features/admin/api';
+import { useAnalysisList } from '@/features/analysis/hooks';
+import { useMyPatients, usePatients } from '@/features/admin/queries';
 import { isActive, type SessionStatusResponse } from '@/features/analysis/types';
 import { getRoleMeta, type Role } from '@/lib/navigation';
 import {
@@ -84,10 +88,35 @@ export function AnalysisDashboard() {
   };
   const allAnalysesHref = ALL_ANALYSES_HREF[role] ?? '/search';
 
-  const [sessions, setSessions] = useState<SessionStatusResponse[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Patient-only: assigned doctor's contact details, resolved server-side by
+  // GET /users/me (roleProfile.assigned_doctor_*) — there is no messaging
+  // feature yet, so this is the simplest way for a patient to reach their doctor.
+  const doctorContact =
+    role === 'patient'
+      ? (userProfile?.roleProfile as { assigned_doctor_name?: string; assigned_doctor_email?: string; assigned_doctor_phone?: string } | undefined)
+      : undefined;
+
+  const {
+    data: sessions,
+    error: sessionsError,
+  } = useAnalysisList({ limit: 100 });
+  const error = sessionsError instanceof Error ? sessionsError.message : null;
   const [showCalendar, setShowCalendar] = useState(false);
-  const [patientNameById, setPatientNameById] = useState<Record<string, string>>({});
+
+  // Best-effort patient-name lookup for the Recent Analyses table. The patient
+  // role only sees their own analyses (no patient column), so skip the fetch;
+  // doctors use their assigned-patients endpoint, other staff the hospital
+  // directory. Any permission/network failure just falls back to a placeholder.
+  const { data: myPatientsPage } = useMyPatients({ limit: 200 }, { enabled: role === 'doctor' });
+  const { data: patientsPage } = usePatients(
+    { limit: 200 },
+    { enabled: role !== 'patient' && role !== 'doctor' }
+  );
+  const patientNameById = useMemo(() => {
+    if (role === 'patient') return {};
+    const page = role === 'doctor' ? myPatientsPage : patientsPage;
+    return Object.fromEntries((page?.items ?? []).map((p) => [p.id, p.full_name]));
+  }, [role, myPatientsPage, patientsPage]);
   // Patient-only: the simple, plain-language report modal (opened from the
   // Recent Analyses "View Report" button instead of the technical PDF).
   const [patientReport, setPatientReport] = useState<PatientReportData | null>(null);
@@ -130,37 +159,6 @@ export function AnalysisDashboard() {
     },
     [userProfile]
   );
-
-  useEffect(() => {
-    let cancelled = false;
-    analysisApi
-      .list({ limit: 100 })
-      .then((data) => !cancelled && setSessions(data))
-      .catch((e) => !cancelled && setError((e as Error).message));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Best-effort patient-name lookup for the Recent Analyses table. The patient
-  // role only sees their own analyses (no patient column), so skip the fetch;
-  // doctors use their assigned-patients endpoint, other staff the hospital
-  // directory. Any permission/network failure just falls back to a placeholder.
-  useEffect(() => {
-    if (role === 'patient') return;
-    let cancelled = false;
-    const fetchPatients =
-      role === 'doctor' ? adminApi.myPatients({ limit: 200 }) : adminApi.patients({ limit: 200 });
-    fetchPatients
-      .then((r) => {
-        if (cancelled) return;
-        setPatientNameById(Object.fromEntries(r.items.map((p) => [p.id, p.full_name])));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [role]);
 
   const stats = useMemo(() => {
     const all = sessions ?? [];
@@ -215,7 +213,7 @@ export function AnalysisDashboard() {
     [sessions]
   );
 
-  const loading = sessions === null && !error;
+  const loading = sessions === undefined && !error;
 
   return (
     <>
@@ -230,6 +228,43 @@ export function AnalysisDashboard() {
         <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
           Failed to load analyses: {error}
         </div>
+      )}
+
+      {/* Patient-only: assigned doctor contact card */}
+      {role === 'patient' && doctorContact?.assigned_doctor_name && (
+        <SectionCard className="p-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="p-2 rounded-lg bg-slate-100 shrink-0">
+              <Stethoscope className="h-4 w-4 text-slate-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500">Your Doctor</p>
+              <p className="text-sm font-semibold text-slate-900">
+                Dr. {doctorContact.assigned_doctor_name}
+              </p>
+            </div>
+            <div className="flex items-center gap-4 ml-auto text-xs text-slate-600">
+              {doctorContact.assigned_doctor_email && (
+                <a
+                  href={`mailto:${doctorContact.assigned_doctor_email}`}
+                  className="inline-flex items-center gap-1.5 hover:text-slate-900"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  {doctorContact.assigned_doctor_email}
+                </a>
+              )}
+              {doctorContact.assigned_doctor_phone && (
+                <a
+                  href={`tel:${doctorContact.assigned_doctor_phone}`}
+                  className="inline-flex items-center gap-1.5 hover:text-slate-900"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  {doctorContact.assigned_doctor_phone}
+                </a>
+              )}
+            </div>
+          </div>
+        </SectionCard>
       )}
 
       {/* Stats */}

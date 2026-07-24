@@ -28,6 +28,7 @@ from app.api.v1._common import (
     scope_hospital,
     scope_hospital_clinical,
 )
+from app.core.cache import cached, invalidate_prefix
 from app.core.security import Principal
 from app.schemas.common import PaginatedResponse
 from app.schemas.users import (
@@ -73,6 +74,8 @@ def create_hospital_user(
     if payload.role.value in (Role.hospital_admin.value, Role.super_admin.value):
         raise forbid("POST /hospital/users only creates doctor, radiologist, and patient accounts.")
     result = create_user_account(payload=payload, principal=principal, db=db, auth_admin=auth_admin)
+    invalidate_prefix("hospital:doctors:")
+    invalidate_prefix("hospital:patients:")
     return UserCreateResult(**result)
 
 
@@ -207,24 +210,31 @@ def list_doctors(
 ) -> PaginatedResponse[DoctorDirectoryEntry]:
     """Doctor accounts merged with their doctor_profiles detail (doc 8.x)."""
     scope = scope_hospital_clinical(principal, hospital_id)
-    users = db.list_user_profiles(hospital_id=scope, role=Role.doctor.value, exclude_deleted=True)
-    profiles = {p["user_id"]: p for p in db.list_role_profiles("doctor_profiles")}
-    entries = [
-        DoctorDirectoryEntry(
-            id=u["id"],
-            hospital_id=u.get("hospital_id"),
-            full_name=u["full_name"],
-            email=u["email"],
-            phone=u["phone"],
-            account_status=u["account_status"],
-            specialization=profiles.get(u["id"], {}).get("specialization"),
-            medical_license=profiles.get(u["id"], {}).get("medical_license"),
-            experience_years=profiles.get(u["id"], {}).get("experience_years"),
-            verification_status=profiles.get(u["id"], {}).get("verification_status"),
-            created_at=u.get("created_at"),
-        )
-        for u in users
-    ]
+
+    def _build() -> list[DoctorDirectoryEntry]:
+        users = db.list_user_profiles(hospital_id=scope, role=Role.doctor.value, exclude_deleted=True)
+        profiles = {
+            p["user_id"]: p
+            for p in db.list_role_profiles("doctor_profiles", user_ids=[u["id"] for u in users])
+        }
+        return [
+            DoctorDirectoryEntry(
+                id=u["id"],
+                hospital_id=u.get("hospital_id"),
+                full_name=u["full_name"],
+                email=u["email"],
+                phone=u["phone"],
+                account_status=u["account_status"],
+                specialization=profiles.get(u["id"], {}).get("specialization"),
+                medical_license=profiles.get(u["id"], {}).get("medical_license"),
+                experience_years=profiles.get(u["id"], {}).get("experience_years"),
+                verification_status=profiles.get(u["id"], {}).get("verification_status"),
+                created_at=u.get("created_at"),
+            )
+            for u in users
+        ]
+
+    entries = cached(f"hospital:doctors:{scope}", _build)
     page, total = paginate(entries, limit=limit, offset=offset)
     return PaginatedResponse(items=page, total=total, limit=limit, offset=offset)
 
@@ -239,22 +249,29 @@ def list_patients(
 ) -> PaginatedResponse[PatientDirectoryEntry]:
     """Patient accounts merged with their patient_profiles detail (doc 8.x)."""
     scope = scope_hospital_clinical(principal, hospital_id)
-    users = db.list_user_profiles(hospital_id=scope, role=Role.patient.value, exclude_deleted=True)
-    profiles = {p["user_id"]: p for p in db.list_role_profiles("patient_profiles")}
-    entries = [
-        PatientDirectoryEntry(
-            id=u["id"],
-            hospital_id=u.get("hospital_id"),
-            full_name=u["full_name"],
-            email=u["email"],
-            phone=u["phone"],
-            account_status=u["account_status"],
-            patient_code=profiles.get(u["id"], {}).get("patient_id"),
-            verification_status=profiles.get(u["id"], {}).get("verification_status"),
-            created_at=u.get("created_at"),
-        )
-        for u in users
-    ]
+
+    def _build() -> list[PatientDirectoryEntry]:
+        users = db.list_user_profiles(hospital_id=scope, role=Role.patient.value, exclude_deleted=True)
+        profiles = {
+            p["user_id"]: p
+            for p in db.list_role_profiles("patient_profiles", user_ids=[u["id"] for u in users])
+        }
+        return [
+            PatientDirectoryEntry(
+                id=u["id"],
+                hospital_id=u.get("hospital_id"),
+                full_name=u["full_name"],
+                email=u["email"],
+                phone=u["phone"],
+                account_status=u["account_status"],
+                patient_code=profiles.get(u["id"], {}).get("patient_id"),
+                verification_status=profiles.get(u["id"], {}).get("verification_status"),
+                created_at=u.get("created_at"),
+            )
+            for u in users
+        ]
+
+    entries = cached(f"hospital:patients:{scope}", _build)
     page, total = paginate(entries, limit=limit, offset=offset)
     return PaginatedResponse(items=page, total=total, limit=limit, offset=offset)
 
@@ -292,7 +309,11 @@ def list_my_patients(
         users = db.list_user_profiles(
             hospital_id=principal.hospital_id, role=Role.patient.value, exclude_deleted=True
         )
-        profiles = {p["user_id"]: p for p in db.list_role_profiles("patient_profiles")}
+        relevant_ids = [u["id"] for u in users if u["id"] in my_patient_ids]
+        profiles = {
+            p["user_id"]: p
+            for p in db.list_role_profiles("patient_profiles", user_ids=relevant_ids)
+        }
         entries = [
             PatientDirectoryEntry(
                 id=u["id"],
@@ -456,6 +477,8 @@ def _set_account_status(
     ):
         raise forbid("You may not change this user's account status.")
     updated = db.update_user_profile(user_id, {"account_status": account_status})
+    invalidate_prefix("hospital:doctors:")
+    invalidate_prefix("hospital:patients:")
     db.insert_audit_log(
         actor_id=principal.user_id,
         actor_role=principal.role,

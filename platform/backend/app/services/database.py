@@ -431,14 +431,24 @@ class DatabaseService:
         res = self.client.table(table).insert(row).execute()
         return _one(res) or {}
 
-    def list_role_profiles(self, table: str) -> list[dict]:
-        """Fetch every row of a role-detail table (keyed by user_id).
+    def list_role_profiles(self, table: str, user_ids: list[str] | None = None) -> list[dict]:
+        """Fetch role-detail rows (keyed by user_id), merged in Python against
+        an already-scoped user_profiles list (matching the existing
+        list_hospitals/list_user_profiles pattern).
 
-        Small, per-hospital-scale tables — callers merge these in Python against
-        a already-scoped user_profiles list rather than filtering server-side,
-        matching the existing list_hospitals/list_user_profiles pattern.
+        ``user_ids``: when given, scopes the fetch to exactly those rows via
+        ``.in_()`` instead of pulling the whole table (which, for
+        patient_profiles/doctor_profiles, means every hospital on the
+        platform). Callers that already have the scoped user list on hand
+        (the common case) should always pass their ids. Omit only for
+        genuinely platform-wide reads.
         """
-        res = self.client.table(table).select("*").execute()
+        if user_ids is not None:
+            if not user_ids:
+                return []
+            res = self.client.table(table).select("*").in_("user_id", user_ids).execute()
+        else:
+            res = self.client.table(table).select("*").execute()
         return list(getattr(res, "data", None) or [])
 
     def update_role_profile(self, table: str, user_id: str, patch: dict) -> dict | None:

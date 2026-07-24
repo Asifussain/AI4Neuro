@@ -57,7 +57,12 @@ def _patient_care_team_detail(db: DatabaseService, patient_user_id: str, hospita
     doctor = db.get_user_profile(str(mine[0]["doctor_id"]))
     if not doctor:
         return {}
-    return {"assigned_doctor_id": doctor["id"], "assigned_doctor_name": doctor.get("full_name")}
+    return {
+        "assigned_doctor_id": doctor["id"],
+        "assigned_doctor_name": doctor.get("full_name"),
+        "assigned_doctor_email": doctor.get("email"),
+        "assigned_doctor_phone": doctor.get("phone"),
+    }
 
 
 def _resolve_role_lookups(db: DatabaseService, role: str, role_detail: dict) -> dict:
