@@ -10,6 +10,7 @@ import httpx
 from fastapi import Depends, HTTPException, status
 
 from app.core.security import Principal, get_current_principal
+from app.services.auth_admin import AuthAdminService
 from app.services.database import DatabaseService
 from app.services.storage import StorageService
 
@@ -20,6 +21,12 @@ def get_database() -> DatabaseService:
 
 def get_storage() -> StorageService:
     return StorageService()
+
+
+def get_auth_admin() -> AuthAdminService:
+    from app.services.supabase_client import get_service_client
+
+    return AuthAdminService(client=get_service_client())
 
 
 def get_current_user(
@@ -59,3 +66,28 @@ def get_current_user(
     principal.status = profile.get("account_status")
     principal.profile = profile
     return principal
+
+
+def require_role(*roles: str):
+    """FastAPI dependency factory: 403s unless the caller's role is in ``roles``.
+
+    Route-level guard layered *on top of* the ``permissions.py`` predicates
+    (the authorization source of truth), not a replacement for them — routes
+    protected by this dependency still re-check the relevant permissions.py
+    predicate in the function body for defense in depth. Used to make
+    super_admin-only route groups (platform_admin.py) enforceable from route
+    registration alone, instead of only via in-function role branching.
+    """
+
+    def _dependency(principal: Principal = Depends(get_current_user)) -> Principal:
+        if principal.role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "permission_denied",
+                    "message": f"This action requires one of: {', '.join(roles)}.",
+                },
+            )
+        return principal
+
+    return _dependency

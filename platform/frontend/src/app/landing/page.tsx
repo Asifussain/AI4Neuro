@@ -173,39 +173,47 @@ const VariableProximity = forwardRef<HTMLSpanElement, VariableProximityProps>(
     });
 
     let letterIndex = 0;
-    const words = label.split(' ');
+    const lines = label.split('\n');
 
     return (
       <span
         ref={ref}
-        aria-label={label}
+        aria-label={label.replace(/\n/g, ' ')}
         className={`${className} variable-proximity`}
         style={{ display: 'inline', ...style }}
         {...restProps}
       >
-        {words.map((word, wordIndex) => (
-          <span className="variable-word" key={`${word}-${wordIndex}`}>
-            {word.split('').map((letter) => {
-              const currentLetterIndex = letterIndex;
-              letterIndex += 1;
+        {lines.map((line, lineIndex) => {
+          const words = line.split(' ');
+          return (
+            <React.Fragment key={lineIndex}>
+              {words.map((word, wordIndex) => (
+                <span className="variable-word" key={`${word}-${wordIndex}`} style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
+                  {word.split('').map((letter) => {
+                    const currentLetterIndex = letterIndex;
+                    letterIndex += 1;
 
-              return (
-                <span
-                  aria-hidden="true"
-                  className="variable-letter"
-                  key={`${letter}-${currentLetterIndex}`}
-                  ref={(element) => {
-                    letterRefs.current[currentLetterIndex] = element;
-                  }}
-                  style={{ fontVariationSettings: fromFontVariationSettings }}
-                >
-                  {letter}
+                    return (
+                      <span
+                        aria-hidden="true"
+                        className="variable-letter"
+                        key={`${letter}-${currentLetterIndex}`}
+                        ref={(element) => {
+                          letterRefs.current[currentLetterIndex] = element;
+                        }}
+                        style={{ fontVariationSettings: fromFontVariationSettings }}
+                      >
+                        {letter}
+                      </span>
+                    );
+                  })}
+                  {wordIndex < words.length - 1 && <span className="variable-space">&nbsp;</span>}
                 </span>
-              );
-            })}
-            {wordIndex < words.length - 1 && <span className="variable-space">&nbsp;</span>}
-          </span>
-        ))}
+              ))}
+              {lineIndex < lines.length - 1 && <br />}
+            </React.Fragment>
+          );
+        })}
       </span>
     );
   }
@@ -506,7 +514,7 @@ function Hero() {
 
         <h1 ref={headingRef}>
           <VariableProximity
-            label="AI-powered neuro diagnostics for earlier, clearer decisions."
+            label={"AI-powered\nneuro diagnostics\nfor earlier,\nclearer decisions."}
             className="hero-variable-title"
             fromFontVariationSettings="'wght' 520, 'opsz' 12"
             toFontVariationSettings="'wght' 1000, 'opsz' 12"

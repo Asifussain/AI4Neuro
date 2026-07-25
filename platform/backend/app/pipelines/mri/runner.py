@@ -12,7 +12,6 @@ Real viewer slices are extracted only when the input is a genuine NIfTI.
 from __future__ import annotations
 
 import os
-import threading
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -23,12 +22,13 @@ from app.pipelines.mri.similarity_analyzer import (
     generate_confidence_chart,
     generate_volume_comparison_chart,
 )
+from app.pipelines.plotting import PLOT_LOCK
 
 logger = get_logger(__name__)
 
 # matplotlib pyplot is process-global / not thread-safe (same as EEG); serialize
-# the fast charting so concurrent MRI jobs can't corrupt each other's figures.
-_PLOT_LOCK = threading.Lock()
+# the fast charting with the process-wide PLOT_LOCK (shared with the EEG runner)
+# so concurrent MRI+EEG jobs can't corrupt each other's figures.
 
 _VOLUME_KEYS = [
     "brain_volume", "gm_volume", "wm_volume",
@@ -82,11 +82,18 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
             metrics[opt] = ml[opt]
 
     # --- 3) Charts (serialized: pyplot global state) ---
-    with _PLOT_LOCK:
+    with PLOT_LOCK:
         volume_chart_b64 = generate_volume_comparison_chart(ml)
         confidence_chart_b64 = (
             generate_confidence_chart(probs_list, classes) if probs_list else None
         )
+        mwp1_image_b64 = mwp2_image_b64 = None
+        if ml.get("mwp1_path"):
+            from app.pipelines.mri.volumetric_analyzer import generate_tissue_map_grids
+
+            mwp1_image_b64, mwp2_image_b64 = generate_tissue_map_grids(
+                ml["mwp1_path"], ml.get("mwp2_path")
+            )
 
     # --- 4) Consistency (only present from the real slice-voting predictor) ---
     consistency: dict = {}
@@ -104,6 +111,8 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
     for key, b64, name in [
         ("volume_chart_url", volume_chart_b64, "volume_chart.png"),
         ("confidence_chart_url", confidence_chart_b64, "confidence_chart.png"),
+        ("mwp1_image_url", mwp1_image_b64, "mwp1_gm.png"),
+        ("mwp2_image_url", mwp2_image_b64, "mwp2_wm.png"),
     ]:
         written = write_data_uri_png(b64, os.path.join(work_dir, name))
         if written:
@@ -122,4 +131,5 @@ def run_mri_pipeline(context: AnalysisContext) -> PipelineResult:
         model_version=ml.get("model_version", get_settings().mri_model_version),
         artifacts=artifacts,
         viewer_slices=viewer_slices,
+        explainability=ml.get("explainability"),
     )

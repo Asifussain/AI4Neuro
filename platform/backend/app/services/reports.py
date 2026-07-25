@@ -72,10 +72,15 @@ class PdfReportService:
 
     ``storage`` is any object exposing ``upload_bytes(bucket, path, data,
     content_type) -> url`` (the StorageService).
+
+    ``db`` is an optional ``DatabaseService`` used to hydrate the report with
+    the real patient / hospital / doctor / radiologist records tied to the
+    session. When omitted, reports fall back to placeholder demographics.
     """
 
-    def __init__(self, storage) -> None:
+    def __init__(self, storage, db=None) -> None:
         self._storage = storage
+        self._db = db
         self._settings = get_settings()
 
     def generate_reports(
@@ -83,7 +88,7 @@ class PdfReportService:
     ) -> GeneratedReports:
         modality = session.get("modality")
         session_id = str(session.get("id"))
-        context = build_report_context(session, modality or "")
+        context = build_report_context(session, modality or "", db=self._db)
 
         try:
             if modality == "eeg":
@@ -137,13 +142,15 @@ class PdfReportService:
         ml_results = _mri_ml_results(result, session)
         vol = _artifact_data_uri(result, "volume_chart_url")
         conf = _artifact_data_uri(result, "confidence_chart_url")
+        mwp1_image = _artifact_data_uri(result, "mwp1_image_url")
+        mwp2_image = _artifact_data_uri(result, "mwp2_image_url")
 
         # A single unified report replaces the separate patient/clinician/
         # technical MRI copies. All three URLs point at the same PDF so
         # existing API consumers (which expect all three keys) keep working.
         unified = _render(
             UnifiedPDFReport, build_unified_report,
-            context, ml_results, vol, conf,
+            context, ml_results, vol, conf, mwp1_image, mwp2_image,
         )
         return {"technical": unified, "clinician": unified, "patient": unified}
 
@@ -206,6 +213,12 @@ def _mri_ml_results(result: PipelineResult, session: dict) -> dict:
         "analysis_type": session.get("analysis_type"),
         "processing_time": _processing_seconds(m.get("processing_time_ms")),
         "used_cat12": m.get("used_cat12"),
+        # Slice-vote consensus (vote_distribution / consensus_strength /
+        # total_images_processed) - drives the report's reliability section.
+        "consistency_metrics": result.consistency,
+        # In-process visual-explainability payload (Grad-CAM overlays + MNI152
+        # reference slices + observations); never persisted to the DB.
+        "explainability": result.explainability,
     }
 
 

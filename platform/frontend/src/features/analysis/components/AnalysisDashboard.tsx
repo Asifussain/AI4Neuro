@@ -1,22 +1,22 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Activity,
-  Brain,
-  Waves,
   CheckCircle2,
   Clock,
   Upload,
-  AlertCircle,
-  Loader2,
-  FileText,
   CalendarDays,
+  Stethoscope,
+  Mail,
+  Phone,
 } from 'lucide-react';
 
 import { useAuth } from '@/components/providers/AuthProvider';
 import { analysisApi } from '@/features/analysis/api';
+import { useAnalysisList } from '@/features/analysis/hooks';
+import { useMyPatients, usePatients } from '@/features/admin/queries';
 import { isActive, type SessionStatusResponse } from '@/features/analysis/types';
 import { getRoleMeta, type Role } from '@/lib/navigation';
 import {
@@ -27,8 +27,11 @@ import {
   MiniBarChart,
   DonutStat,
   DonutLegend,
-  StatusBadge,
 } from '@/components/dashboards/shared/primitives';
+import { SessionsTable } from '@/components/dashboards/shared/SessionsTable';
+import { ActivityCalendar } from '@/components/dashboards/shared/ActivityCalendar';
+import { PatientReportModal, type PatientReportData } from '@/components/shared/PatientReportModal';
+import { toast } from 'sonner';
 
 const ROLE_COPY: Record<Role, { eyebrow: string; title: string; description: string }> = {
   super_admin: {
@@ -75,20 +78,87 @@ export function AnalysisDashboard() {
   const meta = getRoleMeta(role);
   const copy = ROLE_COPY[role] ?? ROLE_COPY.patient;
   const canCreate = role !== 'patient';
+  // Each role's real "all sessions" list page — distinct from /analysis/new,
+  // which only starts a fresh analysis and has nothing to do with viewing
+  // existing ones.
+  const ALL_ANALYSES_HREF: Partial<Record<Role, string>> = {
+    admin: '/admin/sessions',
+    doctor: '/doctor/sessions',
+    radiologist: '/radiologist/sessions',
+  };
+  const allAnalysesHref = ALL_ANALYSES_HREF[role] ?? '/search';
 
-  const [sessions, setSessions] = useState<SessionStatusResponse[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Patient-only: assigned doctor's contact details, resolved server-side by
+  // GET /users/me (roleProfile.assigned_doctor_*) — there is no messaging
+  // feature yet, so this is the simplest way for a patient to reach their doctor.
+  const doctorContact =
+    role === 'patient'
+      ? (userProfile?.roleProfile as { assigned_doctor_name?: string; assigned_doctor_email?: string; assigned_doctor_phone?: string } | undefined)
+      : undefined;
 
-  useEffect(() => {
-    let cancelled = false;
-    analysisApi
-      .list({ limit: 100 })
-      .then((data) => !cancelled && setSessions(data))
-      .catch((e) => !cancelled && setError((e as Error).message));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const {
+    data: sessions,
+    error: sessionsError,
+  } = useAnalysisList({ limit: 100 });
+  const error = sessionsError instanceof Error ? sessionsError.message : null;
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  // Best-effort patient-name lookup for the Recent Analyses table. The patient
+  // role only sees their own analyses (no patient column), so skip the fetch;
+  // doctors use their assigned-patients endpoint, other staff the hospital
+  // directory. Any permission/network failure just falls back to a placeholder.
+  const { data: myPatientsPage } = useMyPatients({ limit: 200 }, { enabled: role === 'doctor' });
+  const { data: patientsPage } = usePatients(
+    { limit: 200 },
+    { enabled: role !== 'patient' && role !== 'doctor' }
+  );
+  const patientNameById = useMemo(() => {
+    if (role === 'patient') return {};
+    const page = role === 'doctor' ? myPatientsPage : patientsPage;
+    return Object.fromEntries((page?.items ?? []).map((p) => [p.id, p.full_name]));
+  }, [role, myPatientsPage, patientsPage]);
+  // Patient-only: the simple, plain-language report modal (opened from the
+  // Recent Analyses "View Report" button instead of the technical PDF).
+  const [patientReport, setPatientReport] = useState<PatientReportData | null>(null);
+
+  const openPatientReport = React.useCallback(
+    async (session: SessionStatusResponse) => {
+      const rp = (userProfile?.roleProfile ?? {}) as unknown as Record<string, unknown>;
+      const sessionCode = `${session.modality.toUpperCase()}-${session.id.slice(0, 8)}`;
+      // Base report from what we already have; enrich with the AI result.
+      const base: PatientReportData = {
+        sessionCode,
+        modality: session.modality,
+        analysisType: session.analysis_type,
+        scanDate: session.created_at,
+        status: session.status,
+        patientName: userProfile?.full_name ?? null,
+        patientCode: (rp.patient_code as string) ?? (rp.patient_id as string) ?? null,
+        dateOfBirth: (rp.date_of_birth as string) ?? null,
+        bloodGroup: (rp.blood_type as string) ?? ((rp.blood_groups as { blood_group?: string })?.blood_group ?? null),
+        doctorName: (rp.assigned_doctor_name as string) ?? null,
+        hospitalName: (rp.hospitals as { name?: string })?.name ?? null,
+      };
+      setPatientReport(base);
+      if (session.status === 'completed') {
+        try {
+          const res = await analysisApi.result(session.id);
+          setPatientReport({
+            ...base,
+            prediction: res.prediction,
+            confidence: res.confidence,
+            explainability:
+              (res.visualizations?.explainability as PatientReportData['explainability']) ?? null,
+            reportPdfUrl:
+              res.report_urls?.patient ?? res.report_urls?.clinician ?? res.report_urls?.technical ?? null,
+          });
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : 'Could not load your result.');
+        }
+      }
+    },
+    [userProfile]
+  );
 
   const stats = useMemo(() => {
     const all = sessions ?? [];
@@ -143,7 +213,7 @@ export function AnalysisDashboard() {
     [sessions]
   );
 
-  const loading = sessions === null && !error;
+  const loading = sessions === undefined && !error;
 
   return (
     <>
@@ -151,7 +221,6 @@ export function AnalysisDashboard() {
         eyebrow={copy.eyebrow}
         title={copy.title}
         description={copy.description}
-        routeChip={meta.dashboard}
         accent={meta.accent}
       />
 
@@ -161,12 +230,56 @@ export function AnalysisDashboard() {
         </div>
       )}
 
+      {/* Patient-only: assigned doctor contact card */}
+      {role === 'patient' && doctorContact?.assigned_doctor_name && (
+        <SectionCard className="p-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="p-2 rounded-lg bg-slate-100 shrink-0">
+              <Stethoscope className="h-4 w-4 text-slate-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500">Your Doctor</p>
+              <p className="text-sm font-semibold text-slate-900">
+                Dr. {doctorContact.assigned_doctor_name}
+              </p>
+            </div>
+            <div className="flex items-center gap-4 ml-auto text-xs text-slate-600">
+              {doctorContact.assigned_doctor_email && (
+                <a
+                  href={`mailto:${doctorContact.assigned_doctor_email}`}
+                  className="inline-flex items-center gap-1.5 hover:text-slate-900"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  {doctorContact.assigned_doctor_email}
+                </a>
+              )}
+              {doctorContact.assigned_doctor_phone && (
+                <a
+                  href={`tel:${doctorContact.assigned_doctor_phone}`}
+                  className="inline-flex items-center gap-1.5 hover:text-slate-900"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  {doctorContact.assigned_doctor_phone}
+                </a>
+              )}
+            </div>
+          </div>
+        </SectionCard>
+      )}
+
       {/* Stats */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Analyses" value={stats.total} icon={Activity} accent={meta.accent} isLoading={loading} />
         <StatCard label="In Progress" value={stats.inProgress} icon={Clock} accent={meta.accent} isLoading={loading} />
         <StatCard label="Completed" value={stats.completed} icon={CheckCircle2} accent={meta.accent} isLoading={loading} />
-        <StatCard label="This Week" value={stats.completedThisWeek} icon={CalendarDays} accent={meta.accent} isLoading={loading} />
+        <StatCard
+          label="This Week"
+          value={stats.completedThisWeek}
+          icon={CalendarDays}
+          accent={meta.accent}
+          isLoading={loading}
+          onClick={() => setShowCalendar(true)}
+        />
       </div>
 
       {/* Analytics row */}
@@ -199,7 +312,7 @@ export function AnalysisDashboard() {
               ? [
                   { label: 'New MRI Analysis', href: '/analysis/new?modality=mri' },
                   { label: 'New EEG Analysis', href: '/analysis/new?modality=eeg' },
-                  { label: 'View All Analyses', href: '/analysis/new' },
+                  { label: 'View All Analyses', href: allAnalysesHref },
                 ]
               : [{ label: 'View My Reports', href: '/patient/dashboard' }]
           }
@@ -230,54 +343,29 @@ export function AnalysisDashboard() {
               <div key={i} className="h-14 rounded-xl bg-slate-100 animate-pulse" />
             ))}
           </div>
-        ) : recent.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="p-4 rounded-full bg-slate-100 w-fit mx-auto mb-4">
-              <Brain className="h-8 w-8 text-slate-400" />
-            </div>
-            <p className="text-slate-900 font-medium mb-1">No analyses found</p>
-            <p className="text-sm text-slate-500">
-              {canCreate ? 'Upload a new scan to get started.' : 'Your reports will appear here once available.'}
-            </p>
-          </div>
         ) : (
-          <div className="space-y-2">
-            {recent.map((s) => {
-              const ModalityIcon = s.modality === 'eeg' ? Waves : Brain;
-              const active = isActive(s.status);
-              const failed = s.status === 'failed' || s.status === 'cancelled';
-              return (
-                <Link
-                  key={s.id}
-                  href={`/analysis/${s.id}`}
-                  className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2 rounded-lg bg-slate-50 shrink-0">
-                      <ModalityIcon className="h-5 w-5 text-slate-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
-                        <span className="uppercase">{s.modality}</span> · {s.analysis_type}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {s.created_at ? new Date(s.created_at).toLocaleDateString() : '—'}
-                        {s.current_stage ? ` · ${s.current_stage.replace(/_/g, ' ')}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {active && <Loader2 className="h-3.5 w-3.5 text-amber-500 animate-spin" />}
-                    {failed && <AlertCircle className="h-3.5 w-3.5 text-red-500" />}
-                    {s.status === 'completed' && <FileText className="h-3.5 w-3.5 text-emerald-600" />}
-                    <StatusBadge status={s.status} />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+          <SessionsTable
+            sessions={recent}
+            accent={meta.accent}
+            patientNameById={patientNameById}
+            showPatientColumn={role !== 'patient'}
+            showDeleteAction={role !== 'patient'}
+            onViewReport={role === 'patient' ? openPatientReport : undefined}
+            emptyLabel={canCreate ? 'No analyses found. Upload a new scan to get started.' : 'Your reports will appear here once available.'}
+          />
         )}
       </SectionCard>
+
+      {showCalendar && (
+        <ActivityCalendar
+          title={`${copy.eyebrow} Activity`}
+          timestamps={(sessions ?? []).map((s) => s.created_at)}
+          accent={meta.accent}
+          onClose={() => setShowCalendar(false)}
+        />
+      )}
+
+      <PatientReportModal data={patientReport} onClose={() => setPatientReport(null)} />
     </>
   );
 }

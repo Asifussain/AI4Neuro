@@ -59,7 +59,7 @@ class DatabaseService:
         modality: str,
         analysis_type: str,
         original_filename: str,
-        patient_id: str,
+        patient_id: str | None = None,
         doctor_id: str | None = None,
         radiologist_id: str | None = None,
         hospital_id: str | None = None,
@@ -98,12 +98,26 @@ class DatabaseService:
         )
         return _one(res)
 
+    def delete_session(self, session_id: str) -> None:
+        """Delete an analysis_sessions row and related results/reports/events."""
+        self.client.table(RESULTS_TABLE).delete().eq("session_id", session_id).execute()
+        self.client.table(REPORTS_TABLE).delete().eq("session_id", session_id).execute()
+        self.client.table(EVENTS_TABLE).delete().eq("session_id", session_id).execute()
+        self.client.table(SESSIONS_TABLE).delete().eq("id", session_id).execute()
+        try:
+            self.client.table("mri_predictions").delete().eq("session_id", session_id).execute()
+            self.client.table("mri_sessions").delete().eq("id", session_id).execute()
+        except Exception:
+            pass
+
     def list_sessions(
         self,
         *,
         modality: str | None = None,
         status: str | None = None,
         patient_id: str | None = None,
+        doctor_id: str | None = None,
+        radiologist_id: str | None = None,
         hospital_id: str | None = None,
     ) -> list[dict]:
         """Fetch sessions matching the provided equality filters.
@@ -118,6 +132,10 @@ class DatabaseService:
             query = query.eq("status", status)
         if patient_id:
             query = query.eq("patient_id", patient_id)
+        if doctor_id:
+            query = query.eq("doctor_id", doctor_id)
+        if radiologist_id:
+            query = query.eq("radiologist_id", radiologist_id)
         if hospital_id:
             query = query.eq("hospital_id", hospital_id)
         res = query.execute()
@@ -287,6 +305,14 @@ class DatabaseService:
         res = self.client.table("hospitals").select("*").execute()
         return list(getattr(res, "data", None) or [])
 
+    def list_blood_groups(self) -> list[dict]:
+        res = self.client.table("blood_groups").select("*").order("id").execute()
+        return list(getattr(res, "data", None) or [])
+
+    def list_qualifications(self) -> list[dict]:
+        res = self.client.table("qualifications").select("*").order("id").execute()
+        return list(getattr(res, "data", None) or [])
+
     def update_hospital(self, hospital_id: str, patch: dict) -> dict | None:
         patch = {**patch, "updated_at": _now()}
         self.client.table("hospitals").update(patch).eq("id", hospital_id).execute()
@@ -294,6 +320,45 @@ class DatabaseService:
 
     def set_hospital_status(self, hospital_id: str, status_value: str) -> dict | None:
         return self.update_hospital(hospital_id, {"status": status_value})
+
+    def hard_delete_hospital(self, hospital_id: str) -> list[str]:
+        """Permanently delete a hospital and EVERYTHING scoped to it, and return
+        the ids of the users that were removed (so the caller can also delete
+        their Supabase Auth accounts).
+
+        Deletes, in FK-safe order: analysis sessions (results/reports/job_events
+        cascade off them), doctor-patient relationships, the hospital's audit
+        trail, every user_profiles row (role-detail rows cascade via ON DELETE
+        CASCADE), and finally the hospital row itself. RESTRICT self-references
+        (hospitals.created_by, user_profiles.created_by_admin, audit_log.actor_id)
+        are cleared first so no delete is blocked.
+
+        Unlike suspend/soft-delete this is irreversible — the rows are gone.
+        """
+        users = self.list_user_profiles(hospital_id=hospital_id)
+        user_ids = [u["id"] for u in users]
+
+        # 1. Break RESTRICT references that would otherwise block the deletes.
+        self.client.table("hospitals").update({"created_by": None}).eq("id", hospital_id).execute()
+        for uid in user_ids:
+            self.client.table("user_profiles").update({"created_by_admin": None}).eq("id", uid).execute()
+
+        # 2. Analysis data — results/reports/job_events cascade off sessions.
+        self.client.table("analysis_sessions").delete().eq("hospital_id", hospital_id).execute()
+
+        # 3. Relationships + audit trail scoped to the hospital / its users.
+        self.client.table("doctor_patient_relationships").delete().eq("hospital_id", hospital_id).execute()
+        self.client.table("audit_log").delete().eq("hospital_id", hospital_id).execute()
+        for uid in user_ids:
+            self.client.table("audit_log").delete().eq("actor_id", uid).execute()
+
+        # 4. Users — patient/doctor/radiologist/hospital_admin profile rows
+        #    cascade via ON DELETE CASCADE on their user_id FK.
+        self.client.table("user_profiles").delete().eq("hospital_id", hospital_id).execute()
+
+        # 5. The hospital row itself.
+        self.client.table("hospitals").delete().eq("id", hospital_id).execute()
+        return user_ids
 
     # ------------------------------ users --------------------------------- #
 
@@ -305,42 +370,102 @@ class DatabaseService:
         return created
 
     def list_user_profiles(
-        self, *, hospital_id: str | None = None, role: str | None = None
+        self,
+        *,
+        hospital_id: str | None = None,
+        role: str | None = None,
+        exclude_deleted: bool = False,
     ) -> list[dict]:
+        """List user_profiles rows matching the given equality filters.
+
+        ``exclude_deleted``: directory-style listings (GET /hospital/users,
+        /doctors, /patients) pass True so terminally soft-deleted accounts
+        (account_status="deleted") never show up; admin lookups by id
+        (GET .../{id}) leave it False so a deleted user is still viewable/
+        auditable, just hidden from browse listings.
+        """
         query = self.client.table("user_profiles").select("*")
         if hospital_id:
             query = query.eq("hospital_id", hospital_id)
         if role:
             query = query.eq("role", role)
         res = query.execute()
-        return list(getattr(res, "data", None) or [])
+        rows = list(getattr(res, "data", None) or [])
+        if exclude_deleted:
+            rows = [r for r in rows if r.get("account_status") != "deleted"]
+        return rows
 
     def update_user_profile(self, user_id: str, patch: dict) -> dict | None:
         patch = {**patch, "updated_at": _now()}
         self.client.table("user_profiles").update(patch).eq("id", user_id).execute()
         return self.get_user_profile(user_id)
 
+    def set_hospital_users_status(
+        self,
+        hospital_id: str,
+        new_status: str,
+        *,
+        only_from_statuses: list[str] | None = None,
+    ) -> int:
+        """Cascade an account_status onto every user of a hospital and return the
+        number of rows affected.
+
+        Used when a hospital is suspended/deactivated/deleted (block all its
+        users' logins) or reactivated (restore them). ``only_from_statuses``
+        restricts the update to rows currently in one of those statuses — used
+        on reactivate so we only lift users that a hospital action put down, and
+        never resurrect a terminally ``deleted`` account.
+        """
+        query = self.client.table("user_profiles").update(
+            {"account_status": new_status, "updated_at": _now()}
+        ).eq("hospital_id", hospital_id)
+        if only_from_statuses:
+            query = query.in_("account_status", only_from_statuses)
+        else:
+            # Never overwrite a terminal soft-delete with a lesser status.
+            query = query.neq("account_status", "deleted")
+        res = query.execute()
+        return len(list(getattr(res, "data", None) or []))
+
     def create_role_profile(self, table: str, row: dict) -> dict:
         res = self.client.table(table).insert(row).execute()
         return _one(res) or {}
 
-    def list_role_profiles(self, table: str) -> list[dict]:
-        """Fetch every row of a role-detail table (keyed by user_id).
+    def list_role_profiles(self, table: str, user_ids: list[str] | None = None) -> list[dict]:
+        """Fetch role-detail rows (keyed by user_id), merged in Python against
+        an already-scoped user_profiles list (matching the existing
+        list_hospitals/list_user_profiles pattern).
 
-        Small, per-hospital-scale tables — callers merge these in Python against
-        a already-scoped user_profiles list rather than filtering server-side,
-        matching the existing list_hospitals/list_user_profiles pattern.
+        ``user_ids``: when given, scopes the fetch to exactly those rows via
+        ``.in_()`` instead of pulling the whole table (which, for
+        patient_profiles/doctor_profiles, means every hospital on the
+        platform). Callers that already have the scoped user list on hand
+        (the common case) should always pass their ids. Omit only for
+        genuinely platform-wide reads.
         """
-        res = self.client.table(table).select("*").execute()
+        if user_ids is not None:
+            if not user_ids:
+                return []
+            res = self.client.table(table).select("*").in_("user_id", user_ids).execute()
+        else:
+            res = self.client.table(table).select("*").execute()
         return list(getattr(res, "data", None) or [])
 
     def update_role_profile(self, table: str, user_id: str, patch: dict) -> dict | None:
         self.client.table(table).update(patch).eq("user_id", user_id).execute()
+
+    def upsert_role_profile(self, table: str, user_id: str, patch: dict) -> dict:
+        row = {"user_id": user_id, **patch, "updated_at": _now()}
+        res = self.client.table(table).upsert(row, on_conflict="user_id").execute()
+        return _one(res) or {}
+
+    def get_role_profile(self, table: str, user_id: str) -> dict | None:
+        """Fetch a single role-detail row (patient/doctor/radiologist/…) by user_id."""
         res = (
             self.client.table(table)
             .select("*")
             .eq("user_id", user_id)
-            .maybe_single()
+            .limit(1)
             .execute()
         )
         return _one(res)
@@ -349,12 +474,107 @@ class DatabaseService:
         res = self.client.table("doctor_patient_relationships").insert(row).execute()
         return _one(res) or {}
 
-    def list_doctor_patient_relationships(self, *, hospital_id: str | None = None) -> list[dict]:
+    def list_doctor_patient_relationships(
+        self,
+        *,
+        hospital_id: str | None = None,
+        doctor_id: str | None = None,
+        patient_id: str | None = None,
+    ) -> list[dict]:
         query = self.client.table("doctor_patient_relationships").select("*")
         if hospital_id:
             query = query.eq("hospital_id", hospital_id)
+        if doctor_id:
+            query = query.eq("doctor_id", doctor_id)
+        if patient_id:
+            query = query.eq("patient_id", patient_id)
         res = query.execute()
         return list(getattr(res, "data", None) or [])
+
+    def get_doctor_patient_relationship(self, relationship_id: str) -> dict | None:
+        res = (
+            self.client.table("doctor_patient_relationships")
+            .select("*")
+            .eq("id", relationship_id)
+            .maybe_single()
+            .execute()
+        )
+        return _one(res)
+
+    def delete_doctor_patient_relationship(self, relationship_id: str) -> None:
+        self.client.table("doctor_patient_relationships").delete().eq(
+            "id", relationship_id
+        ).execute()
+
+    # -------------------- report-access requests -------------------------- #
+
+    def get_report_access_by_patient(self, patient_id: str) -> dict | None:
+        res = (
+            self.client.table("report_access_requests")
+            .select("*")
+            .eq("patient_id", patient_id)
+            .maybe_single()
+            .execute()
+        )
+        return _one(res)
+
+    def upsert_report_access_request(
+        self, *, patient_id: str, doctor_id: str | None, hospital_id: str | None, status: str
+    ) -> dict:
+        """Create or update the single per-patient report-access record."""
+        existing = self.get_report_access_by_patient(patient_id)
+        if existing:
+            patch = {
+                "doctor_id": doctor_id,
+                "hospital_id": hospital_id,
+                "status": status,
+                "updated_at": _now(),
+            }
+            self.client.table("report_access_requests").update(patch).eq(
+                "id", existing["id"]
+            ).execute()
+            return self.get_report_access(existing["id"]) or {**existing, **patch}
+        row = {
+            "patient_id": patient_id,
+            "doctor_id": doctor_id,
+            "hospital_id": hospital_id,
+            "status": status,
+        }
+        res = self.client.table("report_access_requests").insert(row).execute()
+        return _one(res) or {}
+
+    def get_report_access(self, request_id: str) -> dict | None:
+        res = (
+            self.client.table("report_access_requests")
+            .select("*")
+            .eq("id", request_id)
+            .maybe_single()
+            .execute()
+        )
+        return _one(res)
+
+    def list_report_access_requests(
+        self,
+        *,
+        doctor_id: str | None = None,
+        hospital_id: str | None = None,
+        status: str | None = None,
+    ) -> list[dict]:
+        query = self.client.table("report_access_requests").select("*")
+        if doctor_id:
+            query = query.eq("doctor_id", doctor_id)
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        if status:
+            query = query.eq("status", status)
+        res = query.execute()
+        return list(getattr(res, "data", None) or [])
+
+    def set_report_access_status(self, request_id: str, status: str) -> dict | None:
+        self.client.table("report_access_requests").update(
+            {"status": status, "decided_at": _now(), "updated_at": _now()}
+        ).eq("id", request_id).execute()
+        return self.get_report_access(request_id)
 
     # ---------------------------- audit log ------------------------------- #
 
@@ -383,6 +603,18 @@ class DatabaseService:
             ).execute()
         except Exception as exc:  # audit logging is best-effort, never fatal
             logger.warning("Failed to write audit_log entry for %s: %s", action, exc)
+
+    def list_audit_log(self, *, hospital_id: str | None = None) -> list[dict]:
+        """Most-recent-first, matching the existing fetch-then-filter DB pattern
+        (see list_hospitals/list_user_profiles) — sorting/pagination happen in
+        Python via app.api.v1._common.paginate() rather than at the query."""
+        query = self.client.table("audit_log").select("*")
+        if hospital_id:
+            query = query.eq("hospital_id", hospital_id)
+        res = query.execute()
+        rows = list(getattr(res, "data", None) or [])
+        rows.sort(key=lambda r: r.get("created_at") or "", reverse=True)
+        return rows
 
     # ---------------------------- job events ---------------------------- #
 

@@ -423,7 +423,7 @@ html {
 }
 
 .hero h1 {
-  max-width: 600px;
+  max-width: 800px;
   margin: 24px 0 22px;
   color: #073b65;
   font-size: clamp(1.15rem, 3.6vw, 3.95rem);

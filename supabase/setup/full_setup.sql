@@ -78,9 +78,12 @@ create table if not exists public.user_profiles (
   phone varchar not null,
   date_of_birth date,
   address text,
+  avatar_url text,
   role varchar not null,
   account_status varchar not null default 'pending'
-    check (account_status in ('pending','active','suspended','inactive')),
+    -- suspended = temporary/reversible (admin action, reactivate to undo);
+    -- deleted = terminal soft-delete, hidden from directories, never reactivated.
+    check (account_status in ('pending','active','suspended','inactive','deleted')),
   auth_provider varchar default 'email',
   created_by_admin uuid references public.user_profiles(id),
   first_login_required boolean default false,
@@ -88,12 +91,15 @@ create table if not exists public.user_profiles (
   updated_at timestamptz not null default now()
 );
 
--- Multi-tenant role set: super_admin (platform-wide, no hospital) and
--- hospital_admin (single-hospital admin, was "admin"). technician is removed.
+-- Multi-tenant role set. The hospital-admin role VALUE is `admin` (this is
+-- the canonical wire/DB value the whole app writes and reads — see
+-- app/schemas/users.py's Role enum and frontend/src/lib/roles.ts; the
+-- role-detail TABLE is separately named hospital_admin_profiles). super_admin
+-- is platform-wide (no hospital); technician has been removed.
 alter table public.user_profiles drop constraint if exists user_profiles_role_check;
 alter table public.user_profiles
   add constraint user_profiles_role_check
-  check (role in ('super_admin','hospital_admin','doctor','radiologist','patient'));
+  check (role in ('super_admin','admin','doctor','radiologist','patient'));
 
 -- Tenancy invariant: only super_admin may have a NULL hospital_id; every other
 -- role must belong to exactly one hospital.
@@ -134,12 +140,13 @@ create table if not exists public.doctor_profiles (
   verification_status varchar default 'pending'
     check (verification_status in ('pending','verified','rejected')),
   is_active boolean default true,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.radiologist_profiles (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references public.user_profiles(id) on delete cascade,
+  user_id uuid references public.user_profiles(id) on delete cascade unique,
   radiologist_license varchar not null,
   qualification_id integer references public.qualifications(id),
   imaging_expertise text not null,
@@ -157,7 +164,8 @@ create table if not exists public.hospital_admin_profiles (
   department varchar,
   permissions jsonb default
     '{"manage_doctors": true, "manage_patients": true, "view_all_reports": true}'::jsonb,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 -- super_admin has no clinical/employee fields of its own, but keeps the "every
@@ -166,7 +174,8 @@ create table if not exists public.hospital_admin_profiles (
 create table if not exists public.super_admin_profiles (
   user_id uuid primary key references public.user_profiles(id) on delete cascade,
   notes text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.doctor_patient_relationships (
@@ -203,6 +212,18 @@ create trigger trg_dpr_updated_at before update on public.doctor_patient_relatio
 
 drop trigger if exists trg_user_profiles_updated_at on public.user_profiles;
 create trigger trg_user_profiles_updated_at before update on public.user_profiles
+  for each row execute function public.update_updated_at_column();
+
+drop trigger if exists trg_doctor_profiles_updated_at on public.doctor_profiles;
+create trigger trg_doctor_profiles_updated_at before update on public.doctor_profiles
+  for each row execute function public.update_updated_at_column();
+
+drop trigger if exists trg_hospital_admin_profiles_updated_at on public.hospital_admin_profiles;
+create trigger trg_hospital_admin_profiles_updated_at before update on public.hospital_admin_profiles
+  for each row execute function public.update_updated_at_column();
+
+drop trigger if exists trg_super_admin_profiles_updated_at on public.super_admin_profiles;
+create trigger trg_super_admin_profiles_updated_at before update on public.super_admin_profiles
   for each row execute function public.update_updated_at_column();
 
 -- Helper functions used by legacy dashboards (harmless to keep).
@@ -335,10 +356,14 @@ create table if not exists public.analysis_sessions (
   id uuid primary key default gen_random_uuid(),
   modality text not null check (modality in ('eeg','mri')),
   analysis_type text not null,
-  patient_id uuid not null references public.patient_profiles(user_id),
+  -- patient_id / hospital_id are nullable so a Super Admin can run an
+  -- anonymous "outsider" analysis with no patient record and no hospital.
+  -- Tenant-scoped scans always set both; only super_admin anonymous scans
+  -- leave them NULL (and such rows are visible only to super_admin).
+  patient_id uuid references public.patient_profiles(user_id),
   doctor_id uuid references public.user_profiles(id),
   radiologist_id uuid references public.user_profiles(id),
-  hospital_id uuid not null references public.hospitals(id),
+  hospital_id uuid references public.hospitals(id),
   uploaded_by uuid references public.user_profiles(id),
   uploaded_by_role text,
   original_filename text not null,
@@ -441,6 +466,25 @@ alter table public.platform_settings enable row level security;
 alter table public.audit_log enable row level security;
 -- Fail-closed by default (no permissive policy) — backend service role only.
 
+-- Patient -> assigned-doctor report-access requests. A patient's analysis
+-- reports only open once their assigned doctor approves the request.
+create table if not exists public.report_access_requests (
+  id uuid primary key default gen_random_uuid(),
+  patient_id uuid not null references public.user_profiles(id) on delete cascade,
+  doctor_id uuid references public.user_profiles(id) on delete set null,
+  hospital_id uuid references public.hospitals(id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending','approved','denied')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  decided_at timestamptz,
+  unique (patient_id)
+);
+create index if not exists idx_rar_doctor on public.report_access_requests(doctor_id);
+create index if not exists idx_rar_status on public.report_access_requests(status);
+alter table public.report_access_requests enable row level security;
+-- Fail-closed by default (no permissive policy) — backend service role only.
+
 -- ---------------------------------------------------------------------
 -- 6. Private storage buckets
 -- ---------------------------------------------------------------------
@@ -450,6 +494,14 @@ insert into storage.buckets (id, name, public) values
   ('reports', 'reports', false),
   ('viewer-slices', 'viewer-slices', false)
 on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------------
+-- 7. Reload the PostgREST schema cache so every table/column created above
+--    is immediately visible to the Supabase REST API (otherwise the first
+--    calls can fail with "Could not find the '<col>' column ... in the schema
+--    cache" until the periodic reload catches up).
+-- ---------------------------------------------------------------------
+notify pgrst, 'reload schema';
 
 -- =====================================================================
 -- DONE. Verify in the Table Editor that these tables exist:

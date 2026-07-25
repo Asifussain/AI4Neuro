@@ -14,6 +14,18 @@ from pydantic import BaseModel, Field
 
 
 class Role(str, Enum):
+    """The 5 platform roles.
+
+    NOTE on ``hospital_admin``: its wire/DB value is the string ``"admin"``
+    (kept for backward compatibility with existing rows/JWTs — this is a
+    naming quirk, not a semantic difference). It means a hospital-scoped
+    admin, i.e. an admin whose authority is limited to their own
+    ``hospital_id``. Do not confuse it with ``super_admin``, which is
+    platform-wide and hospital-less. Every other comment in this codebase
+    that re-explains this distinction should point back to this enum instead
+    of repeating it.
+    """
+
     super_admin = "super_admin"
     hospital_admin = "admin"
     doctor = "doctor"
@@ -72,6 +84,11 @@ class HospitalResponse(BaseModel):
 
 
 class UserCreate(BaseModel):
+    """Role-specific fields below mirror `UserUpdate` (same role-agnostic
+    names, resolved to real per-table columns via `ROLE_FIELD_MAP` in
+    `api/v1/_common.py`) — see `user_provisioning.create_user_account`, which
+    is the only place that maps these onto the actual role-detail insert."""
+
     full_name: str
     email: str
     phone: str
@@ -82,6 +99,20 @@ class UserCreate(BaseModel):
     hospital_id: str | None = None
     date_of_birth: str | None = None
     address: str | None = None
+    # doctor_profiles / radiologist_profiles
+    license_number: str | None = None
+    qualification_id: int | None = None
+    experience_years: int | None = None
+    specialization: str | None = None  # doctor_profiles only
+    imaging_expertise: str | None = None  # radiologist_profiles only (NOT NULL there)
+    certifications: str | None = None  # radiologist_profiles only
+    # patient_profiles
+    emergency_contact_name: str | None = None
+    emergency_contact_phone: str | None = None
+    blood_group_id: int | None = None
+    # hospital_admin_profiles
+    employee_id: str | None = None
+    department: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -91,16 +122,70 @@ class UserResponse(BaseModel):
     full_name: str
     email: str
     phone: str
+    avatar_url: str | None = None
     role: str
     account_status: str
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # Optional role-detail / auth-claim bag. Populated by /users/me (the
+    # caller's own Principal.profile) so that endpoint is shape-compatible
+    # with /hospital/users/{id}; omitted (None) elsewhere.
+    profile: dict | None = None
+
+
+class UserCreateResult(UserResponse):
+    """Response for endpoints that provision a new login-capable account.
+
+    ``temporary_password`` is returned exactly once, on creation, and must
+    never be logged or persisted anywhere else — see
+    app/services/auth_admin.py.
+    """
+
+    temporary_password: str | None = None
 
 
 class UserUpdate(BaseModel):
+    """Every field here is optional and the caller's role decides which
+    role-table columns (if any) it maps to — see `update_me` in
+    `api/v1/users.py`. Field names are the real DB column names except
+    `license_number`, which is a role-agnostic alias the caller resolves to
+    `doctor_profiles.medical_license` or `radiologist_profiles.
+    radiologist_license` (those tables use different column names for the
+    same concept, but the frontend shows one "License Number" input).
+    """
+
     full_name: str | None = None
     phone: str | None = None
     address: str | None = None
+    avatar_url: str | None = None
+    # doctor_profiles / radiologist_profiles
+    license_number: str | None = None
+    qualification_id: int | None = None
+    experience_years: int | None = None
+    specialization: str | None = None  # doctor_profiles only
+    imaging_expertise: str | None = None  # radiologist_profiles only (NOT NULL there)
+    certifications: str | None = None  # radiologist_profiles only
+    # patient_profiles
+    date_of_birth: str | None = None
+    emergency_contact_name: str | None = None
+    emergency_contact_phone: str | None = None
+    # Patient-only, editable (unlike assigned_doctor_id/hospital_id, which are
+    # care-team-managed and never patient-writable). FK -> blood_groups.id.
+    blood_group_id: int | None = None
+    # hospital_admin_profiles
+    employee_id: str | None = None
+    department: str | None = None
+
+
+class BloodGroupResponse(BaseModel):
+    id: int
+    blood_type: str
+
+
+class QualificationResponse(BaseModel):
+    id: int
+    qualification_name: str
+    specialization: str | None = None
 
 
 class AssignDoctorRequest(BaseModel):
@@ -154,6 +239,21 @@ class VerificationResponse(BaseModel):
     user_id: str
     role: str
     verification_status: str
+
+
+class ReportAccessRequestResponse(BaseModel):
+    """A patient's report-access record (one per patient). ``status`` is
+    ``none`` when the patient has never requested access."""
+
+    id: str | None = None
+    patient_id: str
+    patient_name: str | None = None
+    doctor_id: str | None = None
+    doctor_name: str | None = None
+    hospital_id: str | None = None
+    status: str  # none | pending | approved | denied
+    created_at: datetime | None = None
+    decided_at: datetime | None = None
 
 
 class PlatformSettingsUpdate(BaseModel):

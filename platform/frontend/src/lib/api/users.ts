@@ -5,12 +5,13 @@
 
 import { createClient } from '@/lib/supabase/client';
 import type { ApiResponse, PaginatedResponse, FilterOptions } from './index';
+import type { Role } from '@/lib/roles';
 
 export interface User {
   id: string;
   full_name: string;
   email: string;
-  role: 'patient' | 'doctor' | 'radiologist' | 'admin' | 'super_admin';
+  role: Role;
   phone: string | null;
   account_status: 'active' | 'suspended' | 'pending';
   created_at: string;

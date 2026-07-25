@@ -35,7 +35,7 @@ def run_analysis_job(
     """Process one analysis session to completion (or failure)."""
     db = db or DatabaseService()
     storage = storage or StorageService()
-    reports = reports or PdfReportService(storage)
+    reports = reports or PdfReportService(storage, db=db)
 
     work_dir: str | None = None
     try:
@@ -89,6 +89,14 @@ def run_analysis_job(
             slice_urls = storage.upload_viewer_slices(session_id, result.viewer_slices)
             if slice_urls:
                 visualizations["viewer_slice_urls"] = slice_urls
+
+        # AI visual explainability (Grad-CAM overlays + MNI152 reference) →
+        # report-assets bucket → visualizations.explainability, so the web
+        # viewers can show the same evidence as the PDF.
+        if result.explainability:
+            web_explain = storage.upload_explainability(session_id, result.explainability)
+            if web_explain:
+                visualizations["explainability"] = web_explain
 
         # 4) Persist result.
         db.insert_result(session_id, result, visualizations=visualizations)

@@ -59,6 +59,7 @@ def _decode_token(token: str, settings: Settings) -> dict:
             algorithms=["HS256"],
             audience="authenticated",
             options={"verify_aud": False},  # Supabase aud can vary; verify signature+exp
+            leeway=30,  # tolerate clock drift between this host and Supabase
         )
 
     if settings.supabase_url:
@@ -69,6 +70,7 @@ def _decode_token(token: str, settings: Settings) -> dict:
             algorithms=["ES256", "RS256"],
             audience="authenticated",
             options={"verify_aud": False},
+            leeway=30,  # tolerate clock drift between this host and Supabase
         )
 
     raise ValueError("Supabase JWT verification is not configured.")

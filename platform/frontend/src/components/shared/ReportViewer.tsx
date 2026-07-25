@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Download, ExternalLink, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import type { Role } from '@/lib/roles';
 
 interface ReportUrls {
   technical?: string | null;
@@ -17,7 +18,7 @@ interface ReportViewerProps {
   status?: string;
   generatedAt?: string;
   reports: ReportUrls;
-  userRole: 'patient' | 'doctor' | 'radiologist' | 'admin' | 'super_admin';
+  userRole: Role;
   prediction?: string;
   confidence?: number;
 }

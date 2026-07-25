@@ -15,10 +15,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.v1 import admin as admin_routes
 from app.api.v1 import analysis as analysis_routes
 from app.api.v1 import health as health_routes
-from app.api.v1 import hospitals as hospitals_routes
+from app.api.v1 import hospital_admin as hospital_admin_routes
+from app.api.v1 import platform_admin as platform_admin_routes
+from app.api.v1 import report_access as report_access_routes
+from app.api.v1 import settings as settings_routes
 from app.api.v1 import users as users_routes
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
@@ -79,8 +81,10 @@ def create_app() -> FastAPI:
     v1.include_router(health_routes.router)
     v1.include_router(analysis_routes.router)
     v1.include_router(users_routes.router)
-    v1.include_router(hospitals_routes.router)
-    v1.include_router(admin_routes.router)
+    v1.include_router(platform_admin_routes.router)
+    v1.include_router(hospital_admin_routes.router)
+    v1.include_router(report_access_routes.router)
+    v1.include_router(settings_routes.router)
     app.include_router(v1)
 
     _install_error_handlers(app)
@@ -98,10 +102,48 @@ def create_app() -> FastAPI:
     return app
 
 
+def _cors_headers_for(request: Request) -> dict[str, str]:
+    """Manually mirror what CORSMiddleware would add to a normal response.
+
+    Only needed for the bare-``Exception`` handler below — see its docstring
+    for why. Every other handler here is registered for a specific exception
+    type, which Starlette keeps on ``ExceptionMiddleware`` (inside
+    CORSMiddleware), so those already get CORS headers for free.
+    """
+    origin = request.headers.get("origin")
+    settings = get_settings()
+    if origin and origin in settings.cors_origins_list:
+        return {"Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true"}
+    return {}
+
+
 def _install_error_handlers(app: FastAPI) -> None:
     """Return the doc's structured error shape; never leak tracebacks (doc 14.7)."""
 
+    from postgrest.exceptions import APIError as PostgrestAPIError
+
     from app.services.supabase_client import SupabaseNotConfiguredError
+
+    # Postgres error codes we can turn into an actionable message instead of
+    # a generic 500 — see https://www.postgresql.org/docs/current/errcodes-appendix.html
+    _PG_ERROR_STATUS = {
+        "23505": (409, "conflict", "A record with these details already exists."),
+        "23503": (400, "invalid_reference", "This action references something that doesn't exist."),
+        "23502": (400, "missing_field", "A required field was left empty."),
+    }
+
+    @app.exception_handler(PostgrestAPIError)
+    async def postgrest_api_error(request: Request, exc: PostgrestAPIError):
+        pg_code = getattr(exc, "code", None)
+        status_code, error_code, fallback_message = _PG_ERROR_STATUS.get(
+            pg_code, (500, "database_error", "A database error occurred.")
+        )
+        message = getattr(exc, "message", None) or fallback_message
+        logger.warning("Database error on %s (pg code=%s): %s", request.url.path, pg_code, message)
+        return JSONResponse(
+            status_code=status_code,
+            content={"error": {"code": error_code, "message": message, "request_id": None}},
+        )
 
     @app.exception_handler(SupabaseNotConfiguredError)
     async def supabase_not_configured(request: Request, exc: SupabaseNotConfiguredError):
@@ -157,6 +199,14 @@ def _install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def unhandled_exc(request: Request, exc: Exception):
+        # Starlette special-cases a *bare* `Exception` handler onto
+        # ServerErrorMiddleware (the outermost layer, wrapping every user
+        # middleware including CORSMiddleware) rather than ExceptionMiddleware
+        # (which sits inside CORSMiddleware, like every other handler in this
+        # file). So this response never gets CORS headers automatically — the
+        # browser then reports a CORS failure instead of surfacing this JSON
+        # body, which is exactly what made real 500s here look like a CORS
+        # misconfiguration. Add the headers by hand to compensate.
         logger.exception("Unhandled error on %s", request.url.path)
         return JSONResponse(
             status_code=500,
@@ -167,6 +217,7 @@ def _install_error_handlers(app: FastAPI) -> None:
                     "request_id": None,
                 }
             },
+            headers=_cors_headers_for(request),
         )
 
 

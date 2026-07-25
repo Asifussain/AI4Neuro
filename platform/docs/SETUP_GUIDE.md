@@ -413,6 +413,8 @@ If every box is ticked, the application is fully set up and working end to end.
 |---|---|
 | SQL editor error `relation "auth.users" does not exist` | You're not on a real Supabase project (auth schema missing). Use a hosted Supabase project, not a bare Postgres. |
 | `full_setup.sql` error about a policy already existing | Harmless on re-run; the script drops-then-creates. If it still fails, tell me the exact line. |
+| Creating a hospital fails with `Could not find the 'created_by' column of 'hospitals' in the schema cache` | The `hospitals.created_by` column (or the PostgREST schema cache) is out of date on an **already-deployed** project. Fix: run `supabase/migrations/0009_align_hospital_admin_role_value.sql` in the SQL Editor (it adds the column if missing and reloads the cache with `notify pgrst, 'reload schema'`). Fresh installs from `full_setup.sql` already include both. |
+| Super Admin can't create a Hospital Admin, or a Hospital Admin can't create Doctors/Radiologists/Patients (403 / insert fails) | The database still stores the hospital-admin role as `hospital_admin`, but the whole app uses the value `admin`. Fix: run `supabase/migrations/0009_align_hospital_admin_role_value.sql` (renames existing rows back to `admin` and fixes the role CHECK constraint). |
 | Backend `/health/database` says `not_configured` | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` missing or wrong in `platform/backend/.env`. |
 | Backend request → `503 service_unavailable` | Same as above — Supabase not configured. |
 | Login says "Invalid login credentials" | Run the seed (Step 12), or the user isn't confirmed. Check Authentication → Users. |

@@ -34,10 +34,14 @@ def get_service_client() -> Any | None:
     try:
         # postgrest-py 2.31 defaults to HTTP/2. Supabase occasionally closes
         # local dev HTTP/2 streams mid-request, so keep this backend on HTTP/1.1.
+        # This one client handles both small REST queries and large raw-file
+        # Storage uploads/downloads, so the timeout must be sized for the
+        # slowest of those (a big MRI NIfTI on a slow upload connection), not
+        # just a typical fast REST call.
         http_client = httpx.Client(
             follow_redirects=True,
             http2=False,
-            timeout=httpx.Timeout(120.0, connect=10.0),
+            timeout=httpx.Timeout(settings.supabase_http_timeout_seconds, connect=10.0),
         )
         options = ClientOptions(httpx_client=http_client)
         return create_client(

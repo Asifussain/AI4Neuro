@@ -73,6 +73,11 @@ class Settings(BaseSettings):
     # ---- Uploads ----
     local_tmp_dir: str = Field(default="/tmp/neuro-platform", alias="LOCAL_TMP_DIR")
     max_upload_mb: int = Field(default=512, alias="MAX_UPLOAD_MB")
+    # Large raw scans (MRI NIfTI especially) can take a while to actually
+    # finish transferring to Supabase Storage on a slow/asymmetric upload
+    # connection - this must comfortably exceed that, not just the time a
+    # small REST query needs. Same httpx client is shared for both.
+    supabase_http_timeout_seconds: float = Field(default=600.0, alias="SUPABASE_HTTP_TIMEOUT_SECONDS")
 
     # ---- Auth ----
     # When true, the JWT guard accepts requests without a valid token and injects a
@@ -102,17 +107,26 @@ class Settings(BaseSettings):
     eeg_apply_zscore: bool = Field(default=False, alias="EEG_APPLY_ZSCORE")
 
     # ---- MRI pipeline (Phase 3) ----
-    # The runtime pipeline takes the uploaded scan as already preprocessed (no
-    # CAT12 step) and requires a real ConViT checkpoint; without one, MRI
-    # analysis jobs fail explicitly instead of returning mock predictions.
-    # CAT12_ROOT/CAT12_EXE/MCR_ROOT/CAT12_OUTPUT_DIR remain below only for the
-    # standalone `cat12_manager.py` / `scripts/check_cat12_setup.py` tooling,
-    # which is not invoked by the runtime pipeline.
+    # When USE_CAT12_PREPROCESSING is true, the runtime pipeline runs CAT12 on
+    # the uploaded raw T1 NIfTI first (segmentation -> mwp1/mwp2/p0 + real
+    # volumetrics) before ConViT inference. Requires CAT12_ROOT/CAT12_EXE/
+    # MCR_ROOT to be set to a working standalone CAT12 + MATLAB Runtime
+    # install (see app/pipelines/mri/cat12_manager.py). When false (default),
+    # the uploaded scan is treated as already preprocessed, matching the
+    # previous behavior. A real ConViT checkpoint is required either way;
+    # without one, MRI analysis jobs fail explicitly instead of returning
+    # mock predictions.
     convit_checkpoint_path: str = Field(default="", alias="CONVIT_CHECKPOINT_PATH")
+    use_cat12_preprocessing: bool = Field(default=False, alias="USE_CAT12_PREPROCESSING")
     cat12_root: str = Field(default="", alias="CAT12_ROOT")
     cat12_exe: str = Field(default="", alias="CAT12_EXE")
     mcr_root: str = Field(default="", alias="MCR_ROOT")
     cat12_output_dir: str = Field(default="", alias="CAT12_OUTPUT_DIR")
+    # A clean run takes ~15-20 min; this needs real margin on top for CPU
+    # contention with everything else running on a dev machine (frontend,
+    # browser, editor, ...) - too tight a limit here kills an otherwise-fine
+    # run and wastes the whole preprocessing time.
+    cat12_timeout_seconds: float = Field(default=3600.0, alias="CAT12_TIMEOUT_SECONDS")
     mri_use_gpu: bool = Field(default=False, alias="MRI_USE_GPU")
     mri_model_version: str = Field(default="ConViT-v1.0", alias="MRI_MODEL_VERSION")
 

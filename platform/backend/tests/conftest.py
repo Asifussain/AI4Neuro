@@ -6,10 +6,12 @@ POST /analysis has finished processing by the time the test polls status.
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_database, get_storage
+from app.api.deps import get_auth_admin, get_database, get_storage
 from app.main import create_app
 from app.services.database import DatabaseService
 from app.services.jobs import JobService, set_job_service
@@ -17,6 +19,29 @@ from app.services.orchestrator import run_analysis_job
 from app.services.reports import NoopReportService
 from app.services.storage import StorageService
 from tests.fake_supabase import FakeSupabase
+
+
+class FakeAuthAdminService:
+    """In-memory stand-in for AuthAdminService — no real Supabase Auth calls.
+
+    Tracks created user ids so tests can assert on rollback (delete_auth_user
+    called after a downstream failure).
+    """
+
+    def __init__(self) -> None:
+        self.created: dict[str, dict] = {}
+        self.deleted: list[str] = []
+
+    def create_auth_user(self, *, email: str, full_name: str, role: str, password: str | None = None) -> dict:
+        user_id = str(uuid.uuid4())
+        password = password or "Temp1234!fake"
+        record = {"id": user_id, "email": email, "temporary_password": password}
+        self.created[user_id] = record
+        return record
+
+    def delete_auth_user(self, user_id: str) -> None:
+        self.deleted.append(user_id)
+        self.created.pop(user_id, None)
 
 
 class SyncJobService(JobService):
@@ -54,14 +79,22 @@ def storage_service(fake_supabase: FakeSupabase) -> StorageService:
 
 
 @pytest.fixture
+def fake_auth_admin() -> FakeAuthAdminService:
+    return FakeAuthAdminService()
+
+
+@pytest.fixture
 def client(
-    db_service: DatabaseService, storage_service: StorageService
+    db_service: DatabaseService,
+    storage_service: StorageService,
+    fake_auth_admin: FakeAuthAdminService,
 ) -> TestClient:
     from app.pipelines.base import register_pipeline, stub_runner_factory
 
     app = create_app()
     app.dependency_overrides[get_database] = lambda: db_service
     app.dependency_overrides[get_storage] = lambda: storage_service
+    app.dependency_overrides[get_auth_admin] = lambda: fake_auth_admin
     with TestClient(app) as c:
         # Force deterministic stub pipelines so foundation tests never depend on
         # torch/weights (real EEG is covered separately in test_eeg_pipeline.py).

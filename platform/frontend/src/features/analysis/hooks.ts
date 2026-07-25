@@ -1,10 +1,22 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
-import { analysisApi } from './api';
+import { analysisApi, type ListParams } from './api';
 import { isActive } from './types';
 import type { AnalysisResultResponse, SessionStatusResponse } from './types';
+
+/** Cached session list (dashboards, sessions tables) - avoids refetching the
+ * same "recent analyses" list on every page visit within the staleTime
+ * window. Callers that need fresher data (e.g. right after an upload) can
+ * still call `analysisApi.list` directly or `queryClient.invalidateQueries`. */
+export function useAnalysisList(params: ListParams = {}) {
+  return useQuery({
+    queryKey: ['analysis-list', params.modality, params.status, params.patient_id, params.mine, params.limit],
+    queryFn: () => analysisApi.list(params),
+  });
+}
 
 /**
  * Poll an analysis session until it reaches a terminal state, then fetch the

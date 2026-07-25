@@ -1,12 +1,14 @@
 """
 ML Runner - Implements the MRI Pipeline:
-1. Slice Extraction -> 10 axial slices
+0. CAT12 Preprocessing (if USE_CAT12_PREPROCESSING) -> mwp1/mwp2/p0 + real
+   volumetrics, replacing the raw upload with the segmented grey-matter map
+1. Slice Extraction -> 10 axial slices (from mwp1 when CAT12 ran, else raw)
 2. Model Inference -> ConViT per-slice prediction, majority vote
 
-The uploaded scan is treated as already preprocessed; no CAT12 step runs.
 Multiclass-only (CN/MCI/AD): the ConViT checkpoint is trained multiclass-only.
 If the model can't run for any reason, this returns an explicit error instead
-of a fabricated prediction.
+of a fabricated prediction. Same for CAT12 when enabled: preprocessing failure
+is a hard pipeline error, never a silent fallback to unprocessed input.
 """
 
 import logging
@@ -14,7 +16,11 @@ import time
 import os
 from typing import Dict, Any
 
-from app.pipelines.mri.config import CONVIT_CHECKPOINT_PATH, NORMATIVE_VOLUMES
+from app.pipelines.mri.config import (
+    CONVIT_CHECKPOINT_PATH,
+    NORMATIVE_VOLUMES,
+    USE_CAT12_PREPROCESSING,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +31,36 @@ logger = logging.getLogger(__name__)
 def run_model(scan_path: str, analysis_type: str = 'multiclass') -> Dict[str, Any]:
     start_time = time.time()
     processed_path = scan_path
+    cat12_volumes: Dict[str, float] | None = None
+    mwp1_path: str | None = None
+    mwp2_path: str | None = None
+
+    # --- Step 0: CAT12 Preprocessing (segmentation -> mwp1/mwp2/p0 + real volumes) ---
+    if USE_CAT12_PREPROCESSING:
+        logger.info("STEP 0: Running CAT12 preprocessing...")
+        from app.pipelines.mri.cat12_manager import run_cat12_preprocessing
+
+        cat12_result = run_cat12_preprocessing(scan_path)
+        if cat12_result is None:
+            return _error_response(
+                "CAT12 preprocessing failed or is not configured correctly. "
+                "Analysis cannot run without a successful segmentation step."
+            )
+
+        processed_path = cat12_result.mwp1_path
+        mwp1_path = cat12_result.mwp1_path
+        mwp2_path = cat12_result.mwp2_path
+        logger.info("STEP 0 COMPLETE: CAT12 segmentation produced %s", processed_path)
+
+        if cat12_result.report_xml_path:
+            try:
+                from app.pipelines.mri.volumetric_analyzer import extract_volumes_from_cat12_xml
+
+                cat12_volumes = extract_volumes_from_cat12_xml(
+                    cat12_result.report_xml_path, cat12_result.roi_xml_path
+                )
+            except Exception as e:  # noqa: BLE001 - volumetrics are additive, not fatal
+                logger.warning("Could not parse CAT12 volumetric XML: %s", e)
 
     # --- Step 1: Slice Extraction ---
     logger.info("STEP 1: Extracting 10 slices...")
@@ -91,9 +127,13 @@ def run_model(scan_path: str, analysis_type: str = 'multiclass') -> Dict[str, An
     predicted_label = max(probabilities_by_class, key=probabilities_by_class.get)
     confidence = probabilities_by_class[predicted_label]
 
-    volumes = _generate_consistent_volumes(predicted_label)
+    # Real volumes from CAT12's XML reports when preprocessing ran; otherwise
+    # (USE_CAT12_PREPROCESSING=false, e.g. local dev without a CAT12 install)
+    # fall back to the label-derived placeholder so the report/UI still has
+    # something to show - never presented as measured when it isn't.
+    volumes = cat12_volumes or _generate_consistent_volumes(predicted_label)
 
-    return {
+    result = {
         'prediction': predicted_label,
         'confidence': confidence,
         'probabilities': list(probabilities_by_class.values()),
@@ -104,12 +144,35 @@ def run_model(scan_path: str, analysis_type: str = 'multiclass') -> Dict[str, An
         'csf_volume': volumes['csf'],
         'hippocampal_volume': volumes['hippo'],
         'ventricular_volume': volumes['ventricles'],
+        'tiv': volumes.get('tiv'),
         'processing_time': int((time.time() - start_time) * 1000),
         'analysis_type': 'multiclass',
-        'used_cat12': False,
+        'used_cat12': cat12_volumes is not None,
+        'mwp1_path': mwp1_path,
+        'mwp2_path': mwp2_path,
         'model_version': 'ConViT-v1.0',
         'status': 'success'
     }
+
+    # --- Step 3: Visual explainability (Grad-CAM overlays + MNI152 reference) ---
+    # Non-fatal: any failure just omits the visual section from the report.
+    try:
+        from app.pipelines.mri.explainability import generate_explainability
+
+        result['explainability'] = generate_explainability(
+            scan_path=str(processed_path),
+            slice_paths=slice_paths,
+            individual_predictions=prediction_result.get('individual_predictions', []),
+            predictor=predictor,
+            ml_results=result,
+            prediction=predicted_label,
+            work_dir=os.path.dirname(str(processed_path)),
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Explainability generation skipped: %s", e)
+        result['explainability'] = None
+
+    return result
 
 def get_volume_comparison(ml_results: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     """Compare measured volumes with normative ranges."""

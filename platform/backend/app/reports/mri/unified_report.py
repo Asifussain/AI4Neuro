@@ -20,9 +20,52 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.reports.mri.utils import sanitize_for_pdf
+from app.reports.mri.utils import sanitize_for_pdf, calculate_age, format_date
 from app.pipelines.mri.config import DISEASE_INFO, NORMATIVE_VOLUMES, MODEL_VERSION
 from app.reports import theme
+from datetime import datetime as _dt
+
+# Hidden on request (radiologist/clinician copy doesn't need suggested next
+# steps spelled out) - kept implemented, not deleted, for reuse when we build
+# a patient-facing report that wants this framing.
+SHOW_CLINICAL_RECOMMENDATIONS = False
+
+
+def _add_patient_strip(pdf, data: Dict[str, Any]) -> None:
+    """Render the compact radiology-style patient information band from the real
+    patient / doctor / session records in ``comprehensive_data``."""
+    patient = (data or {}).get('patient') or {}
+    profile = (data or {}).get('patient_profile') or {}
+    doctor = (data or {}).get('doctor') or {}
+    session = (data or {}).get('session') or {}
+
+    dob = profile.get('date_of_birth') or patient.get('date_of_birth')
+    age = calculate_age(dob) if dob else None
+    sex = profile.get('gender') or patient.get('gender') or '-'
+    scan_date = session.get('scan_date') or session.get('session_date')
+
+    left_pairs = [
+        ("Age", f"{age} yrs" if age else "-"),
+        ("Sex", sex),
+    ]
+    if data.get('blood_group'):
+        left_pairs.append(("Blood", data.get('blood_group')))
+    mid_pairs = [
+        ("PID", profile.get('patient_code') or patient.get('unique_identifier') or "-"),
+        ("Study No", session.get('session_code') or "-"),
+        ("Ref By", doctor.get('full_name') or "-"),
+    ]
+    right_pairs = [
+        ("Reg. on", format_date(scan_date, 'date_only') if scan_date else "-"),
+        ("Reported", _dt.now().strftime("%d %b, %Y")),
+    ]
+    theme.patient_info_strip(
+        pdf,
+        name=patient.get('full_name') or "Patient (Pending Identification)",
+        left_pairs=left_pairs,
+        mid_pairs=mid_pairs,
+        right_pairs=right_pairs,
+    )
 
 
 class UnifiedPDFReport(BaseMRIReport):
@@ -38,14 +81,8 @@ class UnifiedPDFReport(BaseMRIReport):
         self.secondary_color = theme.BRAND
 
     def header(self):
-        theme.draw_letterhead(
-            self,
-            subtitle=self.report_title,
-            brand_name="AI4NEURO",
-            brand_tagline="a product by PraxiaTech",
-            monogram="A",
-            tagline_spaced=False,
-        )
+        hospital = (getattr(self, "comprehensive_data", None) or {}).get("hospital") or {}
+        theme.draw_clinical_letterhead(self, hospital, subtitle=self.report_title)
 
     def add_signature_section(self):
         """Two dateless signature blocks: radiologist on the left, doctor on
@@ -69,6 +106,8 @@ def build_unified_report(
     ml_results: Dict[str, Any],
     volume_chart: Optional[str] = None,
     confidence_chart: Optional[str] = None,
+    mwp1_image: Optional[str] = None,
+    mwp2_image: Optional[str] = None,
 ) -> None:
     """
     Build a single MRI report combining the patient, clinician and technical
@@ -86,13 +125,15 @@ def build_unified_report(
 
         pdf.add_page()
 
-        if hospital_data:
-            pdf.add_hospital_header(hospital_data)
-        pdf.add_report_metadata("MRI COMPLETE ANALYSIS REPORT")
-        pdf.ln(3)
+        # Centered study title (the hospital masthead is already in the
+        # letterhead, so the redundant hospital header/metadata is dropped).
+        pdf.set_font('Helvetica', 'B', 12.5)
+        pdf.set_text_color(*theme.INK)
+        pdf.cell(0, 7, "MRI BRAIN ANALYSIS - AI DIAGNOSTIC REPORT", 0, 1, 'C')
+        pdf.ln(1)
 
-        # ---- Shared administrative sections (each appears once) --------- #
-        pdf.add_patient_section()
+        # ---- Patient information strip (radiology-report style) ---------- #
+        _add_patient_strip(pdf, comprehensive_data)
 
         if patient_profile.get('medical_history'):
             if pdf.get_y() > pdf.h - 50:
@@ -152,41 +193,44 @@ def build_unified_report(
 
         pdf.ln(5)
 
-        # ---- Model Reliability - Internal Consistency -------------------- #
+        # ---- Model Reliability - Slice Consensus -------------------------- #
         consistency = prediction_data.get('consistency_metrics', {})
-        if pdf.get_y() > pdf.h - 60:
+        if pdf.get_y() > pdf.h - 70:
             pdf.add_page()
-        pdf.section_title("Model Reliability - Internal Consistency Analysis")
+        pdf.section_title("Model Reliability - Slice Consensus")
         pdf.ln(2)
 
-        theme.info_panel(pdf, "About Consistency Metrics", [
-            "The following metrics reflect model stability across multiple scan slices within this sample.",
-            "These are internal consistency checks, NOT diagnostic accuracy against ground truth.",
-            "High consistency indicates stable pattern recognition throughout the scan volume.",
-            "Metrics calculated by comparing slice-level predictions to the overall volume prediction.",
+        theme.info_panel(pdf, "How To Read This Section", [
+            "The AI votes on each individual scan slice independently, then takes the majority "
+            "verdict as the final result — this section shows how united or split that vote was.",
+            "A near-unanimous vote means the model saw a consistent pattern throughout the scan. "
+            "A close/split vote means the finding is more borderline and warrants closer clinical review.",
         ])
         pdf.ln(3)
 
-        if consistency and consistency.get('num_trials', 0) > 0:
-            _add_consistency_metrics(pdf, consistency)
-            acc = consistency.get('accuracy', 0) or 0
-            if acc >= 0.85:
-                reliability_word = "High"
-            elif acc >= 0.70:
-                reliability_word = "Moderate"
-            else:
-                reliability_word = "Low"
+        vote_distribution = consistency.get('vote_distribution') or {}
+        total_slices = consistency.get('total_images_processed') or 0
+        consensus_strength = consistency.get('consensus_strength')
+
+        if vote_distribution and total_slices:
+            _add_vote_distribution_bars(pdf, vote_distribution, prediction)
+
             pdf.ln(2)
+            reliability_word, reliability_note = _reliability_assessment(consensus_strength)
+            reliability_tone = {
+                'High': theme.OK, 'Moderate': theme.WARN, 'Low': theme.DANGER,
+            }[reliability_word]
+            pdf.set_font('Helvetica', 'B', 9.5)
+            pdf.set_text_color(*reliability_tone)
+            pdf.cell(0, 5.5, sanitize_for_pdf(f"Reliability: {reliability_word} ({consensus_strength:.0f}% slice agreement)"), 0, 1, 'L')
             pdf.set_font('Helvetica', '', 9)
             pdf.set_text_color(*pdf.text_color_dark)
-            pdf.multi_cell(0, 5.5, sanitize_for_pdf(
-                f"Reliability assessment: {reliability_word} reliability - "
-                f"{'stable pattern recognition' if reliability_word == 'High' else 'reasonable pattern detection' if reliability_word == 'Moderate' else 'interpret with caution'}."
-            ), align='L')
+            pdf.multi_cell(0, 5.2, sanitize_for_pdf(reliability_note), align='L')
+            pdf.set_text_color(*pdf.text_color_normal)
         else:
             pdf.set_font('Helvetica', 'I', 9)
             pdf.set_text_color(*pdf.text_color_light)
-            pdf.cell(0, 6, "Internal consistency metrics not available for this analysis.", 0, 1, 'L')
+            pdf.cell(0, 6, "Slice consensus data not available for this analysis.", 0, 1, 'L')
             pdf.set_text_color(*pdf.text_color_normal)
 
         pdf.ln(6)
@@ -204,6 +248,9 @@ def build_unified_report(
             pdf.add_image_section("Brain Volume Comparison with Normative Ranges", volume_chart)
 
         pdf.ln(6)
+
+        # ---- Segmented Tissue Maps (mwp1/mwp2 from CAT12) ------------------ #
+        _add_tissue_map_section(pdf, mwp1_image, mwp2_image)
 
         # ---- Regional Analysis -------------------------------------------- #
         affected_regions = prediction_data.get('affected_regions', [])
@@ -239,14 +286,18 @@ def build_unified_report(
             pdf.set_text_color(*pdf.text_color_normal)
             pdf.ln(6)
 
-        # ---- Clinical Recommendations -------------------------------------- #
-        if pdf.get_y() > pdf.h - 80:
-            pdf.add_page()
-        pdf.section_title("Clinical Recommendations")
-        pdf.ln(2)
-        recommendations = _get_clinical_recommendations(prediction)
-        theme.info_panel(pdf, "Suggested Clinical Actions", recommendations)
-        pdf.ln(6)
+        # ---- AI Visual Explainability ------------------------------------- #
+        _add_explainability_section(pdf, prediction_data.get('explainability'))
+
+        # ---- Clinical Recommendations (hidden - see SHOW_CLINICAL_RECOMMENDATIONS) --- #
+        if SHOW_CLINICAL_RECOMMENDATIONS:
+            if pdf.get_y() > pdf.h - 80:
+                pdf.add_page()
+            pdf.section_title("Clinical Recommendations")
+            pdf.ln(2)
+            recommendations = _get_clinical_recommendations(prediction)
+            theme.info_panel(pdf, "Suggested Clinical Actions", recommendations)
+            pdf.ln(6)
 
         # ---- Important Clinical Considerations (deduped) -------------------- #
         if pdf.get_y() > pdf.h - 75:
@@ -319,6 +370,162 @@ def build_unified_report(
         print(f"Error building unified MRI report: {e}")
         traceback.print_exc()
         _add_error_page(pdf, e)
+
+
+def _add_tissue_map_section(pdf, mwp1_image: Optional[str], mwp2_image: Optional[str]) -> None:
+    """Grey matter (mwp1) / white matter (mwp2) segmentation slice grids from
+    CAT12 preprocessing, shown once as visual confirmation of the volumetric
+    measurements above. Each is a 2x3 grid of representative slices drawn
+    from the same window the classifier used, stacked full-width (rather
+    than side by side) so individual slices stay legible. Omitted entirely
+    if CAT12 didn't run."""
+    if not mwp1_image and not mwp2_image:
+        return
+    try:
+        if pdf.get_y() > pdf.h - 100:
+            pdf.add_page()
+        pdf.section_title("Segmented Tissue Maps")
+        pdf.ln(2)
+        pdf.set_font('Helvetica', '', 8.5)
+        pdf.set_text_color(*pdf.text_color_light)
+        pdf.multi_cell(
+            0, 4.6,
+            sanitize_for_pdf(
+                "Modulated, normalized tissue probability maps produced by CAT12 segmentation - "
+                "representative slices from the same scan region the AI classifier analyzed. These "
+                "are the source images the volumetric measurements above are computed from."
+            ),
+            align='L',
+        )
+        pdf.set_text_color(*pdf.text_color_normal)
+        pdf.ln(3)
+
+        if mwp1_image:
+            pdf.add_image_section("", mwp1_image)
+        if mwp2_image:
+            pdf.add_image_section("", mwp2_image)
+    except Exception as e:  # noqa: BLE001 - visual section must never fail the report
+        print(f"Tissue map section error: {e}")
+
+
+def _add_explainability_section(pdf, explainability) -> None:
+    """Render the AI Visual Explainability section: for each informative slice,
+    the Grad-CAM-highlighted patient image beside its healthy MNI152 reference,
+    with plain-language observations derived from the volumetric findings."""
+    if not explainability or not explainability.get('panels'):
+        return
+    try:
+        if pdf.get_y() > pdf.h - 100:
+            pdf.add_page()
+        pdf.section_title("AI Visual Explainability")
+        pdf.ln(2)
+
+        method = explainability.get('method', 'Grad-CAM (ConViT)')
+        regions = explainability.get('regions') or []
+        intro = [
+            ("bullet", f"**Method**: {method}. The colored heatmap marks the regions that contributed most to the AI prediction."),
+            ("bullet", "Each **patient slice (left)** is shown beside the anatomically-matched **healthy MNI152 reference (right)**."),
+        ]
+        if regions:
+            intro.append(("bullet", "**Clinically relevant regions assessed**: " + ", ".join(regions) + "."))
+        theme.info_panel(pdf, "How To Read This Section", intro)
+        pdf.ln(3)
+
+        for panel in explainability['panels']:
+            _render_explainability_panel(pdf, panel)
+
+        # Analysis-level observations (derived from the real volumetric
+        # comparison) shown once beneath the comparisons.
+        panels = explainability['panels']
+        observations = panels[0].get('observations') if panels else None
+        if observations:
+            if pdf.get_y() > pdf.h - 45:
+                pdf.add_page()
+            pdf.set_font('Helvetica', 'B', 9)
+            pdf.set_text_color(*pdf.text_color_dark)
+            pdf.cell(0, 5.5, "AI Observations", 0, 1, 'L')
+            pdf.set_font('Helvetica', '', 8.7)
+            pdf.set_text_color(*pdf.text_color_normal)
+            for obs in observations:
+                pdf.multi_cell(0, 4.8, sanitize_for_pdf(f"- {obs}"), align='L')
+            pdf.ln(1)
+
+        summary = explainability.get('summary')
+        if summary:
+            pdf.set_font('Helvetica', 'I', 8.3)
+            pdf.set_text_color(*pdf.text_color_light)
+            pdf.multi_cell(0, 4.6, sanitize_for_pdf(summary), align='L')
+            pdf.set_text_color(*pdf.text_color_normal)
+        pdf.ln(6)
+    except Exception as e:  # noqa: BLE001 - visual section must never fail the report
+        print(f"Explainability section error: {e}")
+
+
+def _render_explainability_panel(pdf, panel) -> None:
+    """One comparison row: affected patient slice (left) vs healthy reference
+    (right), column headers above and the slice caption below."""
+    gap = 6.0
+    usable = pdf.w - pdf.l_margin - pdf.r_margin
+    col_w = (usable - gap) / 2.0
+
+    # Ensure the whole row fits; otherwise start a fresh page.
+    if pdf.get_y() > pdf.h - (col_w + 30):
+        pdf.add_page()
+
+    left_x = pdf.l_margin
+    right_x = pdf.l_margin + col_w + gap
+
+    # Column headers.
+    y_top = pdf.get_y()
+    pdf.set_font('Helvetica', 'B', 8.3)
+    pdf.set_text_color(*pdf.text_color_dark)
+    pdf.set_xy(left_x, y_top)
+    pdf.cell(col_w, 5, "Patient MRI Slice (Affected)", 0, 0, 'C')
+    pdf.set_xy(right_x, y_top)
+    pdf.cell(col_w, 5, "Healthy Reference (MNI152)", 0, 1, 'C')
+
+    img_y = pdf.get_y() + 1
+    left_h = _place_data_uri_image(pdf, panel.get('affected_image'), left_x, img_y, col_w)
+    right_h = _place_data_uri_image(pdf, panel.get('reference_image'), right_x, img_y, col_w)
+    pdf.set_y(img_y + max(left_h, right_h, 12) + 2)
+
+    caption = panel.get('caption')
+    if caption:
+        pdf.set_font('Helvetica', 'I', 8)
+        pdf.set_text_color(*pdf.text_color_light)
+        pdf.cell(0, 4.5, sanitize_for_pdf(caption), 0, 1, 'L')
+        pdf.set_text_color(*pdf.text_color_normal)
+    pdf.ln(3)
+
+
+def _place_data_uri_image(pdf, data_uri, x: float, y: float, w: float) -> float:
+    """Place a base64 data-URI image at (x, y) with width ``w``; returns the
+    rendered height. Draws a light placeholder box when the image is missing."""
+    import base64
+    import io as _io
+
+    if not data_uri or not isinstance(data_uri, str):
+        pdf.set_draw_color(210, 210, 210)
+        pdf.rect(x, y, w, w * 0.9)
+        pdf.set_font('Helvetica', 'I', 7)
+        pdf.set_text_color(*pdf.text_color_light)
+        pdf.set_xy(x, y + w * 0.42)
+        pdf.cell(w, 5, "(image unavailable)", 0, 0, 'C')
+        pdf.set_text_color(*pdf.text_color_normal)
+        return w * 0.9
+    try:
+        raw = data_uri.split(',', 1)[1] if data_uri.startswith('data:') else data_uri
+        img_bytes = base64.b64decode(raw)
+        from PIL import Image
+        pil = Image.open(_io.BytesIO(img_bytes))
+        iw, ih = pil.size
+        pil.close()
+        aspect = (ih / iw) if iw else 0.9
+        pdf.image(_io.BytesIO(img_bytes), x=x, y=y, w=w)
+        return w * aspect
+    except Exception as e:  # noqa: BLE001
+        print(f"Explainability image error: {e}")
+        return 12.0
 
 
 def _patient_framing(prediction: str):
@@ -422,40 +629,76 @@ def _add_extended_session_info(pdf: UnifiedPDFReport, session_data: Dict):
         pdf.ln(3)
 
 
-def _add_consistency_metrics(pdf: UnifiedPDFReport, consistency: Dict):
-    """Detailed consistency metrics grid + confusion matrix (technical's
-    superset version)."""
-    metrics = [
-        ("Overall Accuracy", f"{consistency.get('accuracy', 0)*100:.1f}%", "Slice agreement rate"),
-        ("Slices Analyzed", str(consistency.get('num_trials', 'N/A')), "Total slices processed"),
-        ("Precision", f"{consistency.get('precision', 0):.3f}", "TP/(TP+FP)"),
-        ("Recall/Sensitivity", f"{consistency.get('recall_sensitivity', 0):.3f}", "TP/(TP+FN)"),
-        ("Specificity", f"{consistency.get('specificity', 0):.3f}", "TN/(TN+FP)"),
-        ("F1-Score", f"{consistency.get('f1_score', 0):.3f}", "Harmonic mean P & R"),
-    ]
-    for title, value, desc in metrics:
-        pdf.set_font('Helvetica', 'B', 9)
-        pdf.cell(50, 5, sanitize_for_pdf(title), 0, 0, 'L')
-        pdf.set_font('Helvetica', '', 9)
-        pdf.cell(30, 5, sanitize_for_pdf(value), 0, 0, 'L')
-        pdf.set_font('Helvetica', 'I', 8)
-        pdf.set_text_color(*pdf.text_color_light)
-        pdf.cell(0, 5, sanitize_for_pdf(f"({desc})"), 0, 1, 'L')
-        pdf.set_text_color(*pdf.text_color_normal)
+def _reliability_assessment(consensus_strength: Optional[float]) -> tuple[str, str]:
+    """Map slice-vote consensus (0-100) to a reliability word + explanatory
+    note. Thresholds are calibrated from real held-out validation runs
+    (correct predictions averaged ~87% consensus, incorrect ones ~60%) - but
+    that overlaps, so even a "High" reliability result is a risk-reduction
+    signal, not a guarantee, and the copy says so explicitly."""
+    cs = consensus_strength or 0
+    if cs >= 80:
+        return "High", (
+            "The AI's slice-level votes were highly consistent for this result. This "
+            "increases confidence but does not replace clinical judgment - correlate with "
+            "the patient's clinical presentation before acting on this result."
+        )
+    if cs >= 55:
+        return "Moderate", (
+            "The AI's slice-level votes showed a meaningful degree of disagreement across "
+            "the scan. Treat this result with added caution and prioritize clinical "
+            "correlation before relying on it."
+        )
+    return "Low", (
+        "The AI's slice-level votes were closely split, indicating a genuinely borderline "
+        "or ambiguous case. This result should not be treated as conclusive - clinical "
+        "correlation, and repeat or alternative assessment where appropriate, is recommended."
+    )
 
-    pdf.ln(3)
-    pdf.set_font('Helvetica', 'B', 9)
-    pdf.cell(0, 6, "Confusion Matrix (Internal Consistency):", 0, 1, 'L')
-    pdf.ln(2)
-    pdf.set_font('Helvetica', '', 9)
-    tp = consistency.get('true_positives', 'N/A')
-    tn = consistency.get('true_negatives', 'N/A')
-    fp = consistency.get('false_positives', 'N/A')
-    fn = consistency.get('false_negatives', 'N/A')
-    pdf.cell(5)
-    pdf.cell(0, 5, f"True Positives (TP): {tp}  |  True Negatives (TN): {tn}", 0, 1, 'L')
-    pdf.cell(5)
-    pdf.cell(0, 5, f"False Positives (FP): {fp}  |  False Negatives (FN): {fn}", 0, 1, 'L')
+
+def _add_vote_distribution_bars(pdf: UnifiedPDFReport, vote_distribution: Dict, predicted_class: str):
+    """Horizontal bar per class showing what fraction of scan slices voted
+    for it - the real signal behind the final majority-vote diagnosis."""
+    cw = theme.content_width(pdf)
+    label_w = 22
+    bar_x = pdf.l_margin + label_w
+    bar_w = cw - label_w - 20
+    bar_h = 7
+    gap = 3.5
+
+    for cls in ['AD', 'CN', 'MCI']:
+        entry = vote_distribution.get(cls) or {}
+        pct = float(entry.get('percentage', 0) or 0)
+        count = entry.get('count', 0)
+        color = pdf.disease_colors.get(cls, theme.MUTED)
+        is_winner = cls == predicted_class
+
+        y = pdf.get_y()
+        pdf.set_font('Helvetica', 'B' if is_winner else '', 9)
+        pdf.set_text_color(*(color if is_winner else theme.MUTED))
+        pdf.set_xy(pdf.l_margin, y + 1)
+        pdf.cell(label_w - 2, bar_h, cls)
+
+        pdf.set_fill_color(*theme.PANEL)
+        pdf.set_draw_color(*theme.HAIRLINE)
+        pdf.set_line_width(0.2)
+        pdf.rect(bar_x, y, bar_w, bar_h, "DF")
+        fill_w = max(bar_w * min(pct, 100) / 100.0, 0)
+        if fill_w > 0:
+            pdf.set_fill_color(*color)
+            pdf.rect(bar_x, y, fill_w, bar_h, "F")
+
+        pdf.set_xy(bar_x + bar_w + 3, y + 1)
+        pdf.set_font('Helvetica', 'B' if is_winner else '', 8.3)
+        pdf.set_text_color(*(color if is_winner else theme.MUTED))
+        pdf.cell(17, bar_h, f"{pct:.0f}%")
+
+        pdf.set_y(y + bar_h + gap)
+
+    pdf.set_font('Helvetica', 'I', 7.5)
+    pdf.set_text_color(*theme.FAINT)
+    total = sum((v.get('count', 0) or 0) for v in vote_distribution.values())
+    pdf.cell(0, 4.5, sanitize_for_pdf(f"Based on {total} independently-voted scan slices."), 0, 1, 'L')
+    pdf.set_text_color(*pdf.text_color_normal)
 
 
 def _add_detailed_volume_table(pdf: UnifiedPDFReport, ml_results: Dict):

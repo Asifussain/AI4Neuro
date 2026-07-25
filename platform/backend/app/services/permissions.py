@@ -15,6 +15,15 @@ Role hierarchy (multi-tenant):
 Fail closed: unknown roles get nothing. Missing/unknown hospital context is also
 treated as a denial (not a permissive default) — hospital_id is a required tenancy
 key for every role except super_admin.
+
+Platform-level (Super Admin) scans: a session with ``hospital_id = NULL`` is a
+platform/private scan owned by the Super Admin (see migration 0010). Because
+``_same_hospital`` fails closed on a missing hospital id, such a row is invisible
+to *every* tenant role (admin/doctor/radiologist/patient) — only super_admin
+(which short-circuits to True) can read it. Conversely, hospital-scoped list
+queries filter ``hospital_id = <tenant>`` and so never return NULL-hospital rows.
+This is what keeps Super Admin scans strictly isolated from all hospitals while
+Super Admin retains full platform-wide visibility. See tests/test_tenant_isolation.py.
 """
 
 from __future__ import annotations

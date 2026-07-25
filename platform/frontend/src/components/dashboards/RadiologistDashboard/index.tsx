@@ -34,22 +34,17 @@ import {
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
-import { DashboardShell, type NavItem } from '@/components/dashboards/shared/DashboardShell';
+import { DashboardShell } from '@/components/dashboards/shared/DashboardShell';
+import { useAuth } from '@/components/providers/AuthProvider';
 import {
   SectionCard,
   StatCard as SharedStatCard,
   QuickActionsList,
   DashboardPageHeader,
 } from '@/components/dashboards/shared/primitives';
+import { getNavItems } from '@/lib/navigation';
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/radiologist/dashboard', icon: LayoutGrid },
-  { label: 'Upload Scans', href: '/radiologist/upload', icon: Upload },
-  { label: 'Reports', href: '/radiologist/dashboard', icon: FileText },
-  { label: 'Processed Cases', href: '/radiologist/dashboard', icon: ScanLine },
-  { label: 'Patients', href: '/radiologist/dashboard', icon: Users },
-  { label: 'Settings', href: '/profile', icon: Settings },
-];
+const NAV_ITEMS = getNavItems('radiologist');
 
 // ============================================================================
 // SESSION ROW (List View)
@@ -438,6 +433,7 @@ function RowSkeleton() {
 // MAIN RADIOLOGIST DASHBOARD
 // ============================================================================
 export const RadiologistDashboard: React.FC = () => {
+  const { userProfile } = useAuth();
   // View state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
@@ -573,8 +569,12 @@ export const RadiologistDashboard: React.FC = () => {
         eyebrow="Radiologist"
         title="Radiologist Dashboard"
         description="Scan upload, imaging review, AI output validation, and technical reporting."
-        routeChip="/radiologist-dashboard"
         accent="indigo"
+        timelineSteps={[
+          { label: userProfile?.roleProfile?.hospitals?.name || 'Hospital' },
+          { label: 'Radiologists', href: '/profile' },
+          { label: userProfile?.full_name || 'Radiologist', active: true }
+        ]}
       />
 
       {statsError && (
@@ -589,7 +589,7 @@ export const RadiologistDashboard: React.FC = () => {
           <>{[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}</>
         ) : (
           <>
-            <SharedStatCard label="Total Scans" value={stats?.totalScans || allSessions.length} icon={Activity} sublabel="All-time processed" accent="indigo" />
+            <SharedStatCard label="Total Scans" value={stats?.totalScans || allSessions.length} icon={Activity} sublabel="All-time processed" accent="indigo" isMain={true} />
             <SharedStatCard label="Processing" value={stats?.processingScans || allSessions.filter((s) => s.status === 'processing').length} icon={Clock} sublabel="Currently in queue" accent="indigo" />
             <SharedStatCard label="Completed Today" value={stats?.completedToday || 0} icon={CheckCircle2} sublabel="Finished today" accent="indigo" />
             <SharedStatCard label="This Week" value={stats?.completedThisWeek || 0} icon={CalendarDays} sublabel="Completed this week" accent="indigo" />

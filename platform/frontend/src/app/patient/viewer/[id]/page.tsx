@@ -3,8 +3,10 @@
 import { RoleShell } from '@/components/dashboards/shared/RoleShell';
 import { MockMRIViewer } from '@/components/viewers/MockMRIViewer';
 import { RealMRIViewer } from '@/components/viewers/RealMRIViewer';
+import { PatientReportAccessCard } from '@/components/dashboards/shared/PatientReportAccessCard';
 import { Button } from '@/components/ui/button';
-import { useSession } from '@/lib/hooks/useApi';
+import { useAnalysisSession } from '@/features/analysis/hooks';
+import { isActive } from '@/features/analysis/types';
 import {
   ArrowLeft,
   Loader2,
@@ -89,7 +91,8 @@ export default function PatientViewerPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { data: session, isLoading, error } = useSession(id);
+  const { status: session, result, error } = useAnalysisSession(id);
+  const isLoading = !session && !error;
 
   // ============================ LOADING STATE ============================
   if (isLoading) {
@@ -129,23 +132,36 @@ export default function PatientViewerPage({
   }
 
   // ============================ DATA =====================================
-  const prediction = session.prediction;
-  const pred = prediction?.prediction as 'CN' | 'MCI' | 'AD' | undefined;
+  const pred = result?.prediction as 'CN' | 'MCI' | 'AD' | undefined;
   const config = pred ? predictionConfig[pred] : null;
   const nextSteps = pred ? nextStepsConfig[pred] : null;
-  const confidencePercent = prediction?.confidence_score
-    ? Math.round(prediction.confidence_score * 100)
+  const confidencePercent = result?.confidence
+    ? Math.round(result.confidence * 100)
     : null;
+  const reportUrl =
+    result?.report_urls?.patient ??
+    result?.report_urls?.clinician ??
+    result?.report_urls?.technical ??
+    null;
+  const viewerSliceUrls = (result?.visualizations?.viewer_slice_urls ?? null) as
+    | { axial?: string[]; sagittal?: string[]; coronal?: string[] }
+    | null;
+  const hasSlices = !!(
+    viewerSliceUrls &&
+    ((viewerSliceUrls.axial?.length ?? 0) > 0 ||
+      (viewerSliceUrls.sagittal?.length ?? 0) > 0 ||
+      (viewerSliceUrls.coronal?.length ?? 0) > 0)
+  );
 
   // Status badge styling
-  const statusBadge: Record<string, string> = {
-    completed: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
-    processing: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
-    failed: 'bg-red-500/10 text-red-600 border-red-500/30',
-  };
-  const statusClass =
-    statusBadge[session.status] ||
-    'bg-gray-500/10 text-slate-500 border-gray-500/30';
+  const processing = isActive(session.status);
+  const statusClass = processing
+    ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+    : session.status === 'completed'
+    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
+    : session.status === 'failed'
+    ? 'bg-red-500/10 text-red-600 border-red-500/30'
+    : 'bg-gray-500/10 text-slate-500 border-gray-500/30';
 
   // ============================ RENDER ===================================
   return (
@@ -174,15 +190,18 @@ export default function PatientViewerPage({
                 <GradientText>My Brain Scan</GradientText>
               </h1>
               <p className="text-xs lg:text-sm text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
-                <span>{session.session_code}</span>
-                <span className="text-muted">&middot;</span>
-                <span>
-                  {new Date(session.scan_date).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </span>
+                {session.created_at && (
+                  <>
+                    <span>
+                      {new Date(session.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </span>
+                    <span className="text-muted">&middot;</span>
+                  </>
+                )}
                 <span
                   className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${statusClass}`}
                 >
@@ -193,13 +212,9 @@ export default function PatientViewerPage({
           </div>
 
           {/* Header report view button */}
-          {(prediction?.patient_pdf_url || prediction?.clinician_pdf_url || prediction?.technical_pdf_url) && (
+          {reportUrl && (
             <Button variant="outline" size="sm" asChild className="text-xs">
-              <a
-                href={(prediction.patient_pdf_url || prediction.clinician_pdf_url || prediction.technical_pdf_url) ?? undefined}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <a href={reportUrl} target="_blank" rel="noopener noreferrer">
                 <FileText className="h-3.5 w-3.5 mr-1.5" />
                 Click to View the Report
                 <ExternalLink className="h-3 w-3 ml-1 opacity-50" />
@@ -212,24 +227,25 @@ export default function PatientViewerPage({
             MRI VIEWER
         ================================================================ */}
         <div>
-          {prediction?.slice_urls &&
-          (prediction.slice_urls.axial?.length > 0 ||
-            prediction.slice_urls.sagittal?.length > 0 ||
-            prediction.slice_urls.coronal?.length > 0) ? (
+          {hasSlices && viewerSliceUrls ? (
             <RealMRIViewer
-              sessionId={session.session_code}
-              sliceUrls={prediction.slice_urls}
+              sessionId={session.id}
+              sliceUrls={{
+                axial: viewerSliceUrls.axial ?? [],
+                sagittal: viewerSliceUrls.sagittal ?? [],
+                coronal: viewerSliceUrls.coronal ?? [],
+              }}
               viewerMode="patient"
-              prediction={prediction?.prediction}
-              confidence={prediction?.confidence_score}
+              prediction={pred}
+              confidence={result?.confidence ?? undefined}
               showAnnotations={true}
             />
           ) : (
             <MockMRIViewer
-              sessionId={session.session_code}
+              sessionId={session.id}
               viewerMode="patient"
-              prediction={prediction?.prediction}
-              confidence={prediction?.confidence_score}
+              prediction={pred}
+              confidence={result?.confidence ?? undefined}
               showAnnotations={true}
             />
           )}
@@ -254,7 +270,7 @@ export default function PatientViewerPage({
                     </h3>
                   </div>
                   {config && <PulseRing color={config.ringColor} />}
-                  {!config && session.status === 'processing' && (
+                  {!config && processing && (
                     <PulseRing color="blue" />
                   )}
                 </div>
@@ -302,7 +318,7 @@ export default function PatientViewerPage({
                 )}
 
                 {/* -- Processing state -- */}
-                {!pred && session.status === 'processing' && (
+                {!pred && processing && (
                   <div className="rounded-xl p-4 border bg-blue-500/10 border-blue-500/30">
                     <div className="flex items-center gap-3 mb-2">
                       <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
@@ -319,7 +335,7 @@ export default function PatientViewerPage({
                 )}
 
                 {/* -- No prediction, not processing -- */}
-                {!pred && session.status !== 'processing' && (
+                {!pred && !processing && (
                   <div className="text-center py-6">
                     <Brain className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground">
@@ -396,7 +412,7 @@ export default function PatientViewerPage({
                   </h3>
                 </div>
 
-                {(prediction?.patient_pdf_url || prediction?.clinician_pdf_url || prediction?.technical_pdf_url) ? (
+                {reportUrl ? (
                   <div className="space-y-3">
                     <p className="text-xs text-muted-foreground leading-relaxed">
                       A personalized report has been prepared for you. It
@@ -405,7 +421,7 @@ export default function PatientViewerPage({
                       healthcare provider.
                     </p>
                     <a
-                      href={(prediction.patient_pdf_url || prediction.clinician_pdf_url || prediction.technical_pdf_url) ?? undefined}
+                      href={reportUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 hover:scale-[1.01] ${
@@ -427,19 +443,11 @@ export default function PatientViewerPage({
                       </div>
                       <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
                     </a>
-                    {prediction.report_generated_at && (
-                      <p className="text-[10px] text-muted-foreground">
-                        Generated:{' '}
-                        {new Date(
-                          prediction.report_generated_at
-                        ).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </p>
-                    )}
                   </div>
+                ) : session.status === 'completed' ? (
+                  // Analysis is done but no report_urls came back — most likely
+                  // the doctor hasn't approved the patient's access request yet.
+                  <PatientReportAccessCard />
                 ) : (
                   <div className="text-center py-4">
                     <FileText className="h-7 w-7 text-muted-foreground mx-auto mb-2 opacity-50" />
@@ -518,23 +526,6 @@ export default function PatientViewerPage({
             </SpotlightCard>
           </div>
         </div>
-
-        {/* Notes (if any) */}
-        {session.notes && (
-          <SpotlightCard spotlightColor="rgba(20, 184, 166, 0.08)">
-            <div className="p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <FileText className="h-4 w-4 text-teal-500" />
-                <h3 className="text-sm font-semibold text-foreground">
-                  Notes from Your Doctor
-                </h3>
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {session.notes}
-              </p>
-            </div>
-          </SpotlightCard>
-        )}
       </div>
     </RoleShell>
   );

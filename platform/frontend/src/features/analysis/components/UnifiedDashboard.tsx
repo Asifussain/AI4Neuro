@@ -17,10 +17,11 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { Role } from '@/lib/roles';
 
 import { AnalysisList } from './AnalysisList';
 
-const roleCopy = {
+const roleCopy: Record<Role, { title: string; description: string }> = {
   admin: {
     title: 'Operations command center',
     description: 'Monitor EEG and MRI analysis activity across your hospital.',
@@ -41,7 +42,7 @@ const roleCopy = {
     title: 'Platform command center',
     description: 'Monitor EEG and MRI analysis activity across every hospital.',
   },
-} as const;
+};
 
 function FlowCard({
   modality,
@@ -93,7 +94,7 @@ function FlowCard({
 
 export function UnifiedDashboard({ embedded = false }: { embedded?: boolean } = {}) {
   const { userProfile } = useAuth();
-  const role = userProfile?.role ?? 'doctor';
+  const role: Role = userProfile?.role ?? 'doctor';
   const copy = roleCopy[role] ?? roleCopy.doctor;
   const canCreate = role !== 'patient';
   const isRadiologist = role === 'radiologist';

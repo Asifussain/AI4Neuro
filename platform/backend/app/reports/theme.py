@@ -138,6 +138,141 @@ def _spaced(s: str) -> str:
     return " ".join(list(s))
 
 
+def draw_clinical_letterhead(pdf, hospital: dict | None, subtitle: str = "",
+                             platform_line: str = "AI4NEURO  -  AI-Assisted Neurodiagnostics"):
+    """Professional radiology-style letterhead: the **hospital** is the masthead
+    (name, service line, address on the left; phone/email on the right), closed
+    by a navy accent bar carrying the AI platform mark. Featured on every page so
+    the report reads like an authentic imaging-centre document.
+
+    Falls back gracefully when hospital fields are missing (blank lines, never a
+    crash) and works for both MRI and EEG unified reports.
+    """
+    try:
+        hospital = hospital or {}
+        left = pdf.l_margin
+        right = pdf.w - pdf.r_margin
+        top = 9
+
+        name = str(hospital.get("name") or "Neurodiagnostic Centre")
+        parts = [hospital.get("address"), hospital.get("city"), hospital.get("state"), hospital.get("pincode")]
+        address = ", ".join(str(p) for p in parts if p)
+        phone = hospital.get("phone")
+        email = hospital.get("email")
+
+        # ---- Medical roundel (navy ring + cross) ----
+        cx, cy, d = left + 7.5, top + 6.5, 14.0
+        pdf.set_draw_color(*BRAND)
+        pdf.set_line_width(0.8)
+        pdf.ellipse(cx - d / 2, cy - d / 2, d, d, style="D")
+        pdf.set_fill_color(*BRAND)
+        cw = 1.7
+        pdf.rect(cx - cw / 2, cy - 4.2, cw, 8.4, style="F")
+        pdf.rect(cx - 4.2, cy - cw / 2, 8.4, cw, style="F")
+        pdf.set_line_width(0.2)
+
+        # ---- Hospital masthead (left) ----
+        tx = left + 17
+        pdf.set_xy(tx, top - 0.5)
+        pdf.set_font("Helvetica", "B", 16)
+        pdf.set_text_color(*BRAND)
+        pdf.cell(115, 7, _txt(pdf, name.upper()))
+        pdf.set_xy(tx, top + 6.6)
+        pdf.set_font("Helvetica", "B", 6.8)
+        pdf.set_text_color(*BRAND_SOFT)
+        pdf.cell(115, 3.6, _spaced("MRI  |  EEG  |  AI NEURODIAGNOSTIC ANALYSIS"))
+        if address:
+            pdf.set_xy(tx, top + 10.6)
+            pdf.set_font("Helvetica", "", 7)
+            pdf.set_text_color(*MUTED)
+            pdf.cell(150, 3.6, _txt(pdf, address))
+
+        # ---- Contact block (right) ----
+        pdf.set_font("Helvetica", "", 7.6)
+        pdf.set_text_color(*BODY)
+        if phone:
+            pdf.set_xy(right - 90, top + 0.5)
+            pdf.cell(90, 4, _txt(pdf, str(phone)), align="R")
+        if email:
+            pdf.set_xy(right - 90, top + 5)
+            pdf.cell(90, 4, _txt(pdf, str(email)), align="R")
+
+        # ---- Navy accent bar with the AI platform mark + subtitle ----
+        bar_y = top + 15.5
+        bar_h = 6.4
+        pdf.set_fill_color(*BRAND)
+        pdf.rect(left, bar_y, right - left, bar_h, style="F")
+        pdf.set_xy(left + 2.5, bar_y + 1.1)
+        pdf.set_font("Helvetica", "B", 7.6)
+        pdf.set_text_color(*WHITE)
+        pdf.cell(120, 4.2, _txt(pdf, platform_line))
+        if subtitle:
+            pdf.set_xy(right - 122, bar_y + 1.1)
+            pdf.set_font("Helvetica", "", 7.6)
+            pdf.set_text_color(*WHITE)
+            pdf.cell(120, 4.2, _txt(pdf, subtitle) + "    ", align="R")
+
+        pdf.set_draw_color(*HAIRLINE)
+        pdf.set_text_color(*INK)
+        pdf.set_y(bar_y + bar_h + 4)
+    except Exception as exc:  # pragma: no cover - header must never crash render
+        print(f"clinical letterhead error: {exc}")
+
+
+def patient_info_strip(pdf, *, name: str, left_pairs, mid_pairs, right_pairs):
+    """DRLOGY-style compact patient band: bold patient name with a stack of
+    label:value pairs beneath, and two more labelled columns (IDs, timestamps),
+    all inside a single hairline-bordered strip.
+
+    ``left_pairs``/``mid_pairs``/``right_pairs`` are lists of ``(label, value)``.
+    """
+    try:
+        left = pdf.l_margin
+        usable = content_width(pdf)
+        x0 = left
+        col1 = usable * 0.40
+        col2 = usable * 0.32
+        col3 = usable * 0.28
+        y0 = pdf.get_y()
+        rows = max(len(left_pairs), len(mid_pairs), len(right_pairs), 1)
+        height = 8.5 + rows * 4.6
+
+        pdf.set_draw_color(*GRIDLINE)
+        pdf.set_line_width(0.3)
+        pdf.rect(x0, y0, usable, height, style="D")
+        pdf.line(x0 + col1, y0, x0 + col1, y0 + height)
+        pdf.line(x0 + col1 + col2, y0, x0 + col1 + col2, y0 + height)
+        pdf.set_line_width(0.2)
+
+        # Column 1: big name + its pairs.
+        pdf.set_xy(x0 + 3, y0 + 2)
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.set_text_color(*INK)
+        pdf.cell(col1 - 6, 6, _txt(pdf, name or "-"))
+        _strip_pairs(pdf, left_pairs, x0 + 3, y0 + 9, col1 - 6)
+        _strip_pairs(pdf, mid_pairs, x0 + col1 + 3, y0 + 2.5, col2 - 6)
+        _strip_pairs(pdf, right_pairs, x0 + col1 + col2 + 3, y0 + 2.5, col3 - 6)
+
+        pdf.set_xy(left, y0 + height + 2)
+        pdf.set_text_color(*INK)
+    except Exception as exc:  # pragma: no cover
+        print(f"patient strip error: {exc}")
+        pdf.ln(2)
+
+
+def _strip_pairs(pdf, pairs, x, y, w):
+    for i, (label, value) in enumerate(pairs or []):
+        yy = y + i * 4.6
+        pdf.set_xy(x, yy)
+        pdf.set_font("Helvetica", "", 6.6)
+        pdf.set_text_color(*MUTED)
+        pdf.cell(20, 4, _txt(pdf, f"{label}"))
+        pdf.set_xy(x + 20, yy)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(*INK)
+        pdf.cell(max(w - 20, 10), 4, ": " + _txt(pdf, str(value if value not in (None, "") else "-")))
+
+
 def draw_footer(pdf, note: str = "Confidential clinical document - for the intended recipient only"):
     try:
         pdf.set_y(-14)

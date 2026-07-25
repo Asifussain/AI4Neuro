@@ -23,6 +23,8 @@ class _TableQuery:
         self._op: str | None = None
         self._payload: dict | None = None
         self._filters: list[tuple[str, Any]] = []
+        self._neq_filters: list[tuple[str, Any]] = []
+        self._in_filters: list[tuple[str, list]] = []
         self._single = False
 
     # ---- terminal-ish builders ----
@@ -36,12 +38,24 @@ class _TableQuery:
         self._payload = dict(patch)
         return self
 
+    def delete(self) -> "_TableQuery":
+        self._op = "delete"
+        return self
+
     def select(self, *_cols: str) -> "_TableQuery":
         self._op = "select"
         return self
 
     def eq(self, col: str, val: Any) -> "_TableQuery":
         self._filters.append((col, val))
+        return self
+
+    def neq(self, col: str, val: Any) -> "_TableQuery":
+        self._neq_filters.append((col, val))
+        return self
+
+    def in_(self, col: str, vals: list) -> "_TableQuery":
+        self._in_filters.append((col, list(vals)))
         return self
 
     def maybe_single(self) -> "_TableQuery":
@@ -71,13 +85,22 @@ class _TableQuery:
                 r.update(self._payload or {})
             return _Result(list(matched))
 
+        if self._op == "delete":
+            remaining = [r for r in rows if not self._matches(r)]
+            self._store[self._table] = remaining
+            return _Result(list(matched))
+
         # select
         if self._single:
             return _Result(matched[0] if matched else None)
         return _Result(list(matched))
 
     def _matches(self, row: dict) -> bool:
-        return all(row.get(col) == val for col, val in self._filters)
+        return (
+            all(row.get(col) == val for col, val in self._filters)
+            and all(row.get(col) != val for col, val in self._neq_filters)
+            and all(row.get(col) in vals for col, vals in self._in_filters)
+        )
 
 
 class _BucketOps:
