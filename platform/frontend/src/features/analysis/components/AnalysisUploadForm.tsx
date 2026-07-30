@@ -373,6 +373,27 @@ export function AnalysisUploadForm() {
   const selectedPatient = patients.find((p) => p.id === patientId);
   const selectedDoctor = doctors.find((d) => d.id === doctorId);
 
+  // Single-line labels for the select triggers. The dropdown items render a
+  // two-line (label + sublabel) block, but Radix clones that whole block into
+  // the trigger's value — which then overflows the trigger both vertically and
+  // horizontally into the neighbouring column. Passing an explicit one-line
+  // string as the SelectValue's children keeps the closed trigger tidy while
+  // the open list keeps its richer two-line rows. `undefined` hands control
+  // back to Radix so the placeholder shows for an empty selection.
+  const patientTriggerLabel = patientId
+    ? isAnonymousPatient
+      ? 'Anonymous patient (outsider)'
+      : selectedPatient?.label ?? undefined
+    : undefined;
+  const doctorTriggerLabel =
+    doctorId === ANONYMOUS_DOCTOR_VALUE
+      ? 'Anonymous doctor (outsider)'
+      : doctorId && doctorId !== NO_DOCTOR_VALUE
+      ? selectedDoctor?.label ?? undefined
+      : !isSuperAdmin
+      ? 'No referring doctor'
+      : undefined;
+
   return (
     <div className="space-y-6">
       <DashboardPageHeader
@@ -440,7 +461,7 @@ export function AnalysisUploadForm() {
                 <Label htmlFor="analysis-type">Analysis type</Label>
                 {analysisTypeOptions.length > 1 ? (
                   <Select value={analysisType} onValueChange={setAnalysisType}>
-                    <SelectTrigger id="analysis-type">
+                    <SelectTrigger id="analysis-type" className="w-full min-w-0">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -479,8 +500,10 @@ export function AnalysisUploadForm() {
               <div className="grid gap-2">
                 <Label htmlFor="patient-id">Patient <span className="text-destructive">*</span></Label>
                 <Select value={patientId} onValueChange={setPatientId} disabled={loadingAssociations}>
-                  <SelectTrigger id="patient-id">
-                    <SelectValue placeholder={loadingAssociations ? 'Loading patients...' : 'Select patient'} />
+                  <SelectTrigger id="patient-id" className="w-full min-w-0">
+                    <SelectValue placeholder={loadingAssociations ? 'Loading patients...' : 'Select patient'}>
+                      {patientTriggerLabel}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {isSuperAdmin && (
@@ -513,8 +536,10 @@ export function AnalysisUploadForm() {
                   onValueChange={(value) => setDoctorId(value === NO_DOCTOR_VALUE ? '' : value)}
                   disabled={loadingAssociations || isDoctor}
                 >
-                  <SelectTrigger id="doctor-id">
-                    <SelectValue placeholder={loadingAssociations ? 'Loading doctors...' : 'Select doctor'} />
+                  <SelectTrigger id="doctor-id" className="w-full min-w-0">
+                    <SelectValue placeholder={loadingAssociations ? 'Loading doctors...' : 'Select doctor'}>
+                      {doctorTriggerLabel}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {isSuperAdmin && (
@@ -580,7 +605,9 @@ export function AnalysisUploadForm() {
                     <div className={cn('flex h-11 w-11 items-center justify-center rounded-full', accentStyles.soft, accentStyles.text)}>
                       <FileUp className="h-5 w-5" />
                     </div>
-                    <p className="text-sm font-medium text-slate-900">{file.name}</p>
+                    <p className="w-full max-w-full break-all text-center text-sm font-medium text-slate-900">
+                      {file.name}
+                    </p>
                     <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
                     <button
                       type="button"
