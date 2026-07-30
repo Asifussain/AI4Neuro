@@ -21,6 +21,12 @@ export interface Paginated<T> {
 export interface ListParams {
   limit?: number;
   offset?: number;
+  q?: string;
+}
+
+export interface DailyTrafficPoint {
+  date: string;
+  scans: number;
 }
 
 export interface PlatformAnalytics {
@@ -28,6 +34,9 @@ export interface PlatformAnalytics {
   active_hospitals: number;
   total_users: number;
   users_by_role: Record<string, number>;
+  hospital_id: string | null;
+  hospital_name: string | null;
+  daily_traffic: DailyTrafficPoint[];
 }
 
 export interface HospitalAnalytics {
@@ -323,8 +332,10 @@ export interface ScanRow {
 
 export const adminApi = {
   // -- Analytics ---------------------------------------------------------- //
-  platformAnalytics(): Promise<PlatformAnalytics> {
-    return apiClient.get<PlatformAnalytics>('/api/v1/platform/analytics');
+  platformAnalytics(hospitalId?: string): Promise<PlatformAnalytics> {
+    return apiClient.get<PlatformAnalytics>(
+      `/api/v1/platform/analytics${qs({ hospital_id: hospitalId })}`
+    );
   },
   /** Every scan across the platform, enriched with patient/doctor/hospital
    * names — for the Super Admin "View Scans" table. */
@@ -348,7 +359,7 @@ export const adminApi = {
   // -- Hospitals (super_admin only) ---------------------------------------- //
   hospitals(params: ListParams = {}): Promise<Paginated<Hospital>> {
     return apiClient.get<Paginated<Hospital>>(
-      `/api/v1/platform/hospitals${qs({ limit: params.limit, offset: params.offset })}`
+      `/api/v1/platform/hospitals${qs({ q: params.q, limit: params.limit, offset: params.offset })}`
     );
   },
   hospital(id: string): Promise<Hospital> {
@@ -429,12 +440,24 @@ export const adminApi = {
   rejectUser(userId: string): Promise<VerificationResult> {
     return apiClient.post<VerificationResult>(`/api/v1/hospital/users/${userId}/reject`);
   },
+  /** Hospital admin: doctor/radiologist/patient profiles a super_admin created
+   * into this hospital, awaiting approval before they can activate. */
+  pendingApprovals(): Promise<Paginated<AdminUser>> {
+    return apiClient.get<Paginated<AdminUser>>('/api/v1/hospital/users/pending-approval');
+  },
+  approveProfile(userId: string): Promise<AdminUser> {
+    return apiClient.post<AdminUser>(`/api/v1/hospital/users/${userId}/approve-profile`);
+  },
+  rejectProfile(userId: string): Promise<AdminUser> {
+    return apiClient.post<AdminUser>(`/api/v1/hospital/users/${userId}/reject-profile`);
+  },
 
   // -- Clinical directories -------------------------------------------------- //
   doctors(params: { hospitalId?: string } & ListParams = {}): Promise<Paginated<DoctorDirectoryEntry>> {
     return apiClient.get<Paginated<DoctorDirectoryEntry>>(
       `/api/v1/hospital/doctors${qs({
         hospital_id: params.hospitalId,
+        q: params.q,
         limit: params.limit,
         offset: params.offset,
       })}`
@@ -444,6 +467,7 @@ export const adminApi = {
     return apiClient.get<Paginated<PatientDirectoryEntry>>(
       `/api/v1/hospital/patients${qs({
         hospital_id: params.hospitalId,
+        q: params.q,
         limit: params.limit,
         offset: params.offset,
       })}`
@@ -451,7 +475,7 @@ export const adminApi = {
   },
   myPatients(params: ListParams = {}): Promise<Paginated<PatientDirectoryEntry>> {
     return apiClient.get<Paginated<PatientDirectoryEntry>>(
-      `/api/v1/hospital/patients/mine${qs({ limit: params.limit, offset: params.offset })}`
+      `/api/v1/hospital/patients/mine${qs({ q: params.q, limit: params.limit, offset: params.offset })}`
     );
   },
 

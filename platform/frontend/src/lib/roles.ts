@@ -40,3 +40,20 @@ export const ROLE_META: Record<Role, RoleMetaEntry> = {
 export function isRole(value: string | null | undefined): value is Role {
   return !!value && (ROLES as readonly string[]).includes(value);
 }
+
+/** The full account_status union (matches the backend's account_status CHECK
+ * constraint — see supabase/setup/full_setup.sql). Previously redeclared
+ * independently (and incompletely) in AuthProvider.tsx (`'active' | 'inactive'
+ * | 'suspended'`, missing 'pending'/'deleted') and lib/api/users.ts (`'active'
+ * | 'suspended' | 'pending'`, missing 'inactive'/'deleted') — every
+ * non-'active' value was collapsed into one generic "Account Suspended"
+ * screen regardless of which status it actually was. */
+export type AccountStatus = 'active' | 'pending' | 'suspended' | 'inactive' | 'deleted';
+
+/** Canonical dashboard URL for a role — the single source of truth for what
+ * used to be independently re-derived as `/${role.replace(/_/g, '-')}/dashboard`
+ * in ~10 different files (a couple of which had drifted, e.g. one omitted the
+ * underscore->hyphen replace and produced a dead `/super_admin/dashboard` link). */
+export function dashboardPathFor(role: Role): string {
+  return `/${ROLE_META[role].routeSegment}/dashboard`;
+}

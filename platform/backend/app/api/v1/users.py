@@ -100,8 +100,7 @@ def get_me(
     role_table = ROLE_PROFILE_TABLE.get(role)
     role_detail = {}
     if role_table:
-        res = db.client.table(role_table).select("*").eq("user_id", principal.user_id).maybe_single().execute()
-        role_detail = getattr(res, "data", None) or {}
+        role_detail = db.get_role_profile(role_table, principal.user_id) or {}
 
     if role == "patient":
         role_detail = {**role_detail, **_patient_care_team_detail(db, principal.user_id, principal.hospital_id)}

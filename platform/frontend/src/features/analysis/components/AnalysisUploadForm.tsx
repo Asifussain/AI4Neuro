@@ -27,6 +27,11 @@ import { ApiError } from '@/lib/api/client';
 import { getRoleMeta, type Role } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 
+// Mirrors the backend's default MAX_UPLOAD_MB (app/core/config.py) — checking
+// client-side lets an oversized file get rejected instantly instead of after
+// a long, progress-less upload only to fail on the server.
+const MAX_FILE_SIZE_BYTES = 512 * 1024 * 1024;
+
 const NO_DOCTOR_VALUE = '__none__';
 // Super-admin-only sentinels for an anonymous "outsider" analysis (no real
 // patient/doctor record). The backend collapses these to NULL.
@@ -92,6 +97,7 @@ export function AnalysisUploadForm() {
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync state if URL query params change dynamically - intentional sync from
@@ -240,6 +246,14 @@ export function AnalysisUploadForm() {
       });
       return;
     }
+    if (candidate.size > MAX_FILE_SIZE_BYTES) {
+      Swal.fire({
+        icon: 'error',
+        title: 'File too large',
+        text: `"${candidate.name}" is ${formatBytes(candidate.size)}, which exceeds the ${formatBytes(MAX_FILE_SIZE_BYTES)} upload limit.`,
+      });
+      return;
+    }
     setFile(candidate);
   };
 
@@ -267,6 +281,14 @@ export function AnalysisUploadForm() {
         icon: 'error',
         title: 'Wrong file type',
         text: `"${file.name}" doesn't look like a ${modality.toUpperCase()} file. Accepted for ${modality.toUpperCase()}: ${ACCEPTED_EXTENSIONS[modality]}`,
+      });
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      Swal.fire({
+        icon: 'error',
+        title: 'File too large',
+        text: `"${file.name}" is ${formatBytes(file.size)}, which exceeds the ${formatBytes(MAX_FILE_SIZE_BYTES)} upload limit.`,
       });
       return;
     }
@@ -305,14 +327,29 @@ export function AnalysisUploadForm() {
     if (modality === 'eeg') form.append('channel_index', channelIndex || '0');
 
     setSubmitting(true);
+    setUploadProgress(0);
     try {
-      const res = await analysisApi.create(form);
-      toast.success('Analysis queued.');
-      router.push(`/analysis/${res.session_id}`);
+      const res = await analysisApi.create(form, setUploadProgress);
+      // The backend already queues this on a background worker and returns
+      // immediately (202 Accepted) — no need to force-navigate to the status
+      // page and make the user sit and watch it. Confirm it's queued and let
+      // them keep browsing; the toast's action link takes them to the status
+      // page only if they actually want to.
+      toast.success('Analysis queued — it will keep running in the background.', {
+        action: {
+          label: 'View status',
+          onClick: () => router.push(`/analysis/${res.session_id}`),
+        },
+      });
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setSubmitting(false);
+      setUploadProgress(0);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Upload failed.';
       toast.error(message);
       setSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -572,6 +609,20 @@ export function AnalysisUploadForm() {
                 )}
               </div>
             </div>
+
+            {submitting && (
+              <div className="space-y-1.5">
+                <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all duration-200', accentStyles.solid)}
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground text-right">
+                  {uploadProgress < 100 ? `Uploading… ${uploadProgress}%` : 'Processing…'}
+                </p>
+              </div>
+            )}
 
             <Button
               type="submit"

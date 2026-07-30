@@ -197,6 +197,8 @@ export function ScansStatusCalendar({
         <div className="relative">
           <button
             onClick={() => setShowMonthDropdown(!showMonthDropdown)}
+            aria-label="Choose month"
+            aria-expanded={showMonthDropdown}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
           >
             {monthLabel}
@@ -283,6 +285,7 @@ export function ScansStatusCalendar({
               key={dateKey(d)}
               onClick={() => handleDayClick(d)}
               title={dateTitle}
+              aria-label={dateTitle}
               className={cn(
                 'group relative rounded-lg transition-all aspect-square border flex items-center justify-center text-[10px] font-sans select-none',
                 cellStyleClass,

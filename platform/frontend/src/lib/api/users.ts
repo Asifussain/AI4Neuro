@@ -5,7 +5,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import type { ApiResponse, PaginatedResponse, FilterOptions } from './index';
-import type { Role } from '@/lib/roles';
+import type { Role, AccountStatus } from '@/lib/roles';
 
 export interface User {
   id: string;
@@ -13,7 +13,7 @@ export interface User {
   email: string;
   role: Role;
   phone: string | null;
-  account_status: 'active' | 'suspended' | 'pending';
+  account_status: AccountStatus;
   created_at: string;
   updated_at: string;
   // Role-specific profile

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { dashboardPathFor } from '@/lib/roles';
 import styles from './Navbar.module.css';
 
 export const Navbar = () => {
@@ -47,7 +48,7 @@ export const Navbar = () => {
   return (
     <nav className={styles.navbar}>
       <div className={styles.navbarBrand}>
-        <Link href={user && userProfile ? `/${userProfile.role.replace(/_/g, '-')}/dashboard` : '/login'}>AI4NEURO</Link>
+        <Link href={user && userProfile ? dashboardPathFor(userProfile.role) : '/login'}>AI4NEURO</Link>
       </div>
 
       <button
@@ -62,7 +63,7 @@ export const Navbar = () => {
         {user && userProfile ? (
           <>
             <li>
-              <Link href={`/${userProfile.role.replace(/_/g, '-')}/dashboard`} onClick={closeMobileMenu}>
+              <Link href={dashboardPathFor(userProfile.role)} onClick={closeMobileMenu}>
                 Dashboard
               </Link>
             </li>

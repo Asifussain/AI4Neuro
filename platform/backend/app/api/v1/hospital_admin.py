@@ -22,6 +22,7 @@ from app.api.deps import get_auth_admin, get_current_user, get_database
 from app.api.v1._common import (
     ROLE_PROFILE_TABLE,
     VERIFIABLE_ROLES,
+    filter_by_query,
     forbid,
     paginate,
     require_user,
@@ -94,6 +95,91 @@ def list_hospital_users(
     return PaginatedResponse(
         items=[UserResponse(**r) for r in page], total=total, limit=limit, offset=offset
     )
+
+
+@router.get("/users/pending-approval", response_model=PaginatedResponse[UserResponse])
+def list_pending_approval_users(
+    hospital_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> PaginatedResponse[UserResponse]:
+    """Doctor/radiologist/patient profiles created by a super_admin that are
+    awaiting this hospital's approval before they can activate (see
+    ``create_user_account``'s ``requires_approval`` gate)."""
+    scope = scope_hospital(principal, hospital_id)
+    rows = db.list_user_profiles(hospital_id=scope, exclude_deleted=True)
+    pending = [r for r in rows if r.get("account_status") == "pending"]
+    page, total = paginate(pending, limit=limit, offset=offset)
+    return PaginatedResponse(
+        items=[UserResponse(**r) for r in page], total=total, limit=limit, offset=offset
+    )
+
+
+@router.post("/users/{user_id}/approve-profile", response_model=UserResponse)
+def approve_pending_profile(
+    user_id: str,
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+) -> UserResponse:
+    user = require_user(db, user_id)
+    if not permissions.can_manage_user(
+        principal.role, principal.hospital_id, user.get("hospital_id"), user.get("role")
+    ):
+        raise forbid("You may not approve this profile.")
+    if user.get("account_status") != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "not_pending", "message": "This profile is not awaiting approval."},
+        )
+    updated = db.update_user_profile(user_id, {"account_status": "active"})
+    db.insert_audit_log(
+        actor_id=principal.user_id,
+        actor_role=principal.role,
+        hospital_id=user.get("hospital_id"),
+        action="user.approve_profile",
+        target_table="user_profiles",
+        target_id=user_id,
+    )
+    return UserResponse(**updated)
+
+
+@router.post("/users/{user_id}/reject-profile", response_model=UserResponse)
+def reject_pending_profile(
+    user_id: str,
+    principal: Principal = Depends(get_current_user),
+    db: DatabaseService = Depends(get_database),
+    auth_admin: AuthAdminService = Depends(get_auth_admin),
+) -> UserResponse:
+    """Reject a pending profile: unlike a normal delete (soft, terminal
+    account_status="deleted"), this fully removes the account — it was never
+    activated, so there is nothing to preserve for audit/history purposes
+    beyond the audit_log entry itself."""
+    user = require_user(db, user_id)
+    if not permissions.can_manage_user(
+        principal.role, principal.hospital_id, user.get("hospital_id"), user.get("role")
+    ):
+        raise forbid("You may not reject this profile.")
+    if user.get("account_status") != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "not_pending", "message": "This profile is not awaiting approval."},
+        )
+    profile_table = ROLE_PROFILE_TABLE.get(user.get("role"))
+    if profile_table:
+        db.client.table(profile_table).delete().eq("user_id", user_id).execute()
+    db.delete_user_profile(user_id)
+    auth_admin.delete_auth_user(user_id)
+    db.insert_audit_log(
+        actor_id=principal.user_id,
+        actor_role=principal.role,
+        hospital_id=user.get("hospital_id"),
+        action="user.reject_profile",
+        target_table="user_profiles",
+        target_id=user_id,
+    )
+    return UserResponse(**user)
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
@@ -203,6 +289,7 @@ def reject_user(
 @router.get("/doctors", response_model=PaginatedResponse[DoctorDirectoryEntry])
 def list_doctors(
     hospital_id: str | None = Query(default=None),
+    q: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     principal: Principal = Depends(get_current_user),
@@ -235,6 +322,7 @@ def list_doctors(
         ]
 
     entries = cached(f"hospital:doctors:{scope}", _build)
+    entries = filter_by_query(entries, q, ["full_name", "email", "medical_license"])
     page, total = paginate(entries, limit=limit, offset=offset)
     return PaginatedResponse(items=page, total=total, limit=limit, offset=offset)
 
@@ -242,6 +330,7 @@ def list_doctors(
 @router.get("/patients", response_model=PaginatedResponse[PatientDirectoryEntry])
 def list_patients(
     hospital_id: str | None = Query(default=None),
+    q: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     principal: Principal = Depends(get_current_user),
@@ -272,12 +361,14 @@ def list_patients(
         ]
 
     entries = cached(f"hospital:patients:{scope}", _build)
+    entries = filter_by_query(entries, q, ["full_name", "email", "patient_code"])
     page, total = paginate(entries, limit=limit, offset=offset)
     return PaginatedResponse(items=page, total=total, limit=limit, offset=offset)
 
 
 @router.get("/patients/mine", response_model=PaginatedResponse[PatientDirectoryEntry])
 def list_my_patients(
+    q: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     principal: Principal = Depends(get_current_user),
@@ -329,6 +420,7 @@ def list_my_patients(
             for u in users
             if u["id"] in my_patient_ids
         ]
+    entries = filter_by_query(entries, q, ["full_name", "email", "patient_code"])
     page, total = paginate(entries, limit=limit, offset=offset)
     return PaginatedResponse(items=page, total=total, limit=limit, offset=offset)
 

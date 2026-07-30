@@ -8,9 +8,12 @@ import {
   SectionCard,
   DashboardPageHeader,
   StatusBadge,
+  Pagination,
 } from '@/components/dashboards/shared/primitives';
 import { adminApi, type ScanRow, type Hospital } from '@/features/admin/api';
 import { withAuth } from '@/lib/withAuth';
+
+const PAGE_SIZE = 200; // matches the backend's max `limit` for this endpoint
 
 function formatDate(iso?: string | null): string {
   if (!iso) return '—';
@@ -19,6 +22,8 @@ function formatDate(iso?: string | null): string {
 
 function ScansPage() {
   const [scans, setScans] = useState<ScanRow[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -28,9 +33,25 @@ function ScansPage() {
   useEffect(() => {
     let cancelled = false;
     adminApi
-      .scans({ limit: 200 })
-      .then((r) => !cancelled && setScans(r.items))
+      .scans({
+        modality: modality || undefined,
+        hospitalId: hospitalFilter || undefined,
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+      })
+      .then((r) => {
+        if (cancelled) return;
+        setScans(r.items);
+        setTotal(r.total);
+      })
       .catch((e) => !cancelled && setError((e as Error).message));
+    return () => {
+      cancelled = true;
+    };
+  }, [modality, hospitalFilter, page]);
+
+  useEffect(() => {
+    let cancelled = false;
     adminApi
       .hospitals({ limit: 200 })
       .then((r) => !cancelled && setHospitals(r.items))
@@ -40,13 +61,17 @@ function ScansPage() {
     };
   }, []);
 
+  // A modality/hospital-filter change invalidates the current page's offset —
+  // jump back to page 1 rather than showing an out-of-range empty page.
+  useEffect(() => {
+    setPage(1);
+  }, [modality, hospitalFilter]);
+
   const filtered = useMemo(() => {
     const all = scans ?? [];
     const term = q.trim().toLowerCase();
+    if (!term) return all;
     return all.filter((s) => {
-      if (modality && s.modality !== modality) return false;
-      if (hospitalFilter && s.hospital_id !== hospitalFilter) return false;
-      if (!term) return true;
       return (
         (s.patient_name ?? '').toLowerCase().includes(term) ||
         (s.doctor_name ?? '').toLowerCase().includes(term) ||
@@ -54,7 +79,7 @@ function ScansPage() {
         s.id.toLowerCase().includes(term)
       );
     });
-  }, [scans, q, modality, hospitalFilter]);
+  }, [scans, q]);
 
   const loading = scans === null && !error;
 
@@ -80,7 +105,11 @@ function ScansPage() {
       <SectionCard className="p-5">
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <p className="text-sm text-slate-500">
-            {loading ? 'Loading…' : `${filtered.length} scan${filtered.length === 1 ? '' : 's'}`}
+            {loading
+              ? 'Loading…'
+              : q.trim()
+              ? `${filtered.length} match${filtered.length === 1 ? '' : 'es'} on this page`
+              : `${total} scan${total === 1 ? '' : 's'} total`}
           </p>
           <div className="flex items-center gap-3 flex-wrap">
             <select
@@ -125,7 +154,15 @@ function ScansPage() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-slate-500">
             <ScanLine className="h-8 w-8 mx-auto mb-3 text-slate-300" />
-            <p className="text-sm">No scans found.</p>
+            {total === 0 ? (
+              <p className="text-sm">
+                {modality || hospitalFilter
+                  ? 'No scans match the selected filters.'
+                  : 'No scans have been recorded yet.'}
+              </p>
+            ) : (
+              <p className="text-sm">No scans on this page match &quot;{q}&quot;.</p>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -215,6 +252,14 @@ function ScansPage() {
             </table>
           </div>
         )}
+
+        <Pagination
+          currentPage={page}
+          totalPages={Math.max(1, Math.ceil(total / PAGE_SIZE))}
+          totalItems={total}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       </SectionCard>
     </RoleShell>
   );

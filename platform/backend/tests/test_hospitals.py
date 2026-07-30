@@ -260,12 +260,54 @@ def test_hospital_admin_cannot_list_other_hospital_users(client, db_service):
 def test_platform_analytics_super_admin_only(client, db_service):
     res = client.get("/api/v1/platform/analytics")
     assert res.status_code == 200
+    body = res.json()
+    assert body["hospital_id"] is None
+    assert len(body["daily_traffic"]) == 30
 
     client.app.dependency_overrides[get_current_user] = lambda: Principal(
         user_id="ha1", role="admin", hospital_id="h1", is_dev=False
     )
     res = client.get("/api/v1/platform/analytics")
     assert res.status_code == 403
+
+
+def test_platform_analytics_scoped_to_hospital(client, db_service):
+    h1 = db_service.create_hospital(_hospital_payload("H1"))
+    h2 = db_service.create_hospital(_hospital_payload("H2"))
+    db_service.create_user_profile(
+        {
+            "hospital_id": h1["id"], "unique_identifier": "DOC-1", "full_name": "Dr. One",
+            "email": "one@example.com", "phone": "1", "role": "doctor", "account_status": "active",
+        }
+    )
+    db_service.create_user_profile(
+        {
+            "hospital_id": h2["id"], "unique_identifier": "DOC-2", "full_name": "Dr. Two",
+            "email": "two@example.com", "phone": "1", "role": "doctor", "account_status": "active",
+        }
+    )
+    doc1 = db_service.list_user_profiles(hospital_id=h1["id"])[0]
+    pat1 = db_service.create_user_profile(
+        {
+            "hospital_id": h1["id"], "unique_identifier": "PAT-1", "full_name": "Pat One",
+            "email": "pat1@example.com", "phone": "1", "role": "patient", "account_status": "active",
+        }
+    )
+    db_service.create_session(
+        modality="mri", analysis_type="multiclass", original_filename="x.nii.gz",
+        patient_id=pat1["id"], doctor_id=doc1["id"], hospital_id=h1["id"],
+    )
+
+    res = client.get(f"/api/v1/platform/analytics?hospital_id={h1['id']}")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["hospital_id"] == h1["id"]
+    assert body["total_hospitals"] == 1
+    assert body["active_hospitals"] == 1
+    assert body["total_users"] == 2  # doctor + patient at h1, not h2's doctor
+    assert body["users_by_role"] == {"doctor": 1, "patient": 1}
+    assert len(body["daily_traffic"]) == 30
+    assert sum(d["scans"] for d in body["daily_traffic"]) == 1
 
 
 def test_platform_users_list_paginated_envelope(client, db_service):

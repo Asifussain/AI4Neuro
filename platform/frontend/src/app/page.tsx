@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { dashboardPathFor } from '@/lib/roles';
 
 /**
  * Root page with smart redirects:
@@ -34,7 +35,7 @@ export default function RootPage() {
       // Redirect to role-specific dashboard (route segments use hyphens,
       // e.g. super_admin -> /super-admin/dashboard).
       if (userProfile.role) {
-        router.replace(`/${userProfile.role.replace(/_/g, '-')}/dashboard`);
+        router.replace(dashboardPathFor(userProfile.role));
         return;
       }
     }

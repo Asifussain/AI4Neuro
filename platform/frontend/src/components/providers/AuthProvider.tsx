@@ -1,10 +1,10 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient, resetClient } from '@/lib/supabase/client';
 import { AuthChangeEvent, User, Session } from '@supabase/supabase-js';
-import type { Role } from '@/lib/roles';
+import type { Role, AccountStatus } from '@/lib/roles';
 import { apiClient } from '@/lib/api/client';
 
 interface RoleProfile {
@@ -35,7 +35,7 @@ interface UserProfile {
   phone?: string;
   avatar_url?: string;
   hospital_id?: string | null;
-  account_status: 'active' | 'inactive' | 'suspended';
+  account_status: AccountStatus;
   roleProfile?: RoleProfile | null;
 }
 
@@ -71,6 +71,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  // Tracks which user id the loaded profile belongs to, via a ref (not state)
+  // so the onAuthStateChange closure below — registered once on mount — can
+  // read the latest value without needing to be re-subscribed on every
+  // profile change.
+  const loadedProfileUserId = useRef<string | null>(null);
+  useEffect(() => {
+    loadedProfileUserId.current = userProfile?.id ?? null;
+  }, [userProfile]);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -271,6 +280,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (event === 'SIGNED_IN' && currentSession?.user) {
         setSession(currentSession);
         setUser(currentSession.user);
+
+        // Supabase re-fires SIGNED_IN on every tab focus/visibility change
+        // (its cross-tab session-sync behavior), not just on an actual new
+        // login — if we already have this exact user's profile loaded,
+        // that's all this event is, so skip the redundant metadata swap and
+        // background refetch entirely instead of re-hitting the backend.
+        if (loadedProfileUserId.current === currentSession.user.id) {
+          setLoading(false);
+          return;
+        }
 
         // FAST: show the bare JWT-metadata profile immediately (no
         // avatar_url/phone/roleProfile — those only live in the DB).

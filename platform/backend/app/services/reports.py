@@ -113,7 +113,10 @@ class PdfReportService:
     # ------------------------------- EEG -------------------------------- #
 
     def _build_eeg(self, context: dict, result: PipelineResult) -> dict[str, bytes]:
-        from app.reports.eeg import UnifiedPDFReport, build_unified_pdf_report_content
+        from app.reports.eeg import (
+            UnifiedPDFReport, build_unified_pdf_report_content,
+            PatientPDFReport, build_patient_pdf_report_content,
+        )
 
         context["prediction"] = _eeg_prediction_context(result, context)
         stats = result.metrics.get("eeg_stats")
@@ -123,21 +126,30 @@ class PdfReportService:
         psd = _artifact_data_uri(result, "psd_plot_url")
         sim = _artifact_data_uri(result, "similarity_plot_url")
 
-        # A single unified report replaces the separate patient/clinician/
-        # technical EEG copies. All three URLs point at the same PDF so
-        # existing API consumers (which expect all three keys) keep working.
+        # clinician/technical share the same in-depth unified report (raw
+        # metrics, methodology, regional/consistency detail); patients get the
+        # dedicated plain-language report instead — falling back to the
+        # unified copy only if that render fails, so a report is never
+        # withheld entirely (see PdfReportService's non-fatal contract).
         unified = _render(
             UnifiedPDFReport, build_unified_pdf_report_content,
             context, stats, similarity, consistency, ts, psd, sim,
         )
-        return {"technical": unified, "clinician": unified, "patient": unified}
+        patient = _render(
+            PatientPDFReport, build_patient_pdf_report_content,
+            context, similarity, consistency, sim,
+        )
+        return {"technical": unified, "clinician": unified, "patient": patient or unified}
 
     # ------------------------------- MRI -------------------------------- #
 
     def _build_mri(
         self, context: dict, result: PipelineResult, session: dict
     ) -> dict[str, bytes]:
-        from app.reports.mri import UnifiedPDFReport, build_unified_report
+        from app.reports.mri import (
+            UnifiedPDFReport, build_unified_report,
+            PatientPDFReport, build_patient_report,
+        )
 
         ml_results = _mri_ml_results(result, session)
         vol = _artifact_data_uri(result, "volume_chart_url")
@@ -145,14 +157,20 @@ class PdfReportService:
         mwp1_image = _artifact_data_uri(result, "mwp1_image_url")
         mwp2_image = _artifact_data_uri(result, "mwp2_image_url")
 
-        # A single unified report replaces the separate patient/clinician/
-        # technical MRI copies. All three URLs point at the same PDF so
-        # existing API consumers (which expect all three keys) keep working.
+        # clinician/technical share the same in-depth unified report (raw
+        # volumetrics, regional breakdowns, methodology); patients get the
+        # dedicated plain-language report instead — falling back to the
+        # unified copy only if that render fails, so a report is never
+        # withheld entirely (see PdfReportService's non-fatal contract).
         unified = _render(
             UnifiedPDFReport, build_unified_report,
             context, ml_results, vol, conf, mwp1_image, mwp2_image,
         )
-        return {"technical": unified, "clinician": unified, "patient": unified}
+        patient = _render(
+            PatientPDFReport, build_patient_report,
+            context, ml_results, vol,
+        )
+        return {"technical": unified, "clinician": unified, "patient": patient or unified}
 
     # ------------------------------ upload ------------------------------ #
 

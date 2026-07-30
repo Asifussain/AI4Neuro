@@ -26,6 +26,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { adminApi, type AdminUser, type Hospital } from '@/features/admin/api';
+import { Pagination } from './primitives';
+
+const PAGE_SIZE = 200; // matches the backend's max `limit` for this endpoint
 
 const ROLE_TITLES: Record<string, { title: string; description: string }> = {
   doctor: { title: 'Doctors', description: 'All doctors in this directory.' },
@@ -165,7 +168,7 @@ function DeleteUserDialog({
       await adminApi.deleteUser(user.id);
       onDeleted(user.id);
       onOpenChange(false);
-      Swal.fire({ icon: 'success', title: 'User deleted', timer: 2000, showConfirmButton: false });
+      toast.success('User deleted.');
     } catch (e) {
       toast.error((e as Error).message || 'Failed to delete user');
     } finally {
@@ -221,7 +224,7 @@ function RowActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={busy || isDeleted}>
+        <Button aria-label={`Actions for ${user.full_name}`} variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={busy || isDeleted}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
         </Button>
       </DropdownMenuTrigger>
@@ -277,6 +280,8 @@ function UserDirectoryInner({
   const addUserLabel = role ? ADD_USER_LABELS[role] ?? 'Add User' : 'Add User';
 
   const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [hospitalFilter, setHospitalFilter] = useState(initialHospitalId ?? '');
@@ -320,16 +325,30 @@ function UserDirectoryInner({
 
   const load = useCallback(() => {
     adminApi
-      .users({ role, limit: 200 })
-      .then((r) => setUsers(r.items))
+      .users({
+        role,
+        hospitalId: hospitalFilter || undefined,
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+      })
+      .then((r) => {
+        setUsers(r.items);
+        setTotal(r.total);
+      })
       .catch((e) => setError((e as Error).message));
-  }, [role]);
+  }, [role, hospitalFilter, page]);
 
   useEffect(() => {
     setUsers(null);
     setError(null);
     load();
   }, [load]);
+
+  // A role/hospital-filter change invalidates the current page's offset —
+  // jump back to page 1 rather than showing an out-of-range empty page.
+  useEffect(() => {
+    setPage(1);
+  }, [role, hospitalFilter]);
 
   const filtered = useMemo(() => {
     const all = users ?? [];
@@ -352,6 +371,7 @@ function UserDirectoryInner({
   };
   const removeUser = (id: string) => {
     setUsers((prev) => (prev ? prev.filter((u) => u.id !== id) : prev));
+    setTotal((t) => Math.max(0, t - 1));
   };
 
   const handleSuspend = async (u: AdminUser) => {
@@ -370,7 +390,7 @@ function UserDirectoryInner({
     try {
       const updated = await adminApi.suspendUser(u.id);
       patchUser(updated);
-      Swal.fire({ icon: 'success', title: 'Account suspended', text: `${u.full_name} has been suspended.`, timer: 2500, showConfirmButton: false });
+      toast.success(`${u.full_name} has been suspended.`);
     } catch (e) {
       toast.error((e as Error).message || 'Failed to suspend user');
     } finally {
@@ -394,7 +414,7 @@ function UserDirectoryInner({
     try {
       const updated = await adminApi.reactivateUser(u.id);
       patchUser(updated);
-      Swal.fire({ icon: 'success', title: 'Account reactivated', text: `${u.full_name} is active again.`, timer: 2500, showConfirmButton: false });
+      toast.success(`${u.full_name} is active again.`);
     } catch (e) {
       toast.error((e as Error).message || 'Failed to reactivate user');
     } finally {
@@ -421,7 +441,11 @@ function UserDirectoryInner({
       <SectionCard className="p-5">
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <p className="text-sm text-slate-500">
-            {loading ? 'Loading…' : `${filtered.length} user${filtered.length === 1 ? '' : 's'}`}
+            {loading
+              ? 'Loading…'
+              : q.trim()
+              ? `${filtered.length} match${filtered.length === 1 ? '' : 'es'} on this page`
+              : `${total} user${total === 1 ? '' : 's'} total`}
           </p>
           <div className="flex items-center gap-3 flex-wrap">
             {showHospitalColumn && hospitals && hospitals.length > 0 && (
@@ -463,7 +487,18 @@ function UserDirectoryInner({
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-slate-500">
             <Users className="h-8 w-8 mx-auto mb-3 text-slate-300" />
-            <p className="text-sm">No users found.</p>
+            {total === 0 && !hospitalFilter ? (
+              <>
+                <p className="text-sm">No {roleLabel.toLowerCase()} found yet.</p>
+                {onAddUser && (
+                  <p className="text-xs text-slate-400 mt-1">Click "{addUserLabel}" above to create the first one.</p>
+                )}
+              </>
+            ) : total === 0 ? (
+              <p className="text-sm">No {roleLabel.toLowerCase()} found for the selected hospital.</p>
+            ) : (
+              <p className="text-sm">No matches for &quot;{q}&quot; on this page.</p>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -550,6 +585,14 @@ function UserDirectoryInner({
             </table>
           </div>
         )}
+
+        <Pagination
+          currentPage={page}
+          totalPages={Math.max(1, Math.ceil(total / PAGE_SIZE))}
+          totalItems={total}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       </SectionCard>
 
       <EditUserDialog user={editingUser} onOpenChange={(open) => !open && setEditingUser(null)} onSaved={patchUser} />

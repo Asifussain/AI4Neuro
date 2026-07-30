@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { BrandLogo } from '@/components/shared/BrandLogo';
 import { toast } from 'sonner';
 import Swal from 'sweetalert2';
+import { dashboardPathFor, isRole } from '@/lib/roles';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -40,8 +41,8 @@ export default function LoginPage() {
             return;
           }
           const role = session.user.user_metadata?.role;
-          if (role) {
-            router.replace(`/${role.replace(/_/g, '-')}/dashboard`);
+          if (isRole(role)) {
+            router.replace(dashboardPathFor(role));
             return;
           }
         }
@@ -116,8 +117,8 @@ export default function LoginPage() {
         }
 
         toast.success('Login successful!');
-        const role = data.user.user_metadata?.role || 'patient';
-        router.replace(`/${role.replace(/_/g, '-')}/dashboard`);
+        const role = data.user.user_metadata?.role;
+        router.replace(dashboardPathFor(isRole(role) ? role : 'patient'));
       }
     } catch (error: unknown) {
       console.error('Login error:', error);

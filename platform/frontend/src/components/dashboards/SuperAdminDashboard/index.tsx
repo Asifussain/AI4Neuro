@@ -71,23 +71,36 @@ export const SuperAdminDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [createUserOpen, setCreateUserOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionStatusResponse[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [scanScope, setScanScope] = useState<'all' | 'mine'>('all');
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
+  const [selectedHospitalId, setSelectedHospitalId] = useState<string | null>(null);
   const [health, setHealth] = useState<{ api: HealthState; database: HealthState; storage: HealthState }>({
     api: 'checking',
     database: 'checking',
     storage: 'checking',
   });
 
+  const loadSessions = useCallback(() => {
+    setSessionsLoading(true);
+    analysisApi
+      .list({ limit: 200, mine: scanScope === 'mine', hospital_id: selectedHospitalId ?? undefined })
+      .then((s) => {
+        setSessions(s);
+        setError(null);
+      })
+      .catch((e) => setError((e as Error).message))
+      .finally(() => setSessionsLoading(false));
+  }, [scanScope, selectedHospitalId]);
+
   const loadDashboard = useCallback(() => {
     Promise.all([
-      adminApi.platformAnalytics(),
+      adminApi.platformAnalytics(selectedHospitalId ?? undefined),
       adminApi.hospitals({ limit: 200 }),
-      analysisApi.list({ limit: 200 }),
     ])
-      .then(([a, h, s]) => {
+      .then(([a, h]) => {
         setAnalytics(a);
         setHospitals(h.items);
-        setSessions(s);
         setError(null);
       })
       .catch((e) => setError((e as Error).message));
@@ -104,11 +117,15 @@ export const SuperAdminDashboard: React.FC = () => {
       .healthStorage()
       .then((r) => setHealth((h) => ({ ...h, storage: r.status === 'ok' ? 'ok' : 'not_configured' })))
       .catch(() => setHealth((h) => ({ ...h, storage: 'unreachable' })));
-  }, []);
+  }, [selectedHospitalId]);
 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
 
   const loading = analytics === null && !error;
   const roles = analytics?.users_by_role ?? {};
@@ -132,37 +149,30 @@ export const SuperAdminDashboard: React.FC = () => {
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
     .slice(0, 4);
 
-  const patientVisitsData = useMemo(() => {
-    const data = [];
-    const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    
-    // Create map of day -> count of scans (visits)
-    const scanCountsByDay = new Map<number, number>();
-    const slist = sessions || [];
-    slist.forEach((s) => {
-      if (!s.created_at) return;
-      const d = new Date(s.created_at);
-      if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
-        const day = d.getDate();
-        scanCountsByDay.set(day, (scanCountsByDay.get(day) || 0) + 1);
-      }
-    });
-
-    // Generate daily points for the entire month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dayOfWeek = new Date(now.getFullYear(), now.getMonth(), day).getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      const baseVisits = isWeekend ? 3 + (day % 4) : 10 + (day % 9) + (day % 4 === 0 ? 5 : 0);
-      const realScansCount = scanCountsByDay.get(day) || 0;
-      
-      data.push({
-        day: `Day ${day}`,
-        visits: baseVisits + realScansCount * 3,
-      });
-    }
-    return data;
-  }, [sessions]);
+  const dailyTraffic = analytics?.daily_traffic ?? [];
+  const patientVisitsData = useMemo(
+    () =>
+      dailyTraffic.map((d) => ({
+        day: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        date: d.date,
+        visits: d.scans,
+      })),
+    [dailyTraffic]
+  );
+  const totalScansLast30Days = dailyTraffic.reduce((acc, d) => acc + d.scans, 0);
+  const dailyAverageScans = dailyTraffic.length ? totalScansLast30Days / dailyTraffic.length : 0;
+  const peakTrafficDay = dailyTraffic.reduce<typeof dailyTraffic[number] | null>(
+    (max, d) => (!max || d.scans > max.scans ? d : max),
+    null
+  );
+  // Real week-over-week trend: sum of the most recent 7 days vs. the 7 days before that.
+  const scanVolumeTrendPct = (() => {
+    if (dailyTraffic.length < 14) return null;
+    const recent = dailyTraffic.slice(-7).reduce((acc, d) => acc + d.scans, 0);
+    const prior = dailyTraffic.slice(-14, -7).reduce((acc, d) => acc + d.scans, 0);
+    if (prior === 0) return recent > 0 ? 100 : 0;
+    return ((recent - prior) / prior) * 100;
+  })();
 
   const filteredSessions = useMemo(() => {
     if (!selectedCalendarDate) return sessions.slice(0, 5);
@@ -186,12 +196,36 @@ export const SuperAdminDashboard: React.FC = () => {
           accent="indigo"
         />
 
-
+        <div className="flex items-center justify-end">
+          <label className="flex items-center gap-2 text-xs font-medium text-slate-500">
+            Viewing
+            <select
+              value={selectedHospitalId ?? ''}
+              onChange={(e) => setSelectedHospitalId(e.target.value || null)}
+              className="py-2 pl-3 pr-8 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            >
+              <option value="">All Hospitals</option>
+              {(hospitals ?? []).map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         {error && (
           <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center justify-between gap-3">
             <span>Failed to load platform analytics: {error}</span>
-            <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={loadDashboard}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 shrink-0"
+              onClick={() => {
+                loadDashboard();
+                loadSessions();
+              }}
+            >
               <RefreshCw className="h-3.5 w-3.5" />
               Retry
             </Button>
@@ -205,12 +239,17 @@ export const SuperAdminDashboard: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-900">Patient Visits Timeline</h3>
-                    <p className="text-xs text-slate-500">Daily diagnostic patient traffic this month</p>
+                    <h3 className="text-sm font-semibold text-slate-900">Scan Traffic (Last 30 Days)</h3>
+                    <p className="text-xs text-slate-500">
+                      Daily analysis sessions{analytics?.hospital_name ? ` — ${analytics.hospital_name}` : ' across the platform'}
+                    </p>
                   </div>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase">
-                    Live Traffic
-                  </span>
+                  <Link
+                    href={selectedHospitalId ? `/super-admin/analytics?hospital_id=${selectedHospitalId}` : '/super-admin/analytics'}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase hover:bg-indigo-100"
+                  >
+                    View Full Analytics →
+                  </Link>
                 </div>
 
                 <div className="h-[220px] w-full">
@@ -245,7 +284,7 @@ export const SuperAdminDashboard: React.FC = () => {
                                 <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">{label}</p>
                                 <p className="text-xs font-black mt-0.5 flex items-center gap-1.5">
                                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                                  {payload[0].value} Visits
+                                  {payload[0].value} Scans
                                 </p>
                               </div>
                             );
@@ -272,13 +311,13 @@ export const SuperAdminDashboard: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    Monthly Traffic Summary
+                    30-Day Traffic Summary
                   </span>
                   <h4 className="text-2xl font-black mt-1 text-white">
-                    {patientVisitsData.reduce((acc, d) => acc + d.visits, 0).toLocaleString()} Total Visits
+                    {totalScansLast30Days.toLocaleString()} Total Scans
                   </h4>
                   <p className="text-xs text-slate-400 mt-1">
-                    Based on patient check-ins and registration sessions
+                    Based on real analysis sessions created in the last 30 days
                   </p>
                 </div>
 
@@ -286,33 +325,40 @@ export const SuperAdminDashboard: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-400">Daily Average</span>
                     <span className="text-xs font-bold text-indigo-400">
-                      {Math.round(patientVisitsData.reduce((acc, d) => acc + d.visits, 0) / patientVisitsData.length)} visits/day
+                      {dailyAverageScans.toFixed(1)} scans/day
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-400">Peak Traffic Day</span>
                     <span className="text-xs font-bold text-white">
-                      Day {patientVisitsData.reduce((maxIdx, d, idx, arr) => d.visits > arr[maxIdx].visits ? idx : maxIdx, 0) + 1}
+                      {peakTrafficDay && peakTrafficDay.scans > 0
+                        ? new Date(peakTrafficDay.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                        : '—'}
                     </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400">Weekend Utilization</span>
-                    <span className="text-xs font-bold text-slate-300">Optimized</span>
                   </div>
                 </div>
               </div>
 
-              <div className="border-t border-slate-800/80 pt-4 mt-6">
-                <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-800 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-200">Patient Growth</p>
-                    <p className="text-[10px] text-slate-400">New registries this week</p>
+              {scanVolumeTrendPct !== null && (
+                <div className="border-t border-slate-800/80 pt-4 mt-6">
+                  <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-800 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-200">Scan Volume Trend</p>
+                      <p className="text-[10px] text-slate-400">Last 7 days vs. the 7 days before</p>
+                    </div>
+                    <span
+                      className={`text-xs font-extrabold px-2 py-0.5 rounded border ${
+                        scanVolumeTrendPct >= 0
+                          ? 'text-emerald-400 bg-emerald-950/50 border-emerald-900/50'
+                          : 'text-red-400 bg-red-950/50 border-red-900/50'
+                      }`}
+                    >
+                      {scanVolumeTrendPct >= 0 ? '+' : ''}
+                      {scanVolumeTrendPct.toFixed(1)}%
+                    </span>
                   </div>
-                  <span className="text-xs font-extrabold text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-900/50">
-                    +15.2%
-                  </span>
                 </div>
-              </div>
+              )}
             </SectionCard>
           </div>
         </FadeIn>
@@ -320,7 +366,21 @@ export const SuperAdminDashboard: React.FC = () => {
         {/* Stats — one unified grid: hero metrics first, breakdown below */}
         <FadeIn>
           <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Active Hospitals" value={activeHospitals} icon={CheckCircle2} accent="indigo" isLoading={loading} size="lg" href="/super-admin/hospitals" isMain={true} trendText="Healthy Status" />
+            {selectedHospitalId ? (
+              <StatCard
+                label="Hospital Status"
+                value={activeHospitals > 0 ? 'Active' : 'Inactive'}
+                icon={CheckCircle2}
+                accent="indigo"
+                isLoading={loading}
+                size="lg"
+                href="/super-admin/hospitals"
+                isMain={true}
+                trendText={analytics?.hospital_name ?? undefined}
+              />
+            ) : (
+              <StatCard label="Active Hospitals" value={activeHospitals} icon={CheckCircle2} accent="indigo" isLoading={loading} size="lg" href="/super-admin/hospitals" isMain={true} trendText="Healthy Status" />
+            )}
             <StatCard label="Patients" value={roles.patient ?? 0} icon={UserRound} accent="indigo" isLoading={loading} size="lg" href="/super-admin/users?role=patient" trendText="Onboards Active" />
             <StatCard label="Doctors" value={roles.doctor ?? 0} icon={Stethoscope} accent="indigo" isLoading={loading} size="lg" href="/super-admin/users?role=doctor" trendText="Active Care Teams" />
             <StatCard label="Radiologists" value={roles.radiologist ?? 0} icon={Brain} accent="indigo" isLoading={loading} size="lg" href="/super-admin/users?role=radiologist" trendText="Reviewing Scans" />
@@ -338,7 +398,7 @@ export const SuperAdminDashboard: React.FC = () => {
 
             <SectionCard className="p-5">
               <h3 className="text-sm font-semibold text-slate-900 mb-1">Hospital Status</h3>
-              <p className="text-xs text-slate-500 mb-3">Active vs inactive tenants</p>
+              <p className="text-xs text-slate-500 mb-3">Active vs inactive tenants (platform-wide, unaffected by the hospital filter above)</p>
               {loading ? (
                 <DonutStat centerLabel="HQ" segments={[]} isLoading />
               ) : hospitalSegments.length > 0 ? (
@@ -399,14 +459,46 @@ export const SuperAdminDashboard: React.FC = () => {
                         })}`
                       : 'Recent Analysis Sessions'}
                   </h3>
-                  <Link href="/super-admin/scans" className="text-xs font-medium text-indigo-700">
-                    View All Scans
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center rounded-lg border border-slate-200 p-0.5 bg-slate-50 text-xs font-medium">
+                      <button
+                        type="button"
+                        onClick={() => setScanScope('all')}
+                        className={`px-2.5 py-1 rounded-md transition-colors ${
+                          scanScope === 'all' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        All Scans
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setScanScope('mine')}
+                        className={`px-2.5 py-1 rounded-md transition-colors ${
+                          scanScope === 'mine' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        My Scans
+                      </button>
+                    </div>
+                    <Link href="/super-admin/scans" className="text-xs font-medium text-indigo-700">
+                      View All Scans
+                    </Link>
+                  </div>
                 </div>
 
-                {filteredSessions.length === 0 ? (
+                {sessionsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+                    ))}
+                  </div>
+                ) : filteredSessions.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <p className="text-sm text-slate-500 font-medium">No analysis sessions found for this day.</p>
+                    <p className="text-sm text-slate-500 font-medium">
+                      {scanScope === 'mine'
+                        ? 'No scans performed by you found for this view.'
+                        : 'No analysis sessions found for this day.'}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -447,7 +539,10 @@ export const SuperAdminDashboard: React.FC = () => {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
             <SectionCard className="p-5 xl:col-span-2">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-slate-900">Recent Hospitals</h3>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Recent Hospitals</h3>
+                  <p className="text-xs text-slate-400">Platform-wide, unaffected by the hospital filter above</p>
+                </div>
                 <Link href="/super-admin/hospitals" className="text-xs font-medium text-indigo-700">
                   View All
                 </Link>

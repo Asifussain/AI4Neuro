@@ -104,9 +104,7 @@ export default function ChangePasswordPage() {
   const router = useRouter();
   const supabase = createClient();
   const { userProfile } = useAuth();
-  const dashboardHref = userProfile?.role
-    ? `/${userProfile.role.replace(/_/g, '-')}/dashboard`
-    : '/';
+  const dashboardHref = userProfile?.role ? getRoleMeta(userProfile.role).dashboard : '/';
   const accent = getRoleMeta((userProfile?.role as Role) ?? 'doctor').accent;
   const t = THEME[accent];
 
@@ -160,7 +158,7 @@ export default function ChangePasswordPage() {
 
       // Client-side navigation keeps the SPA/auth state intact (no full reload).
       if (profile?.role) {
-        router.replace(`/${profile.role.replace(/_/g, '-')}/dashboard`);
+        router.replace(getRoleMeta(profile.role as Role).dashboard);
       } else {
         router.replace('/login');
       }

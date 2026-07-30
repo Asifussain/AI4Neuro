@@ -18,6 +18,7 @@ import {
   FileText,
   Landmark,
   ScanLine,
+  LineChart,
 } from 'lucide-react';
 import type { NavItem } from '@/components/dashboards/shared/DashboardShell';
 import type { Accent } from '@/components/dashboards/shared/primitives';
@@ -59,6 +60,7 @@ const NAV_ITEMS: Record<Role, NavItem[]> = {
     { label: 'Radiologists', href: '/super-admin/users?role=radiologist', icon: Brain },
     { label: 'Patients', href: '/super-admin/users?role=patient', icon: Users },
     { label: 'View Scans', href: '/super-admin/scans', icon: ScanLine },
+    { label: 'Full Analytics', href: '/super-admin/analytics', icon: LineChart },
     { label: 'Settings', href: '/profile', icon: Settings },
   ],
   admin: [

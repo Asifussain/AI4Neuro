@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from app.core.cache import cached, invalidate_prefix
 from app.core.logging import get_logger
 from app.pipelines.base import PipelineResult
 from app.schemas.analysis import SessionStatus
@@ -86,6 +87,7 @@ class DatabaseService:
         created = _one(res)
         if not created:
             raise RuntimeError("Failed to create analysis session (empty insert result).")
+        invalidate_prefix("sessions:")
         return created
 
     def get_session(self, session_id: str) -> dict | None:
@@ -109,6 +111,7 @@ class DatabaseService:
             self.client.table("mri_sessions").delete().eq("id", session_id).execute()
         except Exception:
             pass
+        invalidate_prefix("sessions:")
 
     def list_sessions(
         self,
@@ -124,18 +127,30 @@ class DatabaseService:
 
         Role-scoping / ordering / limit are applied by the caller (route) so the
         same code path works against Supabase and the in-memory test fake.
+
+        Only ``hospital_id`` is a real Supabase filter — cached per-hospital
+        (30s TTL, invalidated on any session write, see create_session/
+        _update_session/delete_session) since this is the shared fetch behind
+        every session list/search view (list_analyses, platform_admin's scan
+        directory, a doctor's "my patients"). Every other filter is applied in
+        Python against that cached set, so a caller passing e.g. ``doctor_id``
+        still benefits from the same cache entry as a caller that doesn't.
         """
-        query = self.client.table(SESSIONS_TABLE).select("*")
+        rows = cached(f"sessions:{hospital_id or 'ALL'}", lambda: self._fetch_sessions(hospital_id))
         if modality:
-            query = query.eq("modality", modality)
+            rows = [r for r in rows if r.get("modality") == modality]
         if status:
-            query = query.eq("status", status)
+            rows = [r for r in rows if r.get("status") == status]
         if patient_id:
-            query = query.eq("patient_id", patient_id)
+            rows = [r for r in rows if str(r.get("patient_id")) == str(patient_id)]
         if doctor_id:
-            query = query.eq("doctor_id", doctor_id)
+            rows = [r for r in rows if str(r.get("doctor_id")) == str(doctor_id)]
         if radiologist_id:
-            query = query.eq("radiologist_id", radiologist_id)
+            rows = [r for r in rows if str(r.get("radiologist_id")) == str(radiologist_id)]
+        return rows
+
+    def _fetch_sessions(self, hospital_id: str | None) -> list[dict]:
+        query = self.client.table(SESSIONS_TABLE).select("*")
         if hospital_id:
             query = query.eq("hospital_id", hospital_id)
         res = query.execute()
@@ -145,7 +160,16 @@ class DatabaseService:
     # ----------------------------- profiles ----------------------------- #
 
     def get_user_profile(self, user_id: str) -> dict | None:
-        """Fetch a user_profiles row (role/account_status/hospital_id/…)."""
+        """Fetch a user_profiles row (role/account_status/hospital_id/…).
+
+        Cached (30s TTL, invalidated on any profile write — see
+        update_user_profile/delete_user_profile/set_hospital_users_status)
+        because this runs on *every* authenticated request via
+        ``get_current_user`` — without caching, opening any page fires this
+        exact query once per API call it makes, back to back."""
+        return cached(f"user_profile:{user_id}", lambda: self._fetch_user_profile(user_id))
+
+    def _fetch_user_profile(self, user_id: str) -> dict | None:
         res = (
             self.client.table("user_profiles")
             .select("*")
@@ -217,6 +241,12 @@ class DatabaseService:
 
     def _update_session(self, session_id: str, patch: dict) -> None:
         self.client.table(SESSIONS_TABLE).update(patch).eq("id", session_id).execute()
+        # Every session mutation funnels through here — including status/
+        # progress updates from the background orchestrator thread, not just
+        # API-triggered writes — so this one hook keeps the cached sessions
+        # list (see analysis.py/platform_admin.py) from ever showing stale
+        # status during active processing.
+        invalidate_prefix("sessions:")
 
     # ----------------------------- results ------------------------------ #
 
@@ -289,9 +319,16 @@ class DatabaseService:
         created = _one(res)
         if not created:
             raise RuntimeError("Failed to create hospital (empty insert result).")
+        invalidate_prefix("hospitals:")
         return created
 
     def get_hospital(self, hospital_id: str) -> dict | None:
+        """Cached (same "hospitals:" prefix family as list_hospitals, so any
+        create/update/delete already invalidates this too) — called on every
+        /users/me request to resolve the caller's hospital name."""
+        return cached(f"hospitals:one:{hospital_id}", lambda: self._fetch_hospital(hospital_id))
+
+    def _fetch_hospital(self, hospital_id: str) -> dict | None:
         res = (
             self.client.table("hospitals")
             .select("*")
@@ -316,6 +353,7 @@ class DatabaseService:
     def update_hospital(self, hospital_id: str, patch: dict) -> dict | None:
         patch = {**patch, "updated_at": _now()}
         self.client.table("hospitals").update(patch).eq("id", hospital_id).execute()
+        invalidate_prefix("hospitals:")
         return self.get_hospital(hospital_id)
 
     def set_hospital_status(self, hospital_id: str, status_value: str) -> dict | None:
@@ -358,6 +396,9 @@ class DatabaseService:
 
         # 5. The hospital row itself.
         self.client.table("hospitals").delete().eq("id", hospital_id).execute()
+        invalidate_prefix("hospitals:")
+        invalidate_prefix("sessions:")
+        invalidate_prefix("hospital:")
         return user_ids
 
     # ------------------------------ users --------------------------------- #
@@ -367,6 +408,7 @@ class DatabaseService:
         created = _one(res)
         if not created:
             raise RuntimeError("Failed to create user profile (empty insert result).")
+        invalidate_prefix("hospital:")
         return created
 
     def list_user_profiles(
@@ -383,22 +425,40 @@ class DatabaseService:
         (account_status="deleted") never show up; admin lookups by id
         (GET .../{id}) leave it False so a deleted user is still viewable/
         auditable, just hidden from browse listings.
+
+        Cached per (hospital_id, role) — same "hospital:" prefix family as
+        the other user caches, so any profile write already invalidates it —
+        applied before ``exclude_deleted`` is filtered in Python so that
+        doesn't fragment the cache key space.
         """
+        cache_key = f"hospital:profiles:{hospital_id or 'ALL'}:{role or 'ANY'}"
+        rows = cached(cache_key, lambda: self._fetch_user_profiles(hospital_id, role))
+        if exclude_deleted:
+            rows = [r for r in rows if r.get("account_status") != "deleted"]
+        return rows
+
+    def _fetch_user_profiles(self, hospital_id: str | None, role: str | None) -> list[dict]:
         query = self.client.table("user_profiles").select("*")
         if hospital_id:
             query = query.eq("hospital_id", hospital_id)
         if role:
             query = query.eq("role", role)
         res = query.execute()
-        rows = list(getattr(res, "data", None) or [])
-        if exclude_deleted:
-            rows = [r for r in rows if r.get("account_status") != "deleted"]
-        return rows
+        return list(getattr(res, "data", None) or [])
 
     def update_user_profile(self, user_id: str, patch: dict) -> dict | None:
         patch = {**patch, "updated_at": _now()}
         self.client.table("user_profiles").update(patch).eq("id", user_id).execute()
+        invalidate_prefix("hospital:")
+        invalidate_prefix(f"user_profile:{user_id}")
         return self.get_user_profile(user_id)
+
+    def delete_user_profile(self, user_id: str) -> None:
+        """Hard-delete a user_profiles row (rejected pending profiles only —
+        normal account removal uses the account_status='deleted' soft delete)."""
+        self.client.table("user_profiles").delete().eq("id", user_id).execute()
+        invalidate_prefix("hospital:")
+        invalidate_prefix(f"user_profile:{user_id}")
 
     def set_hospital_users_status(
         self,
@@ -425,6 +485,11 @@ class DatabaseService:
             # Never overwrite a terminal soft-delete with a lesser status.
             query = query.neq("account_status", "deleted")
         res = query.execute()
+        # Bulk cascade across every user in the hospital — cheaper and safer
+        # to drop the whole per-user cache family than enumerate exactly
+        # which ids were touched.
+        invalidate_prefix("user_profile:")
+        invalidate_prefix("hospital:")
         return len(list(getattr(res, "data", None) or []))
 
     def create_role_profile(self, table: str, row: dict) -> dict:
@@ -457,21 +522,28 @@ class DatabaseService:
     def upsert_role_profile(self, table: str, user_id: str, patch: dict) -> dict:
         row = {"user_id": user_id, **patch, "updated_at": _now()}
         res = self.client.table(table).upsert(row, on_conflict="user_id").execute()
+        invalidate_prefix(f"role_profile:{table}:{user_id}")
         return _one(res) or {}
 
     def get_role_profile(self, table: str, user_id: str) -> dict | None:
-        """Fetch a single role-detail row (patient/doctor/radiologist/…) by user_id."""
+        """Fetch a single role-detail row (patient/doctor/radiologist/…) by
+        user_id. Cached (30s TTL, invalidated on upsert_role_profile) — hit on
+        every /users/me request."""
+        return cached(f"role_profile:{table}:{user_id}", lambda: self._fetch_role_profile(table, user_id))
+
+    def _fetch_role_profile(self, table: str, user_id: str) -> dict | None:
         res = (
             self.client.table(table)
             .select("*")
             .eq("user_id", user_id)
-            .limit(1)
+            .maybe_single()
             .execute()
         )
         return _one(res)
 
     def create_doctor_patient_relationship(self, row: dict) -> dict:
         res = self.client.table("doctor_patient_relationships").insert(row).execute()
+        invalidate_prefix("relationships:")
         return _one(res) or {}
 
     def list_doctor_patient_relationships(
@@ -481,13 +553,21 @@ class DatabaseService:
         doctor_id: str | None = None,
         patient_id: str | None = None,
     ) -> list[dict]:
+        """Cached per hospital_id (30s TTL) — doctor_id/patient_id are applied
+        in Python on the cached set, same pattern as list_sessions, so a
+        doctor's "my patients" fetch shares the cache entry with the
+        hospital-wide assignments list instead of re-querying Supabase."""
+        rows = cached(f"relationships:{hospital_id or 'ALL'}", lambda: self._fetch_relationships(hospital_id))
+        if doctor_id:
+            rows = [r for r in rows if str(r.get("doctor_id")) == str(doctor_id)]
+        if patient_id:
+            rows = [r for r in rows if str(r.get("patient_id")) == str(patient_id)]
+        return rows
+
+    def _fetch_relationships(self, hospital_id: str | None) -> list[dict]:
         query = self.client.table("doctor_patient_relationships").select("*")
         if hospital_id:
             query = query.eq("hospital_id", hospital_id)
-        if doctor_id:
-            query = query.eq("doctor_id", doctor_id)
-        if patient_id:
-            query = query.eq("patient_id", patient_id)
         res = query.execute()
         return list(getattr(res, "data", None) or [])
 
@@ -505,6 +585,7 @@ class DatabaseService:
         self.client.table("doctor_patient_relationships").delete().eq(
             "id", relationship_id
         ).execute()
+        invalidate_prefix("relationships:")
 
     # -------------------- report-access requests -------------------------- #
 

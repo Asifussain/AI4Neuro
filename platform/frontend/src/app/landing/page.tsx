@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo, forwardRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { dashboardPathFor } from '@/lib/roles';
 import {
   Activity,
   Brain,
@@ -410,7 +411,7 @@ function PublicNavbar() {
 
         <div className="nav-actions">
           {!loading && user && userProfile ? (
-            <Link href={`/${userProfile.role.replace(/_/g, '-')}/dashboard`} className="nav-cta">
+            <Link href={dashboardPathFor(userProfile.role)} className="nav-cta">
               Dashboard
               <span>
                 <MoveUpRight size={16} />
@@ -470,7 +471,7 @@ function PublicNavbar() {
 
           <div className="mobile-drawer-actions">
             {!loading && user && userProfile ? (
-              <Link href={`/${userProfile.role}/dashboard`} className="nav-cta" onClick={closeMenu}>
+              <Link href={dashboardPathFor(userProfile.role)} className="nav-cta" onClick={closeMenu}>
                 Dashboard
                 <span>
                   <MoveUpRight size={16} />

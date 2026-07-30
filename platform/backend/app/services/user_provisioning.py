@@ -75,6 +75,18 @@ def create_user_account(
     user_id = auth_result["id"]
     temporary_password = auth_result["temporary_password"]
 
+    # A super_admin creating a doctor/radiologist/patient profile does so into
+    # a hospital they don't run day-to-day, so the account starts "pending"
+    # until that hospital's own hospital_admin approves it. Profiles created
+    # by a hospital_admin (their own hospital, own staff) activate immediately,
+    # as before.
+    requires_approval = principal.role == "super_admin" and target_role in (
+        "doctor",
+        "radiologist",
+        "patient",
+    )
+    initial_status = "pending" if requires_approval else "active"
+
     # 2) Create the user_profiles + role-detail rows, rolling back the Auth
     #    user on any failure so we never leave an orphaned login-capable
     #    account with no matching profile.
@@ -89,7 +101,7 @@ def create_user_account(
             "date_of_birth": payload.date_of_birth,
             "address": payload.address,
             "role": target_role,
-            "account_status": "active",
+            "account_status": initial_status,
             "created_by_admin": None if principal.is_dev else principal.user_id,
         }
         user = db.create_user_profile(row)
@@ -118,7 +130,7 @@ def create_user_account(
             action="user.create",
             target_table="user_profiles",
             target_id=user["id"],
-            metadata={"role": target_role},
+            metadata={"role": target_role, "requires_hospital_admin_approval": requires_approval},
         )
     except Exception as exc:
         auth_admin.delete_auth_user(user_id)

@@ -15,17 +15,11 @@ function formatDateTime(iso: string | null): string {
   return `${d.toLocaleDateString()} · ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 }
 
-function classLabel(analysisType: string): string {
-  if (analysisType === 'binary') return 'Binary';
-  if (analysisType === 'multiclass') return 'Multiclass';
-  return analysisType;
-}
-
 /**
  * Organized, tabular replacement for the old flex-row session/report lists —
  * shared by every dashboard's "Scan Sessions" / "Reports" views so the
- * column set (Sr No, Patient, Analysis Type, Date & Time, Class, Status,
- * Report, Actions) stays consistent everywhere completed analyses are listed.
+ * column set (Sr No, Patient, Analysis Type, Date & Time, Status, Report,
+ * Actions) stays consistent everywhere completed analyses are listed.
  */
 export function SessionsTable({
   sessions,
@@ -123,7 +117,6 @@ export function SessionsTable({
             {showPatientColumn && <th className="py-2.5 pr-4 font-medium">Patient</th>}
             <th className="py-2.5 pr-4 font-medium">Analysis Type</th>
             <th className="py-2.5 pr-4 font-medium">Date &amp; Time</th>
-            <th className="py-2.5 pr-4 font-medium">Class</th>
             <th className="py-2.5 pr-4 font-medium">Status</th>
             <th className="py-2.5 pr-4 font-medium text-right">Report</th>
             {showDeleteAction && <th className="py-2.5 pr-0 font-medium text-center w-12">Action</th>}
@@ -151,7 +144,6 @@ export function SessionsTable({
                   </span>
                 </td>
                 <td className="py-3 pr-4 text-slate-500 whitespace-nowrap">{formatDateTime(s.created_at)}</td>
-                <td className="py-3 pr-4 text-slate-600">{classLabel(s.analysis_type)}</td>
                 <td className="py-3 pr-4">
                   <StatusBadge status={s.status} />
                 </td>
@@ -186,6 +178,7 @@ export function SessionsTable({
                     <button
                       type="button"
                       title="Delete scan session"
+                      aria-label="Delete scan session"
                       onClick={() => handleDelete(s.id)}
                       disabled={isDeleting}
                       className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"

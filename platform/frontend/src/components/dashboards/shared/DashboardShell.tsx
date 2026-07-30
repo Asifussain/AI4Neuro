@@ -4,12 +4,12 @@ import React, { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
-  Search,
   LogOut,
   Menu,
   X,
   ChevronLeft,
   ChevronRight,
+  ArrowLeft,
   Brain,
   Waves,
   Scan,
@@ -102,7 +102,6 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
   const { userProfile, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const pathname = usePathname();
   const router = useRouter();
   const styles = ACCENT_STYLES[accent];
@@ -110,22 +109,22 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
   // Patients cannot create analyses, so the modality shortcuts are read-only for them.
   const canCreate = userProfile?.role !== 'patient';
 
+  // Lock body scroll while the mobile drawer is open so touch/keyboard
+  // scrolling can't reach the page content behind the overlay.
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'k')) {
-        e.preventDefault();
-        document.getElementById('dashboard-global-search')?.focus();
-      }
+    document.body.style.overflow = mobileOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [mobileOpen]);
 
-  const submitSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = searchTerm.trim();
-    if (q) router.push(`/search?q=${encodeURIComponent(q)}`);
-  };
+  // Auto-close the drawer on any route change that doesn't go through a
+  // sidebar <Link> (e.g. the topbar's back button, the search form's
+  // router.push, or browser back/forward) — those previously left the
+  // drawer open over the newly-navigated page.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   const sidebarContent = (
     <>
@@ -301,23 +300,13 @@ export function DashboardShell({ roleLabel, accent, navItems, children }: Dashbo
             <Menu className="h-5 w-5" />
           </button>
 
-          <form onSubmit={submitSearch} className="relative flex-1 max-w-xl">
-            <label htmlFor="dashboard-global-search" className="sr-only">
-              Search analyses
-            </label>
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              id="dashboard-global-search"
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search analyses..."
-              className="w-full pl-11 pr-12 py-2.5 rounded-full bg-white border border-slate-200 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-mono border border-slate-200/80 rounded bg-slate-50 px-1.5 py-0.5 pointer-events-none select-none">
-              ⌘ K
-            </span>
-          </form>
+          <button
+            onClick={() => router.back()}
+            aria-label="Go back"
+            className="flex items-center justify-center h-9 w-9 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
 
           <div className="ml-auto flex items-center gap-3">
             <span className={cn('hidden lg:inline text-xs font-semibold px-3 py-1.5 rounded-full', styles.soft, styles.text)}>

@@ -139,6 +139,63 @@ export const apiClient = {
     const headers = await authHeaders();
     return parse<T>(await doFetch(path, { method: 'DELETE', headers }));
   },
+
+  /** POST multipart FormData with upload-progress reporting — `fetch()` has
+   * no upload-progress event, so this uses XMLHttpRequest instead, only for
+   * callers that actually want a progress bar (e.g. large MRI/EEG uploads).
+   * `onProgress` receives 0-100; mirrors `parse()`'s error handling. */
+  async postFormWithProgress<T>(
+    path: string,
+    form: FormData,
+    onProgress?: (percent: number) => void
+  ): Promise<T> {
+    const headers = await authHeaders();
+    return new Promise<T>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_BASE}${path}`);
+      Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) {
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+
+      xhr.onload = () => {
+        let code = 'http_error';
+        let message = xhr.statusText || 'Request failed';
+        let body: T | undefined;
+        try {
+          const parsed = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+          if (xhr.status >= 200 && xhr.status < 300) {
+            body = parsed as T;
+          } else if (parsed?.error) {
+            code = parsed.error.code ?? code;
+            message = parsed.error.message ?? message;
+          }
+        } catch {
+          // non-JSON body; keep defaults
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(body as T);
+        } else {
+          reject(new ApiError(xhr.status, code, message));
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(
+          new ApiError(
+            0,
+            'network_error',
+            `Cannot reach the API server at ${API_BASE}. Is the backend running, and is NEXT_PUBLIC_API_BASE_URL set correctly?`
+          )
+        );
+      };
+
+      xhr.send(form);
+    });
+  },
 };
 
 export { API_BASE };

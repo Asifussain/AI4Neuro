@@ -11,6 +11,7 @@ import {
   SectionCard,
   DashboardPageHeader,
   StatusBadge,
+  Pagination,
 } from '@/components/dashboards/shared/primitives';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,7 +90,7 @@ function CreateHospitalDialog({
       });
       onCreated(created);
       handleClose(false);
-      Swal.fire({ icon: 'success', title: 'Hospital created', text: `${created.name} has been onboarded.`, timer: 2500, showConfirmButton: false });
+      toast.success(`${created.name} has been onboarded.`);
     } catch (e) {
       toast.error((e as Error).message || 'Failed to create hospital');
     } finally {
@@ -325,7 +326,7 @@ function HospitalRowActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={busy}>
+        <Button aria-label={`Actions for ${hospital.name}`} variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={busy}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
         </Button>
       </DropdownMenuTrigger>
@@ -351,9 +352,13 @@ function HospitalRowActions({
   );
 }
 
+const PAGE_SIZE = 200; // matches the backend's max `limit` for this endpoint
+
 function HospitalsPage() {
   const router = useRouter();
   const [hospitals, setHospitals] = useState<Hospital[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -362,10 +367,13 @@ function HospitalsPage() {
 
   const load = useCallback(() => {
     adminApi
-      .hospitals({ limit: 200 })
-      .then((r) => setHospitals(r.items))
+      .hospitals({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE })
+      .then((r) => {
+        setHospitals(r.items);
+        setTotal(r.total);
+      })
       .catch((e) => setError((e as Error).message));
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     load();
@@ -412,7 +420,7 @@ function HospitalsPage() {
     try {
       const updated = await action(h.id);
       patchHospital(updated);
-      Swal.fire({ icon: 'success', title: `${h.name} ${label}`, timer: 2500, showConfirmButton: false });
+      toast.success(`${h.name} ${label}.`);
     } catch (e) {
       toast.error((e as Error).message || `Failed to ${label} hospital`);
     } finally {
@@ -422,6 +430,7 @@ function HospitalsPage() {
 
   const removeHospital = (id: string) => {
     setHospitals((prev) => (prev ? prev.filter((h) => h.id !== id) : prev));
+    setTotal((t) => Math.max(0, t - 1));
   };
 
   const handleDelete = async (h: Hospital) => {
@@ -447,13 +456,7 @@ function HospitalsPage() {
     try {
       await adminApi.deleteHospital(h.id);
       removeHospital(h.id);
-      Swal.fire({
-        icon: 'success',
-        title: `${h.name} deleted`,
-        text: 'The hospital and all its accounts and data have been permanently removed.',
-        timer: 2500,
-        showConfirmButton: false,
-      });
+      toast.success(`${h.name} deleted — the hospital and all its accounts and data have been permanently removed.`);
     } catch (e) {
       toast.error((e as Error).message || 'Failed to delete hospital');
     } finally {
@@ -483,7 +486,11 @@ function HospitalsPage() {
       <SectionCard className="p-5">
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <p className="text-sm text-slate-500">
-            {loading ? 'Loading…' : `${filtered.length} hospital${filtered.length === 1 ? '' : 's'}`}
+            {loading
+              ? 'Loading…'
+              : q.trim()
+              ? `${filtered.length} match${filtered.length === 1 ? '' : 'es'} on this page`
+              : `${total} hospital${total === 1 ? '' : 's'} total`}
           </p>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative w-full sm:w-72">
@@ -509,7 +516,14 @@ function HospitalsPage() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-slate-500">
             <Building2 className="h-8 w-8 mx-auto mb-3 text-slate-300" />
-            <p className="text-sm">No hospitals found.</p>
+            {total === 0 ? (
+              <>
+                <p className="text-sm">No hospitals have been onboarded yet.</p>
+                <p className="text-xs text-slate-400 mt-1">Click "Add Hospital" above to create the first one.</p>
+              </>
+            ) : (
+              <p className="text-sm">No hospitals on this page match &quot;{q}&quot;.</p>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -568,12 +582,23 @@ function HospitalsPage() {
             </table>
           </div>
         )}
+
+        <Pagination
+          currentPage={page}
+          totalPages={Math.max(1, Math.ceil(total / PAGE_SIZE))}
+          totalItems={total}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       </SectionCard>
 
       <CreateHospitalDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onCreated={(h) => setHospitals((prev) => (prev ? [h, ...prev] : [h]))}
+        onCreated={(h) => {
+          setHospitals((prev) => (prev ? [h, ...prev] : [h]));
+          setTotal((t) => t + 1);
+        }}
       />
       <EditHospitalDialog
         hospital={editingHospital}

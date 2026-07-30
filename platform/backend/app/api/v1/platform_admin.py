@@ -15,10 +15,14 @@ actions (available to both ``admin`` and ``super_admin``) live in
 
 from __future__ import annotations
 
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.deps import get_auth_admin, get_current_user, get_database, require_role
-from app.api.v1._common import forbid, paginate, require_hospital, require_user
+from app.api.v1._common import filter_by_query, forbid, paginate, require_hospital, require_user
+from app.core.cache import cached
 from app.core.security import Principal
 from app.schemas.admin_detail import (
     DoctorProfileDetail,
@@ -118,6 +122,7 @@ def create_hospital(
 
 @router.get("/hospitals", response_model=PaginatedResponse[HospitalResponse])
 def list_hospitals(
+    q: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     principal: Principal = Depends(get_current_user),
@@ -125,7 +130,8 @@ def list_hospitals(
 ) -> PaginatedResponse[HospitalResponse]:
     if not permissions.can_manage_hospitals(principal.role):
         raise forbid("Only Super Admins may list every hospital.")
-    rows = db.list_hospitals()
+    rows = cached("hospitals:ALL", db.list_hospitals)
+    rows = filter_by_query(rows, q, ["name", "hospital_code", "address"])
     page, total = paginate(rows, limit=limit, offset=offset)
     return PaginatedResponse(
         items=[HospitalResponse(**r) for r in page], total=total, limit=limit, offset=offset
@@ -279,16 +285,61 @@ def _set_hospital_status(
 # --------------------------------------------------------------------------- #
 
 
+_TRAFFIC_WINDOW_DAYS = 30
+
+
+def _daily_traffic(db: DatabaseService, hospital_id: str | None) -> list[dict]:
+    """Real scan (analysis session) counts per calendar day for the last
+    _TRAFFIC_WINDOW_DAYS days, zero-filled — backs the Super Admin dashboard's
+    traffic chart. Reuses db.list_sessions' existing 30s per-hospital cache
+    (see DatabaseService.list_sessions) rather than a new query."""
+    sessions = db.list_sessions(hospital_id=hospital_id)
+    counts = Counter()
+    for s in sessions:
+        created_at = s.get("created_at")
+        if not created_at:
+            continue
+        day = str(created_at)[:10]
+        counts[day] += 1
+
+    today = datetime.now(timezone.utc).date()
+    return [
+        {
+            "date": (day := (today - timedelta(days=offset)).isoformat()),
+            "scans": counts.get(day, 0),
+        }
+        for offset in range(_TRAFFIC_WINDOW_DAYS - 1, -1, -1)
+    ]
+
+
 @router.get("/analytics")
 def platform_analytics(
+    hospital_id: str | None = Query(default=None),
     principal: Principal = Depends(get_current_user),
     db: DatabaseService = Depends(get_database),
 ) -> dict:
     if not permissions.can_view_platform_analytics(principal.role):
         raise forbid("Only Super Admins may view platform-wide analytics.")
+
+    if hospital_id:
+        hospital = require_hospital(db, hospital_id)
+        users = db.list_user_profiles(hospital_id=hospital_id)
+        by_role: dict[str, int] = {}
+        for u in users:
+            by_role[u.get("role", "unknown")] = by_role.get(u.get("role", "unknown"), 0) + 1
+        return {
+            "total_hospitals": 1,
+            "active_hospitals": 1 if hospital.get("status") == "active" else 0,
+            "total_users": len(users),
+            "users_by_role": by_role,
+            "hospital_id": hospital_id,
+            "hospital_name": hospital.get("name"),
+            "daily_traffic": _daily_traffic(db, hospital_id),
+        }
+
     hospitals = db.list_hospitals()
     users = db.list_user_profiles()
-    by_role: dict[str, int] = {}
+    by_role = {}
     for u in users:
         by_role[u.get("role", "unknown")] = by_role.get(u.get("role", "unknown"), 0) + 1
     return {
@@ -296,6 +347,9 @@ def platform_analytics(
         "active_hospitals": sum(1 for h in hospitals if h.get("status") == "active"),
         "total_users": len(users),
         "users_by_role": by_role,
+        "hospital_id": None,
+        "hospital_name": None,
+        "daily_traffic": _daily_traffic(db, None),
     }
 
 
@@ -320,12 +374,17 @@ def list_scans(
     if not permissions.can_view_platform_analytics(principal.role):
         raise forbid("Only Super Admins may view every scan on the platform.")
 
+    # db.list_sessions caches the raw per-hospital fetch itself (30s TTL,
+    # invalidated on any session write) — see DatabaseService.list_sessions.
     rows = db.list_sessions(modality=modality, status=status_filter, hospital_id=hospital_id)
-    rows.sort(key=lambda r: str(r.get("created_at") or ""), reverse=True)
+    rows = sorted(rows, key=lambda r: str(r.get("created_at") or ""), reverse=True)
 
     # Resolve ids -> names once (small per-platform scale), rather than per row.
-    user_names = {u["id"]: u.get("full_name") for u in db.list_user_profiles()}
-    hospital_names = {h["id"]: h.get("name") for h in db.list_hospitals()}
+    user_names = cached(
+        "hospital:users:names:ALL", lambda: {u["id"]: u.get("full_name") for u in db.list_user_profiles()}
+    )
+    hospitals_raw = cached("hospitals:ALL", db.list_hospitals)
+    hospital_names = {h["id"]: h.get("name") for h in hospitals_raw}
 
     def _name(uid) -> str | None:
         return user_names.get(str(uid)) if uid else None

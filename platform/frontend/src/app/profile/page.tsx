@@ -288,6 +288,12 @@ function ProfilePage() {
 
     let backendSuccess = false;
     let supabaseSuccess = false;
+    // Only meaningful when backendSuccess is false — the backend PATCH
+    // already writes the role-detail table server-side in one call (see
+    // _ROLE_FIELD_MAP in app/api/v1/users.py), so these direct-Supabase
+    // writes below are a fallback path only reached when that call failed.
+    // Defaults true for roles with no role-detail table (super_admin).
+    let roleTableSuccess = true;
 
     try {
       const supabase = createClient();
@@ -359,9 +365,13 @@ function ProfilePage() {
             },
             { onConflict: 'user_id' }
           );
-          if (roleError) console.warn('Doctor table upsert error:', roleError);
+          if (roleError) {
+            console.warn('Doctor table upsert error:', roleError);
+            roleTableSuccess = false;
+          }
         } catch (err) {
           console.warn('Doctor table upsert exception:', err);
+          roleTableSuccess = false;
         }
       } else if (role === 'radiologist') {
         try {
@@ -377,9 +387,13 @@ function ProfilePage() {
             },
             { onConflict: 'user_id' }
           );
-          if (roleError) console.warn('Radiologist table upsert error:', roleError);
+          if (roleError) {
+            console.warn('Radiologist table upsert error:', roleError);
+            roleTableSuccess = false;
+          }
         } catch (err) {
           console.warn('Radiologist table upsert exception:', err);
+          roleTableSuccess = false;
         }
       } else if (role === 'patient') {
         try {
@@ -394,9 +408,13 @@ function ProfilePage() {
             },
             { onConflict: 'user_id' }
           );
-          if (roleError) console.warn('Patient table upsert error:', roleError);
+          if (roleError) {
+            console.warn('Patient table upsert error:', roleError);
+            roleTableSuccess = false;
+          }
         } catch (err) {
           console.warn('Patient table upsert exception:', err);
+          roleTableSuccess = false;
         }
       } else if (role === 'admin') {
         try {
@@ -409,9 +427,13 @@ function ProfilePage() {
             },
             { onConflict: 'user_id' }
           );
-          if (roleError) console.warn('Hospital admin table upsert error:', roleError);
+          if (roleError) {
+            console.warn('Hospital admin table upsert error:', roleError);
+            roleTableSuccess = false;
+          }
         } catch (err) {
           console.warn('Hospital admin table upsert exception:', err);
+          roleTableSuccess = false;
         }
       }
 
@@ -422,7 +444,15 @@ function ProfilePage() {
       }
 
       await refreshProfile();
-      toast.success('Profile updated successfully');
+      if (!backendSuccess && !roleTableSuccess) {
+        // The primary (backend) path failed, and its fallback for the
+        // role-specific table (license/specialization/DOB/etc — see
+        // roleTableSuccess above) also failed, even though the basic
+        // name/phone/avatar fields did save via the user_profiles fallback.
+        toast.warning('Profile partially updated — some role-specific details (e.g. license, specialization) could not be saved. Please try again.');
+      } else {
+        toast.success('Profile updated successfully');
+      }
       setIsEditModalOpen(false);
     } catch (e) {
       toast.error((e as Error).message || 'Failed to update profile');
@@ -818,7 +848,7 @@ function ProfilePage() {
                 description="Update your account password"
               />
               <SettingsLink
-                href={`/${role.replace(/_/g, '-')}/dashboard`}
+                href={getRoleMeta(role).dashboard}
                 accent={accent}
                 icon={<svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>}
                 title="Go to Dashboard"

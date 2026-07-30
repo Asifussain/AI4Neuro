@@ -32,6 +32,7 @@ import {
   type Assignment,
 } from '@/features/admin/api';
 import { CreateUserDialog } from '@/components/dashboards/shared/CreateUserDialog';
+import { PendingProfileApprovals } from '@/components/dashboards/shared/PendingProfileApprovals';
 import { analysisApi } from '@/features/analysis/api';
 import type { SessionStatusResponse } from '@/features/analysis/types';
 import {
@@ -56,6 +57,7 @@ import {
   List,
   ArrowUpDown,
   Filter,
+  RefreshCw,
 } from 'lucide-react';
 import { DashboardShell } from '@/components/dashboards/shared/DashboardShell';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -194,11 +196,11 @@ function UserRow({
           <div className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${statusColor}`}>{user.account_status}</div>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             {user.account_status === 'active' ? (
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-red-50" onClick={() => onSuspend?.(user.id)}>
+              <Button aria-label={`Suspend ${user.full_name}`} size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-red-50" onClick={() => onSuspend?.(user.id)}>
                 <XCircle className="h-4 w-4 text-red-600" />
               </Button>
             ) : (
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-emerald-50" onClick={() => onActivate?.(user.id)}>
+              <Button aria-label={`Activate ${user.full_name}`} size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-emerald-50" onClick={() => onActivate?.(user.id)}>
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               </Button>
             )}
@@ -355,7 +357,7 @@ function Pagination({
     <div className="flex items-center justify-between pt-4">
       <span className="text-sm text-slate-500">Showing {from}-{to} of {totalItems}</span>
       <div className="flex items-center gap-1">
-        <Button size="sm" variant="ghost" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)} className="h-8 w-8 p-0">
+        <Button aria-label="Previous page" size="sm" variant="ghost" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)} className="h-8 w-8 p-0">
           <ChevronLeft className="h-4 w-4" />
         </Button>
         {pages.map((p, i) =>
@@ -364,6 +366,8 @@ function Pagination({
           ) : (
             <Button
               key={p}
+              aria-label={`Page ${p}`}
+              aria-current={p === currentPage ? 'page' : undefined}
               size="sm"
               variant={p === currentPage ? 'default' : 'ghost'}
               className={`h-8 w-8 p-0 text-xs ${p === currentPage ? 'bg-teal-600 hover:bg-teal-700' : ''}`}
@@ -373,7 +377,7 @@ function Pagination({
             </Button>
           )
         )}
-        <Button size="sm" variant="ghost" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)} className="h-8 w-8 p-0">
+        <Button aria-label="Next page" size="sm" variant="ghost" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)} className="h-8 w-8 p-0">
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -451,46 +455,75 @@ export const HospitalAdminDashboard: React.FC = () => {
   const [selectedDoctor, setSelectedDoctor] = useState<string>('');
   const [selectedPatient, setSelectedPatient] = useState<string>('');
   const [assignLoading, setAssignLoading] = useState(false);
-  const [assignError, setAssignError] = useState<string | null>(null);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
   // Data (backend-backed — see features/admin/api.ts)
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [doctors, setDoctors] = useState<DoctorDirectoryEntry[] | null>(null);
+  const [doctorsError, setDoctorsError] = useState<string | null>(null);
   const [patients, setPatients] = useState<PatientDirectoryEntry[] | null>(null);
+  const [patientsError, setPatientsError] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<Assignment[] | null>(null);
+  const [assignmentsError, setAssignmentsError] = useState<string | null>(null);
   const [scans, setScans] = useState<SessionStatusResponse[] | null>(null);
+  const [scansError, setScansError] = useState<string | null>(null);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
 
   const loadUsers = useCallback(() => {
+    setUsersError(null);
     adminApi
       .users({ limit: 200 })
       .then((r) => setUsers(r.items))
       .catch((e) => setUsersError((e as Error).message));
   }, []);
   const loadDoctors = useCallback(() => {
-    adminApi.doctors({ limit: 200 }).then((r) => setDoctors(r.items)).catch(() => setDoctors([]));
+    setDoctorsError(null);
+    adminApi
+      .doctors({ limit: 200 })
+      .then((r) => setDoctors(r.items))
+      .catch((e) => setDoctorsError((e as Error).message));
   }, []);
   const loadPatients = useCallback(() => {
-    adminApi.patients({ limit: 200 }).then((r) => setPatients(r.items)).catch(() => setPatients([]));
+    setPatientsError(null);
+    adminApi
+      .patients({ limit: 200 })
+      .then((r) => setPatients(r.items))
+      .catch((e) => setPatientsError((e as Error).message));
   }, []);
   const loadAssignments = useCallback(() => {
-    adminApi.assignments({ limit: 200 }).then((r) => setAssignments(r.items)).catch(() => setAssignments([]));
+    setAssignmentsError(null);
+    adminApi
+      .assignments({ limit: 200 })
+      .then((r) => setAssignments(r.items))
+      .catch((e) => setAssignmentsError((e as Error).message));
+  }, []);
+  const loadScans = useCallback(() => {
+    setScansError(null);
+    analysisApi
+      .list({ limit: 200 })
+      .then(setScans)
+      .catch((e) => setScansError((e as Error).message));
   }, []);
 
-  useEffect(() => {
+  const loadAll = useCallback(() => {
     loadUsers();
     loadDoctors();
     loadPatients();
     loadAssignments();
-    analysisApi.list({ limit: 200 }).then(setScans).catch(() => setScans([]));
-  }, [loadUsers, loadDoctors, loadPatients, loadAssignments]);
+    loadScans();
+  }, [loadUsers, loadDoctors, loadPatients, loadAssignments, loadScans]);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   const usersLoading = users === null && !usersError;
-  const doctorsLoading = doctors === null;
-  const patientsLoading = patients === null;
-  const assignmentsLoading = assignments === null;
+  const doctorsLoading = doctors === null && !doctorsError;
+  const patientsLoading = patients === null && !patientsError;
+  const assignmentsLoading = assignments === null && !assignmentsError;
+  const scansLoading = scans === null && !scansError;
+  const roleStatsLoading = doctorsLoading || patientsLoading || usersLoading;
 
   const usersList = useMemo(() => users || [], [users]);
   const doctorsList = useMemo(() => doctors || [], [doctors]);
@@ -593,7 +626,7 @@ export const HospitalAdminDashboard: React.FC = () => {
     try {
       await adminApi.suspendUser(userId);
       loadUsers();
-      Swal.fire({ icon: 'success', title: 'Account suspended', text: `${name} has been suspended.`, timer: 2500, showConfirmButton: false });
+      toast.success(`${name} has been suspended.`);
     } catch (e) {
       toast.error((e as Error).message || 'Failed to suspend user');
     }
@@ -614,7 +647,7 @@ export const HospitalAdminDashboard: React.FC = () => {
     try {
       await adminApi.reactivateUser(userId);
       loadUsers();
-      Swal.fire({ icon: 'success', title: 'Account reactivated', text: `${name} is active again.`, timer: 2500, showConfirmButton: false });
+      toast.success(`${name} is active again.`);
     } catch (e) {
       toast.error((e as Error).message || 'Failed to activate user');
     }
@@ -626,7 +659,7 @@ export const HospitalAdminDashboard: React.FC = () => {
     try {
       await adminApi.verifyUser(doctorId);
       loadDoctors();
-      Swal.fire({ icon: 'success', title: 'Doctor verified', timer: 2000, showConfirmButton: false });
+      toast.success('Doctor verified.');
     } catch (e) {
       toast.error((e as Error).message || 'Failed to verify doctor');
     } finally {
@@ -638,7 +671,7 @@ export const HospitalAdminDashboard: React.FC = () => {
     try {
       await adminApi.rejectUser(doctorId);
       loadDoctors();
-      Swal.fire({ icon: 'success', title: 'Doctor rejected', timer: 2000, showConfirmButton: false });
+      toast.success('Doctor rejected.');
     } catch (e) {
       toast.error((e as Error).message || 'Failed to reject doctor');
     } finally {
@@ -650,15 +683,14 @@ export const HospitalAdminDashboard: React.FC = () => {
   const handleAssignPatient = async () => {
     if (!selectedDoctor || !selectedPatient) return;
     setAssignLoading(true);
-    setAssignError(null);
     try {
       await adminApi.assignDoctor(selectedDoctor, selectedPatient);
       setSelectedDoctor('');
       setSelectedPatient('');
       loadAssignments();
-      Swal.fire({ icon: 'success', title: 'Patient assigned', timer: 2000, showConfirmButton: false });
+      toast.success('Patient assigned.');
     } catch (e) {
-      setAssignError((e as Error).message || 'Failed to assign patient');
+      toast.error((e as Error).message || 'Failed to assign patient');
     } finally {
       setAssignLoading(false);
     }
@@ -747,9 +779,23 @@ export const HospitalAdminDashboard: React.FC = () => {
         }}
       />
 
-      {usersError && (
-        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-          Failed to load users: {usersError}
+      <PendingProfileApprovals />
+
+      {(usersError || doctorsError || patientsError || assignmentsError || scansError) && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center justify-between gap-3 flex-wrap">
+          <span>
+            Failed to load: {[
+              usersError && 'users',
+              doctorsError && 'doctors',
+              patientsError && 'patients',
+              assignmentsError && 'assignments',
+              scansError && 'scans',
+            ].filter(Boolean).join(', ')}
+          </span>
+          <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={loadAll}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            Retry
+          </Button>
         </div>
       )}
 
@@ -888,9 +934,11 @@ export const HospitalAdminDashboard: React.FC = () => {
 
       {/* Role Distribution */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        {roleStats.map((stat, idx) => (
-          <RoleCard key={idx} {...stat} />
-        ))}
+        {roleStatsLoading ? (
+          <>{[1, 2, 3, 4].map((i) => <StatCardSkeleton key={i} />)}</>
+        ) : (
+          roleStats.map((stat, idx) => <RoleCard key={idx} {...stat} />)
+        )}
       </div>
 
       {/* Scans Calendar & Status Activity */}
@@ -922,7 +970,13 @@ export const HospitalAdminDashboard: React.FC = () => {
                 </Link>
               </div>
 
-              {filteredScans.length === 0 ? (
+              {scansLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+                  ))}
+                </div>
+              ) : filteredScans.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <p className="text-sm text-slate-500 font-medium">No analysis sessions found for this day.</p>
                 </div>
@@ -982,12 +1036,16 @@ export const HospitalAdminDashboard: React.FC = () => {
                     <div className="flex rounded-lg border border-slate-200 overflow-hidden">
                       <button
                         onClick={() => setViewMode('grid')}
+                        aria-label="Grid view"
+                        aria-pressed={viewMode === 'grid'}
                         className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-teal-50 text-teal-700' : 'text-slate-400 hover:bg-slate-50'}`}
                       >
                         <LayoutGrid className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => setViewMode('list')}
+                        aria-label="List view"
+                        aria-pressed={viewMode === 'list'}
                         className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-teal-50 text-teal-700' : 'text-slate-400 hover:bg-slate-50'}`}
                       >
                         <List className="h-4 w-4" />
@@ -1018,7 +1076,11 @@ export const HospitalAdminDashboard: React.FC = () => {
                         onChange={(e) => updateFilter(setSearchTerm, e.target.value)}
                       />
                       {searchTerm && (
-                        <button onClick={() => updateFilter(setSearchTerm, '')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                        <button
+                          onClick={() => updateFilter(setSearchTerm, '')}
+                          aria-label="Clear search"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                        >
                           <X className="h-3.5 w-3.5" />
                         </button>
                       )}
@@ -1088,19 +1150,19 @@ export const HospitalAdminDashboard: React.FC = () => {
                   {roleFilter !== 'all' && (
                     <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 text-xs font-medium">
                       Role: {roleFilter}
-                      <button onClick={() => updateFilter(setRoleFilter, 'all')}><X className="h-3 w-3" /></button>
+                      <button onClick={() => updateFilter(setRoleFilter, 'all')} aria-label="Clear role filter"><X className="h-3 w-3" /></button>
                     </span>
                   )}
                   {statusFilter !== 'all' && (
                     <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
                       Status: {statusFilter}
-                      <button onClick={() => updateFilter(setStatusFilter, 'all')}><X className="h-3 w-3" /></button>
+                      <button onClick={() => updateFilter(setStatusFilter, 'all')} aria-label="Clear status filter"><X className="h-3 w-3" /></button>
                     </span>
                   )}
                   {searchTerm && (
                     <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-medium">
                       Search: &quot;{searchTerm}&quot;
-                      <button onClick={() => updateFilter(setSearchTerm, '')}><X className="h-3 w-3" /></button>
+                      <button onClick={() => updateFilter(setSearchTerm, '')} aria-label="Clear search filter"><X className="h-3 w-3" /></button>
                     </span>
                   )}
                 </div>
@@ -1197,10 +1259,6 @@ export const HospitalAdminDashboard: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900">Assign Patients to Doctors</h3>
               </div>
-
-              {assignError && (
-                <div className="p-3 mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{assignError}</div>
-              )}
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -1301,15 +1359,15 @@ export const HospitalAdminDashboard: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50">
                 <span className="text-xs text-slate-500">Total Scans</span>
-                <span className="text-sm font-bold text-slate-900">{stats.totalScans}</span>
+                <span className="text-sm font-bold text-slate-900">{scansLoading ? '—' : stats.totalScans}</span>
               </div>
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50">
                 <span className="text-xs text-slate-500">This Month</span>
-                <span className="text-sm font-bold text-teal-700">{stats.scansThisMonth}</span>
+                <span className="text-sm font-bold text-teal-700">{scansLoading ? '—' : stats.scansThisMonth}</span>
               </div>
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50">
                 <span className="text-xs text-slate-500">Suspended</span>
-                <span className="text-sm font-bold text-red-600">{stats.suspendedUsers}</span>
+                <span className="text-sm font-bold text-red-600">{usersLoading ? '—' : stats.suspendedUsers}</span>
               </div>
             </div>
           </SectionCard>

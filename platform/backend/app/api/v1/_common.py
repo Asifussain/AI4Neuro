@@ -126,6 +126,21 @@ def forbid(message: str) -> HTTPException:
     )
 
 
+def filter_by_query(items: list, q: str | None, fields: list[str]) -> list:
+    """Case-insensitive substring filter over dict rows or Pydantic models —
+    used by every list endpoint's optional `q` search param (see
+    ``list_analyses``/``list_doctors``/``list_patients``/``list_hospitals``).
+    A blank/missing `q` is a no-op so existing callers are unaffected."""
+    term = (q or "").strip().lower()
+    if not term:
+        return items
+
+    def _value(item, field: str):
+        return item.get(field) if isinstance(item, dict) else getattr(item, field, None)
+
+    return [item for item in items if any(term in str(_value(item, f) or "").lower() for f in fields)]
+
+
 def paginate(items: list, *, limit: int, offset: int) -> tuple[list, int]:
     """Slice an already-filtered list and return (page, total).
 

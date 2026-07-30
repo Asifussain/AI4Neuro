@@ -21,6 +21,7 @@ from fastapi import (
 )
 
 from app.api.deps import get_current_user, get_database, get_storage
+from app.core.cache import cached
 from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
 from app.core.security import Principal
@@ -275,6 +276,9 @@ def list_analyses(
     radiologist_id: str | None = Query(default=None),
     hospital_id: str | None = Query(default=None),
     mine: bool = Query(default=False),
+    q: str | None = Query(default=None),
+    date_from: str | None = Query(default=None, description="YYYY-MM-DD, inclusive"),
+    date_to: str | None = Query(default=None, description="YYYY-MM-DD, inclusive"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     principal: Principal = Depends(get_current_user),
@@ -288,6 +292,9 @@ def list_analyses(
     checked with the same per-session permission used for reads.
     """
     hospital = hospital_id if principal.role == "super_admin" else principal.hospital_id
+    # db.list_sessions caches the raw per-hospital fetch itself (30s TTL,
+    # invalidated on any session write) and applies these equality filters in
+    # Python on the cached set — see DatabaseService.list_sessions.
     rows = db.list_sessions(
         modality=modality,
         status=status_filter,
@@ -305,6 +312,32 @@ def list_analyses(
     ]
     if mine:
         visible = [r for r in visible if str(r.get("uploaded_by")) == str(principal.user_id)]
+    if date_from:
+        visible = [r for r in visible if str(r.get("created_at") or "")[:10] >= date_from]
+    if date_to:
+        visible = [r for r in visible if str(r.get("created_at") or "")[:10] <= date_to]
+    if q:
+        # Substring search across id/modality/status/analysis_type, plus the
+        # patient's and doctor's display names — resolved from a cached
+        # per-hospital name lookup (same 30s TTL / write-invalidation as
+        # above), not exposed on the response, just used to power name-based
+        # search from the UI.
+        term = q.strip().lower()
+        names = cached(
+            f"hospital:users:search:{hospital or 'ALL'}",
+            lambda: {u["id"]: (u.get("full_name") or "").lower() for u in db.list_user_profiles(hospital_id=hospital)},
+        )
+
+        def _matches(row: dict) -> bool:
+            if any(term in str(row.get(f) or "").lower() for f in ("id", "modality", "status", "analysis_type")):
+                return True
+            if term in names.get(str(row.get("patient_id")), ""):
+                return True
+            if term in names.get(str(row.get("doctor_id")), ""):
+                return True
+            return False
+
+        visible = [r for r in visible if _matches(r)]
     visible.sort(key=lambda r: str(r.get("created_at") or ""), reverse=True)
     total = len(visible)
     page = visible[offset : offset + limit]

@@ -287,13 +287,15 @@ export function AnalysisDashboard() {
         <SectionCard className="p-5 lg:col-span-1">
           <h3 className="text-sm font-semibold text-slate-900 mb-1">Analysis Activity</h3>
           <p className="text-xs text-slate-500 mb-3">Last 7 days</p>
-          <MiniBarChart data={activityData} color={meta.accent === 'green' ? '#059669' : meta.accent === 'blue' ? '#2563eb' : meta.accent === 'teal' ? '#0d9488' : '#4f46e5'} />
+          <MiniBarChart data={activityData} color={meta.accent === 'green' ? '#059669' : meta.accent === 'blue' ? '#2563eb' : meta.accent === 'teal' ? '#0d9488' : '#4f46e5'} isLoading={loading} />
         </SectionCard>
 
         <SectionCard className="p-5">
           <h3 className="text-sm font-semibold text-slate-900 mb-1">Modality Split</h3>
           <p className="text-xs text-slate-500 mb-3">MRI vs EEG</p>
-          {modalitySegments.length > 0 ? (
+          {loading ? (
+            <DonutStat centerLabel="AI" segments={[]} isLoading />
+          ) : modalitySegments.length > 0 ? (
             <>
               <DonutStat centerLabel="AI" segments={modalitySegments} />
               <DonutLegend segments={modalitySegments.map((s) => ({ ...s, value: s.value }))} />

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import type { Role } from '@/lib/roles';
+import { dashboardPathFor } from '@/lib/roles';
 
 interface WithAuthOptions {
   allowedRoles?: Role[];
@@ -62,7 +63,7 @@ export function withAuth<P extends object>(
       // Check role if specified
       if (allowedRoles && allowedRoles.length > 0) {
         if (!allowedRoles.includes(userProfile.role)) {
-          router.replace(`/${userProfile.role.replace(/_/g, '-')}/dashboard`);
+          router.replace(dashboardPathFor(userProfile.role));
           return;
         }
       }
@@ -117,7 +118,7 @@ export function useRequireAuth(options: WithAuthOptions = {}) {
     if (allowedRoles && allowedRoles.length > 0) {
       if (!userProfile?.role || !allowedRoles.includes(userProfile.role)) {
         if (userProfile?.role) {
-          router.replace(`/${userProfile.role.replace(/_/g, '-')}/dashboard`);
+          router.replace(dashboardPathFor(userProfile.role));
         } else {
           router.replace('/login');
         }
